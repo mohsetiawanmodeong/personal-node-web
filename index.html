@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PTFI Personal Node</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="icon-id-card"></div>
+                <h1>PTFI Personal Node</h1>
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Ready to Scan</span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="scan-area" id="scanArea">
+                <div class="scan-icon">
+                    <div class="icon-wifi"></div>
+                </div>
+                <h2>Scan PTFI ID Card</h2>
+                <p>Place your PTFI ID card near the reader</p>
+                <div class="scan-animation" id="scanAnimation"></div>
+            </div>
+
+            <div class="employee-card" id="employeeCard" style="display: none;">
+                <div class="card-header">
+                    <div class="employee-photo">
+                        <img id="employeePhoto" src="" alt="Employee Photo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjOUNBM0FGIi8+CjxwYXRoIGQ9Ik0yMCA4MEMyMCA2NS42NDA2IDMyLjY0MDYgNTMgNDcgNTNINjNDNzcuMzU5NCA1MyA5MCA2NS42NDA2IDkwIDgwVjEwMEgyMFY4MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'">
+                    </div>
+                    <div class="employee-info">
+                        <h3 id="employeeName">-</h3>
+                        <p id="employeeId">ID: -</p>
+                        <p id="employeeCompany">-</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="icon-building"></div>
+                            <div>
+                                <span class="label">Department</span>
+                                <span class="value" id="employeeDepartment">-</span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="icon-briefcase"></div>
+                            <div>
+                                <span class="label">Job Title</span>
+                                <span class="value" id="employeeJobTitle">-</span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="icon-envelope"></div>
+                            <div>
+                                <span class="label">Email</span>
+                                <span class="value" id="employeeEmail">-</span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="icon-location"></div>
+                            <div>
+                                <span class="label">Site Address</span>
+                                <span class="value" id="employeeSite">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-primary" onclick="scanAgain()">
+                        <div class="icon-redo"></div>
+                        Scan Again
+                    </button>
+                </div>
+            </div>
+
+            <div class="error-message" id="errorMessage" style="display: none;">
+                <div class="error-icon">
+                    <div class="icon-warning"></div>
+                </div>
+                <h3>PTFI ID Card Not Found</h3>
+                <p id="errorText">The scanned PTFI ID card is not registered in the system.</p>
+                <button class="btn btn-secondary" onclick="scanAgain()">
+                    <div class="icon-redo"></div>
+                    Try Again
+                </button>
+            </div>
+        </main>
+
+        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+            <div class="loading-spinner">
+                <div class="icon-spinner"></div>
+                <p>Loading employee data...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
