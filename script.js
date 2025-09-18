@@ -89,16 +89,16 @@ class RFIDReader {
             const url = `${this.apiBaseUrl}/getPTFIDetailsEmployee?smartcard_id=${smartcardId}`;
             console.log('Fetching from:', url);
 
-            const response = await fetch(url);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            // Basic Authentication credentials (from proxy.js config)
+            const username = 'fmiacp';
+            const password = 'track1nd0';
+            const credentials = btoa(username + ':' + password);
 
-            const data = await response.json();
+            // Use jQuery AJAX like consoles.html for consistency
+            const response = await this.makeAjaxRequest(url, credentials);
             
-            if (data && data.EMPLOYEE_ID) {
-                this.displayEmployeeData(data);
+            if (response && response.EMPLOYEE_ID) {
+                this.displayEmployeeData(response);
                 this.updateStatus('Employee found', 'ready');
             } else {
                 this.showError('PTFI employee not found in the system');
@@ -107,12 +107,87 @@ class RFIDReader {
 
         } catch (error) {
             console.error('Error fetching PTFI employee data:', error);
-            this.showError('Failed to load PTFI employee data. Please check your connection.');
+            
+            let errorMessage = 'Failed to load PTFI employee data. ';
+            
+            if (error.message.includes('401 Unauthorized')) {
+                errorMessage += 'API requires authentication. Please contact system administrator.';
+            } else if (error.message.includes('403 Forbidden')) {
+                errorMessage += 'Access denied. Please check permissions.';
+            } else if (error.message.includes('404 Not Found')) {
+                errorMessage += 'API endpoint not found. Please check API configuration.';
+            } else if (error.message.includes('500 Server Error')) {
+                errorMessage += 'Server error. Please try again later.';
+            } else if (error.message.includes('Network Error')) {
+                errorMessage += 'Cannot connect to server. Please check network connection.';
+            } else {
+                errorMessage += error.message;
+            }
+            
+            this.showError(errorMessage);
             this.updateStatus('Connection error', 'error');
         } finally {
             this.hideLoading();
             this.resetScan();
         }
+    }
+
+    // Make AJAX request similar to consoles.html
+    makeAjaxRequest(url, credentials) {
+        return new Promise((resolve, reject) => {
+            // Create XMLHttpRequest for better control
+            const xhr = new XMLHttpRequest();
+            
+            xhr.open('GET', url, true);
+            xhr.setRequestHeader('Accept', 'application/json; charset=utf-8; odata=verbose');
+            xhr.setRequestHeader('Authorization', 'Basic ' + credentials);
+            
+            // Add timeout
+            xhr.timeout = 10000; // 10 seconds
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            console.log('✅ AJAX Request Complete:', url);
+                            resolve(data);
+                        } catch (e) {
+                            console.log('❌ AJAX Parse Error:', e);
+                            reject(new Error('Invalid JSON response'));
+                        }
+                    } else if (xhr.status === 0) {
+                        console.log('❌ CORS Error - Request blocked by browser');
+                        reject(new Error('CORS Error: Request blocked. Please run from local server (http://localhost:3000)'));
+                    } else {
+                        console.log('❌ AJAX Request Failed:', url, 'Status:', xhr.status);
+                        if (xhr.status === 401) {
+                            reject(new Error('401 Unauthorized: Invalid credentials'));
+                        } else if (xhr.status === 403) {
+                            reject(new Error('403 Forbidden: Access denied'));
+                        } else if (xhr.status === 404) {
+                            reject(new Error('404 Not Found: API endpoint not found'));
+                        } else if (xhr.status === 500) {
+                            reject(new Error('500 Server Error: Internal server error'));
+                        } else {
+                            reject(new Error(`HTTP Error ${xhr.status}: ${xhr.statusText}`));
+                        }
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                console.log('❌ AJAX Network Error:', url);
+                reject(new Error('Network Error: Cannot connect to API server. Check network connection.'));
+            };
+            
+            xhr.ontimeout = function() {
+                console.log('❌ AJAX Timeout:', url);
+                reject(new Error('Request timeout: Server took too long to respond'));
+            };
+            
+            xhr.send();
+        });
     }
 
     displayEmployeeData(employee) {
@@ -236,14 +311,14 @@ document.addEventListener('DOMContentLoaded', () => {
 // Development helper function (remove in production)
 function addTestButton() {
     const testButton = document.createElement('button');
-    testButton.textContent = 'Test with Sample ID';
+    testButton.textContent = 'Test API';
     testButton.style.cssText = `
         position: fixed;
         top: 10px;
         right: 10px;
         z-index: 1001;
         padding: 10px 15px;
-        background: #667eea;
+        background: #1e40af;
         color: white;
         border: none;
         border-radius: 5px;

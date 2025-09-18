@@ -449,23 +449,29 @@ body {
 .icon-warning::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 30px;
-    width: 20px;
-    height: 60px;
+    top: 10px;
+    left: 20px;
+    width: 40px;
+    height: 40px;
     background: #ef4444;
-    border-radius: 10px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .icon-warning::after {
-    content: '';
+    content: '!';
     position: absolute;
-    top: 50px;
-    left: 20px;
-    width: 40px;
-    height: 8px;
-    background: #ef4444;
-    border-radius: 4px;
+    top: 20px;
+    left: 35px;
+    width: 10px;
+    height: 20px;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    line-height: 1;
 }
 
 .error-message h3 {

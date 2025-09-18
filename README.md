@@ -14,12 +14,26 @@ Aplikasi web untuk membaca PTFI ID card dan menampilkan data employee dengan UI 
 
 ## Cara Penggunaan
 
+### 🚀 **Metode 1: Menggunakan Local Server (Recommended)**
+
+1. **Install Node.js** (jika belum ada): https://nodejs.org/
+2. **Jalankan server** dengan salah satu cara:
+   - **Windows**: Double-click `start-server.bat`
+   - **Linux/Mac**: Jalankan `chmod +x start-server.sh && ./start-server.sh`
+   - **Manual**: `npm install && npm start`
+3. **Buka browser** dan akses: `http://localhost:3000`
+4. **Siapkan PTFI ID card reader** yang sudah terhubung ke komputer
+5. **Scan PTFI ID card** dengan mendekatkan card ke reader
+6. **Lihat hasil** - data employee akan ditampilkan jika card terdaftar
+
+### 📁 **Metode 2: File Langsung (Bisa Error CORS)**
+
 1. **Buka aplikasi** di browser dengan membuka file `index.html`
 2. **Siapkan PTFI ID card reader** yang sudah terhubung ke komputer
 3. **Scan PTFI ID card** dengan mendekatkan card ke reader
 4. **Lihat hasil** - data employee akan ditampilkan jika card terdaftar
 
-> ⚠️ **Catatan**: Jika ada error CORS, jalankan aplikasi dari web server lokal (Live Server, XAMPP, dll) bukan file://
+> ⚠️ **Catatan**: Metode 2 mungkin error CORS karena backend hanya mengizinkan `http://ttd-app`. Gunakan Metode 1 untuk hasil terbaik.
 
 ## Struktur File
 
@@ -27,6 +41,10 @@ Aplikasi web untuk membaca PTFI ID card dan menampilkan data employee dengan UI 
 ├── index.html          # File HTML utama
 ├── style.css           # Styling CSS
 ├── script.js           # JavaScript untuk PTFI ID card reading dan API integration
+├── server.js           # Local server untuk development
+├── package.json        # Node.js dependencies
+├── start-server.bat    # Windows server starter
+├── start-server.sh     # Linux/Mac server starter
 └── README.md           # Dokumentasi
 ```
 
@@ -80,15 +98,20 @@ Untuk development, aplikasi menyediakan tombol test yang akan muncul di localhos
 ### ❌ **CORS Error**
 **Problem**: `Access to fetch at 'http://172.16.175.60:4990/api/...' has been blocked by CORS policy`
 **Solution**: 
+- **PENTING**: Backend CORS di-set ke `http://ttd-app`, jadi pastikan aplikasi berjalan dari domain yang diizinkan
 - Jalankan aplikasi dari web server lokal (Live Server, XAMPP, dll)
 - Jangan buka file `index.html` langsung (file://)
+- Jika masih error, gunakan proxy server atau ubah CORS setting di backend
 
 ### ❌ **401 Unauthorized**
 **Problem**: `GET http://172.16.175.60:4990/api/... 401 (Unauthorized)`
 **Solution**: 
-- Cek apakah API server memerlukan autentikasi
+- Aplikasi menggunakan Basic Authentication dengan credentials:
+  - **Username**: `fmiacp`
+  - **Password**: `track1nd0`
 - Pastikan server API sedang berjalan
 - Cek koneksi jaringan ke server API
+- Cek konfigurasi user di backend `config` file
 
 ### ❌ **PTFI ID Card Reader tidak terdeteksi**
 **Problem**: Input PTFI ID card tidak terbaca
