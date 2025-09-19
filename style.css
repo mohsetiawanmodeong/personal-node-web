@@ -362,7 +362,6 @@ body {
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
     border: 2px dashed rgba(30, 64, 175, 0.3);
     transition: all 0.3s ease;
-    max-width: 500px;
     width: 100%;
 }
 
@@ -666,7 +665,6 @@ body {
     border-radius: 20px;
     padding: 60px 40px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-    max-width: 500px;
     width: 100%;
     animation: slideIn 0.5s ease-out;
 }

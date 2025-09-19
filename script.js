@@ -1,7 +1,8 @@
 class RFIDReader {
     constructor() {
         this.apiBaseUrl = 'http://172.16.175.60:4990/api';
-        this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=112&minlastupdate=360000';
+        this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=112&minlastupdate=1800000'; //GBC Full Area -> 30 Menit
+        // this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=130&minlastupdate=1800000'; //GBC RTA Office Only -> 30 Menit
         this.currentInput = '';
         this.isScanning = false;
         this.scanTimeout = null;
@@ -195,9 +196,13 @@ class RFIDReader {
     }
 
     displayEmployeeData(employee) {
-        // Hide scan area and error message
-        document.getElementById('scanArea').style.display = 'none';
-        document.getElementById('errorMessage').style.display = 'none';
+        // Hide scan area and error message; show employee card
+        const scanArea = document.getElementById('scanArea');
+        const errorMessage = document.getElementById('errorMessage');
+        const employeeCard = document.getElementById('employeeCard');
+        if (scanArea) scanArea.style.display = 'none';
+        if (errorMessage) errorMessage.style.display = 'none';
+        if (employeeCard) employeeCard.style.display = 'block';
         
         // Show two column layout
         document.getElementById('twoColumnLayout').style.display = 'grid';
@@ -223,7 +228,6 @@ class RFIDReader {
         }
 
         // Add success animation
-        const employeeCard = document.getElementById('employeeCard');
         employeeCard.style.animation = 'slideIn 0.5s ease-out';
     }
 
@@ -277,17 +281,24 @@ class RFIDReader {
     }
 
     scanAgain() {
-        // Hide employee card, error message, and two column layout
-        document.getElementById('employeeCard').style.display = 'none';
-        document.getElementById('errorMessage').style.display = 'none';
-        document.getElementById('twoColumnLayout').style.display = 'none';
-        
-        // Show scan area
-        document.getElementById('scanArea').style.display = 'block';
-        
-        // Reset status
+        // Keep two-column layout visible
+        const layout = document.getElementById('twoColumnLayout');
+        if (layout) layout.style.display = 'grid';
+
+        // Hide employee card and error
+        const employeeCard = document.getElementById('employeeCard');
+        const errorMsg = document.getElementById('errorMessage');
+        if (employeeCard) employeeCard.style.display = 'none';
+        if (errorMsg) errorMsg.style.display = 'none';
+
+        // Show scan panel on right
+        const scanArea = document.getElementById('scanArea');
+        if (scanArea) scanArea.style.display = 'block';
+
+        // Reset status and scanning state
         this.updateStatus('Ready to Scan', 'ready');
         this.resetScan();
+        this.hideScanAnimation();
     }
 
     // Start Real-time Auto Zone Data
