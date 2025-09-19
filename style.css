@@ -116,6 +116,242 @@ body {
     min-height: 60vh;
 }
 
+/* Two Column Layout */
+.two-column-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    width: 100%;
+    max-width: 1200px;
+}
+
+.column-left, .column-right {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 15px 20px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.column-header h3 {
+    color: #1e40af;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.realtime-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #10b981;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #10b981;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    }
+    
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+/* Entities List */
+.entities-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.entities-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.entities-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.entities-list::-webkit-scrollbar-thumb {
+    background: #3b82f6;
+    border-radius: 3px;
+}
+
+.entities-list::-webkit-scrollbar-thumb:hover {
+    background: #1e40af;
+}
+
+.entity-item {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border-left: 4px solid #3b82f6;
+}
+
+.entity-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.entity-item.safety {
+    border-left-color: #10b981; /* Green */
+}
+
+.entity-item.rescue {
+    border-left-color: #bd1414; /* Red */
+}
+
+.entity-item.super {
+    border-left-color: #3b82f6; /* Blue */
+}
+
+.entity-item.lead {
+    border-left-color: #f59e0b; /* Yellow */
+}
+
+.entity-item.worker {
+    border-left-color: #ffffff; /* White */
+}
+
+.entity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.entity-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e40af;
+}
+
+.entity-role {
+    background: #e0e7ff;
+    color: #3730a3;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.entity-role.safety {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.entity-role.rescue {
+    background: #fad1d1;
+    color: #5f0606;
+}
+
+.entity-role.super {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.entity-role.lead {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.entity-role.worker {
+    background: #f9fafb;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+}
+
+.entity-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.entity-info-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.entity-info-item .label {
+    font-weight: 500;
+    color: #6b7280;
+    min-width: 80px;
+}
+
+.entity-info-item .value {
+    color: #374151;
+    font-weight: 400;
+}
+
+.entity-location {
+    background: #f3f4f6;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 8px;
+}
+
+.entity-location .zone {
+    font-weight: 600;
+    color: #1e40af;
+}
+
+.entity-location .coordinates {
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+/* Responsive Design for Two Column Layout */
+@media (max-width: 1024px) {
+    .two-column-layout {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .column-left {
+        order: 2;
+    }
+    
+    .column-right {
+        order: 1;
+    }
+}
+
 /* Scan Area */
 .scan-area {
     text-align: center;

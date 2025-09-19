@@ -1,12 +1,16 @@
 class RFIDReader {
     constructor() {
         this.apiBaseUrl = 'http://172.16.175.60:4990/api';
+        this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=112&minlastupdate=360000';
         this.currentInput = '';
         this.isScanning = false;
         this.scanTimeout = null;
+        this.autoZoneInterval = null;
+        this.autoZoneIntervalTime = 5000; // 5 seconds
         
         this.initializeEventListeners();
         this.updateStatus('Ready to Scan', 'ready');
+        this.startAutoZoneRealtime();
     }
 
     initializeEventListeners() {
@@ -195,9 +199,8 @@ class RFIDReader {
         document.getElementById('scanArea').style.display = 'none';
         document.getElementById('errorMessage').style.display = 'none';
         
-        // Show employee card
-        const employeeCard = document.getElementById('employeeCard');
-        employeeCard.style.display = 'block';
+        // Show two column layout
+        document.getElementById('twoColumnLayout').style.display = 'grid';
 
         // Update employee information
         document.getElementById('employeeName').textContent = employee.NAME || '-';
@@ -220,6 +223,7 @@ class RFIDReader {
         }
 
         // Add success animation
+        const employeeCard = document.getElementById('employeeCard');
         employeeCard.style.animation = 'slideIn 0.5s ease-out';
     }
 
@@ -273,9 +277,10 @@ class RFIDReader {
     }
 
     scanAgain() {
-        // Hide employee card and error message
+        // Hide employee card, error message, and two column layout
         document.getElementById('employeeCard').style.display = 'none';
         document.getElementById('errorMessage').style.display = 'none';
+        document.getElementById('twoColumnLayout').style.display = 'none';
         
         // Show scan area
         document.getElementById('scanArea').style.display = 'block';
@@ -284,6 +289,148 @@ class RFIDReader {
         this.updateStatus('Ready to Scan', 'ready');
         this.resetScan();
     }
+
+    // Start Real-time Auto Zone Data
+    startAutoZoneRealtime() {
+        // Load initial data
+        this.loadAutoZoneData();
+        
+        // Set up interval for real-time updates
+        this.autoZoneInterval = setInterval(() => {
+            this.loadAutoZoneData();
+        }, this.autoZoneIntervalTime);
+        
+        console.log(`🔄 Auto Zone real-time updates started (every ${this.autoZoneIntervalTime/1000}s)`);
+    }
+
+    // Stop Real-time Auto Zone Data
+    stopAutoZoneRealtime() {
+        if (this.autoZoneInterval) {
+            clearInterval(this.autoZoneInterval);
+            this.autoZoneInterval = null;
+            console.log('⏹️ Auto Zone real-time updates stopped');
+        }
+    }
+
+    // Load Auto Zone Data
+    async loadAutoZoneData() {
+        try {
+            // Basic Authentication credentials (same as PTFI API)
+            const username = 'fmiacp';
+            const password = 'track1nd0';
+            const credentials = btoa(username + ':' + password);
+            
+            const data = await this.makeAjaxRequest(this.autoZoneApiUrl, credentials);
+            this.displayAutoZoneEntities(data);
+            
+        } catch (error) {
+            console.error('❌ Error loading Auto Zone data:', error);
+            this.displayAutoZoneError(error.message);
+        }
+    }
+
+    // Display Auto Zone Entities
+    displayAutoZoneEntities(entities) {
+        const entitiesList = document.getElementById('entitiesList');
+        
+        if (!entities || entities.length === 0) {
+            entitiesList.innerHTML = '<div class="entity-item"><p>No entities found in Auto Zone</p></div>';
+            return;
+        }
+
+        // Filter entities with class_oid starting with 666666
+        const filteredEntities = entities.filter(entity => {
+            const classOid = entity.properties.class_oid;
+            return classOid && classOid.toString().startsWith('666666');
+        });
+
+        if (filteredEntities.length === 0) {
+            entitiesList.innerHTML = '<div class="entity-item"><p>No personal nodes found (class_oid 666666XXX)</p></div>';
+            return;
+        }
+
+        entitiesList.innerHTML = '';
+
+        filteredEntities.forEach(entity => {
+            const entityItem = document.createElement('div');
+            
+            // Determine role and color class
+            const role = entity.properties.role || 'UNKNOWN';
+            const roleClass = this.getRoleClass(role);
+            
+            entityItem.className = `entity-item ${roleClass}`;
+            
+            const name = entity.properties.name || 'Unknown';
+            const operatorName = entity.properties.operator_name || 'N/A';
+            const employeeId = entity.properties.employee_id || 'N/A';
+            const coordinates = entity.geometry.coordinates;
+            const zone = entity.ZONES && entity.ZONES.length > 0 ? entity.ZONES[0].NAME : 'Unknown Zone';
+            
+            entityItem.innerHTML = `
+                <div class="entity-header">
+                    <div class="entity-name">${name}</div>
+                    <div class="entity-role ${roleClass}">${role}</div>
+                </div>
+                <div class="entity-info">
+                    <div class="entity-info-item">
+                        <span class="label">Operator:</span>
+                        <span class="value">${operatorName}</span>
+                    </div>
+                    <div class="entity-info-item">
+                        <span class="label">Employee ID:</span>
+                        <span class="value">${employeeId}</span>
+                    </div>
+                    
+                </div>
+                <div class="entity-location">
+                    <div class="zone">Zone: ${zone}</div>
+                    <div class="coordinates">Coordinates: ${coordinates[0]}, ${coordinates[1]}, ${coordinates[2]}</div>
+                </div>
+            `;
+            
+            entitiesList.appendChild(entityItem);
+        });
+
+        console.log(`✅ Displayed ${filteredEntities.length} personal nodes (filtered from ${entities.length} total entities)`);
+    }
+
+    // Get role class for styling
+    getRoleClass(role) {
+        switch(role.toUpperCase()) {
+            case 'SAFETY':
+                return 'safety';
+            case 'RESCUE':
+                return 'rescue';
+            case 'SUPER':
+                return 'super';
+            case 'LEAD':
+                return 'lead';
+            case 'WORKER':
+                return 'worker';
+            default:
+                return 'worker'; // Default to worker
+        }
+    }
+
+    // Display Auto Zone Error
+    displayAutoZoneError(errorMessage) {
+        const entitiesList = document.getElementById('entitiesList');
+        entitiesList.innerHTML = `
+            <div class="entity-item">
+                <div class="entity-header">
+                    <div class="entity-name">Error Loading Data</div>
+                    <div class="entity-role">ERROR</div>
+                </div>
+                <div class="entity-info">
+                    <div class="entity-info-item">
+                        <span class="label">Message:</span>
+                        <span class="value">${errorMessage}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
 }
 
 // Global function for scan again button
@@ -293,6 +440,7 @@ function scanAgain() {
     }
 }
 
+
 // Initialize the RFID reader when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     window.rfidReader = new RFIDReader();
@@ -300,11 +448,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add some helpful console messages
     console.log('PTFI Personal Node initialized');
     console.log('API Base URL:', window.rfidReader.apiBaseUrl);
+    console.log('Auto Zone API URL:', window.rfidReader.autoZoneApiUrl);
     console.log('Ready to scan PTFI ID cards...');
     
     // Optional: Add a test button for development (remove in production)
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         addTestButton();
+    }
+});
+
+// Cleanup when page unloads
+window.addEventListener('beforeunload', () => {
+    if (window.rfidReader) {
+        window.rfidReader.stopAutoZoneRealtime();
     }
 });
 
