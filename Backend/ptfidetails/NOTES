@@ -1,0 +1,5 @@
+NOTES:
+fltcycle.mjs - Handles reads of data, direct sqlite access.
+fltcycle-loaddata.mjs  - Handles new data, data changes and writing the cycles into the SQL Server and the local sqlite database.
+
+fltcycle.js - legacy app, that uses cache.  Uses a lot of memory, but fast.

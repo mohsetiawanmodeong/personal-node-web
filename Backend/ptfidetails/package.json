@@ -1,0 +1,25 @@
+{
+  "name": "fltcycle",
+  "version": "1.0.0",
+  "description": "Loads the cycles,activites and delays from the Minestar Fleet API.",
+  "main": "fltcycle.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "FLT",
+    "API",
+    "MSSQL",
+    "PTFI"
+  ],
+  "author": "Mark Chambers",
+  "license": "ISC",
+  "dependencies": {
+    "@babel/runtime": "file:runtime-7.21.5.tgz",
+    "dateformat": "file:dateformat-5.0.3.tgz",
+    "dayjs": "file:dayjs-1.11.5.tgz",
+    "is-retry-allowed": "file:is-retry-allowed-3.0.0.tgz",
+    "regenerator-runtime": "file:regenerator-runtime-0.13.11.tgz",
+    "rsyncwrapper": "^3.0.1"
+  }
+}

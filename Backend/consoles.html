@@ -1,0 +1,2150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta content-type="test/html">
+    <!--meta http-equiv="content-type" content="text/html; charset=utf-8"-->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <!--script type="text/javascript" src="js/chart.min.js"></script>
+<script type="text/javascript" src="js/chartjs-plugin-datalabels.min.js"></script>
+<script type="text/javascript" src="js/d3.min.js"></script-->
+    <link rel="stylesheet" href="css/jquery-ui.css">
+    <script type="text/javascript" src="js/jquery-1.12.4.js"></script>
+    <script type="text/javascript" src="js/jquery-ui-1.12.1.js"></script>
+    <script type="text/javascript" src="js/moment.js"></script>
+    <script type="text/javascript" src="js/ptfi-mrc.js"></script>
+    <script type="text/javascript" src="js/ptfi-mrc-api.js"></script>
+    <script type="text/javascript" src="js/ptfi-mrc-utils.js"></script>
+    <script type="text/javascript" src="config/ptfi-siteconfig.js"></script>
+    <link href="css/timeslider.css" rel="stylesheet">
+    <script src="js/timesliderlocal.js"></script>
+    <script src="js/gridstack-all.js"></script>
+    <link href="css/gridstack.min.css" rel="stylesheet" />
+    <link href="css/gridstack-extra.min.css" rel="stylesheet" />
+
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <link rel="stylesheet" href="css/font-awesome.css">
+    <link rel="stylesheet" href="css/wap4.css">
+    <link rel="stylesheet" href="css/mermaid.min.css">
+    <!--script src="js/jquery-3.6.0.min.js"></script-->
+    <!--script src="js/gridjs.production.min.js"></script-->
+    <script src="js/gridjs.umd.js"></script>
+    <script src="js/selection.umd.js"></script>
+    <script src="js/lodash.min.js"></script>
+
+    <script type="text/javascript" src="js/chart.min.js"></script>
+    <script type="text/javascript" src="js/chartjs-plugin-datalabels.min.js"></script>
+    <script type="text/javascript" src="js/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script type="text/javascript" src="js/chartjs-plugin-zoom.js"></script>
+    <script type="text/javascript" src="js/hammerjs.js"></script>
+    <script type="text/javascript" src="js/d3.min.js"></script>
+
+    <style type="text/css">
+.grid-stack {
+    background: #FAFAD2;
+}
+
+.grid-stack-item-content {
+    background-color: PaleTurquoise;
+}
+
+.div-1 {
+    background: Chartreuse;
+}
+
+.div-2 {
+    background: Yellow;
+}
+
+.div-3 {
+    background: DodgerBlue;
+}
+
+.div-4 {
+    background: Crimson;
+}
+
+.div-5 {
+    background: LightGrey;
+}
+
+.grid-stack-item[gs-w="3"] {
+    background-color: Chartreuse;
+}
+
+.blink {
+    animation: blinker 1s linear infinite;
+    color: black;
+    background: orange;
+    font-family: sans-serif;
+}
+
+@keyframes blinker {
+    50% {
+        opacity: 50%;
+    }
+}
+
+.tab {
+    overflow: hidden;
+    border: 1px solid #ccc;
+    background-color: #f1f1f1;
+}
+
+.tab button {
+    background-color: inherit;
+    float: left;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 14px 16px;
+    transition: 0.3s;
+}
+
+.tab button:hover {
+    background-color: #ddd;
+}
+
+.tab button.active {
+    background-color: #ccc;
+}
+
+.tabcontent {
+    display: none;
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-top: none;
+}
+
+.table3,
+.table3 th,
+.table3 td {
+    border: 1px solid #282A35;
+    border-collapse: collapse;
+}
+    </style>
+
+    <!--meta http-equiv="refresh" content="300"-->
+</head>
+
+<body>
+    <table>
+        <TR>
+            <TD>
+                LAYOUT:<BR>
+                <button id="defaultGrid" onClick="defaultGrid()">DEFAULT</button>
+                <button id="saveGrid" onClick="saveGrid()">SAVE</button>
+                <button id="setEditGrid" onClick="setEditGrid()">EDIT</button>
+            </TD>
+            <TD>
+                <fieldset>
+                    <legend>DETAILS</legend>
+                    <input id="details-supervisor" type="radio" name="details" value="supervisor" onchange="getRadioValue(this)" checked />
+                    <label for="supervisor">Supervisor</label>
+                    <input id="details-controller" type="radio" name="details" value="controller" onchange="getRadioValue(this)" />
+                    <label for="controller">Controller</label>
+                    <input id="details-general" type="radio" name="details" value="general" onchange="getRadioValue(this)" />
+                    <label for="general">General</label>
+                </fieldset>
+            </TD>
+            <TD>
+                <div id="MainTitle"> CONSOLE UTIZATION/STATUS DASHBOARD</div>
+            </TD>
+            <TD>
+                <fieldset>
+                    <legend>INTERVAL</legend>
+                    <input id="interval-hour" type="radio" name="interval" value="hour" onchange="getRadioValue(this)" checked />
+                    <label for="hour">Hour</label>
+                    <input id="interval-shift" type="radio" name="interval" value="shift" onchange="getRadioValue(this)" />
+                    <label for="shift">Shift</label>
+                    <input id="interval-12hours" type="radio" name="interval" value="12hours" onchange="getRadioValue(this)" />
+                    <label for="12hours">12 Hours</label>
+                    <input id="interval-sponsored" type="radio" name="interval" value="sponsored" onchange="getRadioValue(this)" />
+                    <label for="sponsored">Sponsored</label>
+                </fieldset>
+            </TD>
+            <TD>
+                <div id="timestamp"></div>
+            </TD>
+        </TR>
+    </TABLE>
+
+    <div class="grid-stack"> </div>
+
+    <strong><a target="_blank" href="consoles-releasenotes.txt">NOTES: (CURRENT VERSION: 0.9)Release Notes</a></strong><BR>
+    <!--textarea id="saved-data" style="width: 100%" cols="100" rows="20" readonly="readonly"></textarea-->
+
+    <script>
+document.title = vMineName + '-EL-CONSOLE-DASH';
+document.getElementById("MainTitle").innerHTML = vMineName + ' CONSOLE UTILIZATION/STATUS DASHBOARD';
+
+var vGrid = {};
+var vConsoleDetails = [];
+var vRange = get_url_param("range", 1);
+var vWhen = get_url_param("when", 0);
+var vVPCToPanelMap = {};
+var vPanelToVPCMap = {};
+var vLHDToOperatorMap = {};
+var vOperatorToLHDMap = {};
+
+
+var vPanelLastGood = {};
+var vPanelLastMissed = {};
+var vVPCLastGood = {};
+var vVPCLastMissed = {};
+
+//Used for the totals.
+var vVPCHaulingDataAmountTotal = 0;
+var vVPCPossibleDataAmountTotal = 0;
+var vVPCActualDataAmountTotal = 0;
+var vPanelHaulingDataAmountTotal = 0;
+var vPanelPossibleDataAmountTotal = 0;
+var vPanelActualDataAmountTotal = 0;
+var vShowDetails = "supervisor";
+var vShowInterval = "hour";
+var vErrorCodes = new Map();
+var vErrorItemCodes = new Map();
+var vErrorMeasureCodes = new Map();
+
+function saveGrid() {
+    //var serializedFull = vGrid.save(true,true);
+    //var serializedData = serializedFull.children;
+    //localStorage.setItem('consoles-dash.config',JSON.stringify(serializedFull));
+    //document.getElementById("saved-data").value = JSON.stringify(serializedData, null, '   ');
+    var serializedData = vGrid.save();
+    localStorage.setItem('consoles-dash.config', JSON.stringify(serializedData));
+}
+
+function defaultGrid() {
+    //var serializedData = vGrid.save();
+    localStorage.removeItem('consoles-dash.config');
+    window.location.reload();
+    //document.getElementById("saved-data").value = JSON.stringify(serializedData, null, '   ');
+}
+
+
+var vStaticGrid = true;
+
+function setEditGrid() {
+    if (vStaticGrid) {
+        vStaticGrid = false;
+    } else {
+        vStaticGrid = true;
+    }
+    vGrid.setStatic(vStaticGrid);
+}
+
+function getRadioValue(radio) {
+    console.log("RADIO:[" + radio.name + "].");
+    if (radio.name == "details") {
+        vShowDetails = radio.value;
+    } else if (radio.name == "interval") {
+        vShowInterval = radio.value;
+        vUpdateCount = 0;
+    }
+    updateDataLock();
+}
+
+function getGraphTypeRadioValue(radio) {
+    vGraphType = radio.value;
+    updateDataLock();
+}
+
+function getEntityTypeRadioValue(radio) {
+    vEntityType = radio.value;
+    updateDataLock();
+}
+
+var vCurrentTab = "DETAIL";
+var vCURRENT_ELEMENT = null;
+
+function openTab(evt, tabName) {
+    //Declare Varibales
+    var i, tabcontent, tablinks;
+
+    // get all elements with class="tabcontent" and hide them
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+
+    // get all elements with class="tablinks" and remove the class "active"
+    tablinks = document.getElementsByClassName("tablinks");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+
+    // Show the currnt tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " active";
+    vCurrentTab = tabName;
+    vUpdateCount = 0;
+    //now lets reset all of the zooms.
+    if (vIMUChart) {
+        vIMUChart.resetZoom();
+    }
+    if (vFUELChart) {
+        vFUELChart.resetZoom();
+    }
+    if (vTEMPChart) {
+        vTEMPChart.resetZoom();
+    }
+    updateTabs();
+}
+
+function getStartTime() {
+    var vStart;
+    var vEndTime = new Date();
+    if (vShowInterval == "hour") {
+        var vCurrentTimeStamp = (new Date(vEndTime)).getTime();
+        vStart = (new Date(vCurrentTimeStamp - (3600 * 1 * 1000)).toISOString());
+    } else if (vShowInterval == "shift") {
+        var vDate = new Date();
+        vDate.setHours(vShiftStartTime);
+        vDate.setMinutes(0);
+        vDate.setSeconds(0);
+        vDate.setMilliseconds(0);
+        var vStartDayShift = vDate.getTime();
+        vDate.setHours(vShiftEndTime);
+        var vEndDayShift = vDate.getTime();
+        var vCurrentTimeStamp = (new Date(vEndTime)).getTime();
+        if (vCurrentTimeStamp < vStartDayShift) {
+            vStart = (new Date(vEndDayShift - (3600 * 24 * 1000)).toISOString());
+            //vGlobalEndTime = vStartDayShift;
+        } else if (vCurrentTimeStamp < vEndDayShift) {
+            vStart = (new Date(vStartDayShift).toISOString());
+            //vGlobalEndTime = vEndDayShift;
+        } else {
+            vStart = (new Date(vEndDayShift).toISOString());
+            //vGlobalEndTime = vStartDayShift + (3600 *24*1000);
+        }
+    } else if (vShowInterval == "12hours") {
+        var vCurrentTimeStamp = (new Date(vEndTime)).getTime();
+        vStart = (new Date(vCurrentTimeStamp - (3600 * 12 * 1000)).toISOString());
+    } else if (vShowInterval == "sponsored") {
+        vStart = (new Date(vStartTime).toISOString());
+    }
+    return vStart;
+}
+
+var vGridIMPACT = {};
+var vRowDataIMPACT = [];
+var vRowDataCMDConsole = [];
+
+function updateTabIMPACTData() {
+    var vEnd = new Date();
+    var vStart = getStartTime();
+    if (vCURRENT_ELEMENT != null) {
+        if (vCURRENT_ELEMENT.MACHINE_NAME != "") {
+            console.log("updateTabIMPACT: Loading new impact data...(" + (new Date()) + ").");
+            var vPromiseIMPACTData = new Promise((resolve, reject) => {
+                getCMDTelemetryData("IMPACT", "", vCURRENT_ELEMENT.MACHINE_NAME, vStart, vEnd,
+                    function(data) {
+                        vRowDataIMPACT = data;
+                        resolve();
+                    },
+                    function(data) {
+                        reject(data);
+                    }
+                );
+            });
+
+            var vPromiseConsoleEvents = new Promise((resolve, reject) => {
+                console.log("updateCMDConsoleEventCurrent: Loading new Console data...");
+                getCMDConsoleEventData(vCURRENT_ELEMENT.MACHINE_NAME, vStart, vEnd,
+                    function(data) {
+                        vRowDataCMDConsole = data;
+                        resolve();
+                    },
+                    function(data) {
+                        reject(data);
+                    }
+                );
+            });
+
+            Promise.allSettled([vPromiseIMPACTData, vPromiseConsoleEvents]).then((values) => {
+                vRowDataIMPACT.forEach((row, index, arr) => {
+                    vRowDataCMDConsole.forEach((row2, index2, arr2) => {
+                        //if (row.MACHINE_SERIAL === row2.MACHINE_SERIAL){
+                        if (row.START_TIME > row2.START_TIME && (row2.END_TIME === null || row.START_TIME < row2.END_TIME)) {
+                            row.CONSOLE = row2.CONSOLE;
+                        }
+                        //}
+                    });
+                });
+				if (vGridIMPACT){
+                vGridIMPACT.forceRender();
+				}
+                vUpdatingTabs = false;
+            });
+        }
+    }
+}
+
+function updateTabIMUData() {
+    var vEnd = new Date();
+    var vStart = getStartTime();
+    if (vCURRENT_ELEMENT != null) {
+        if (vCURRENT_ELEMENT.MACHINE_NAME != "") {
+            console.log("updateTabIMUData: Loading new IMU data...(" + (new Date()) + ").");
+            getCMDTelemetryData("IMU", "", vCURRENT_ELEMENT.MACHINE_NAME, vStart, vEnd, updateTabIMU,
+                function(data) {
+                    vUpdatingTabs = false;
+                });
+        }
+    }
+}
+
+function updateTabTEMPData() {
+    var vEnd = new Date();
+    var vStart = getStartTime();
+    if (vCURRENT_ELEMENT != null) {
+        if (vCURRENT_ELEMENT.MACHINE_NAME != "") {
+            console.log("updateTabTEMPData: Loading new IMU data...(" + (new Date()) + ").");
+            getCMDTelemetryData("GENERAL", "", vCURRENT_ELEMENT.MACHINE_NAME, vStart, vEnd, updateTabTEMP,
+                function(data) {
+                    vUpdatingTabs = false;
+                });
+        }
+    }
+}
+
+function updateTabFUELData() {
+    var vEnd = new Date();
+    var vStart = getStartTime();
+    if (vCURRENT_ELEMENT != null) {
+        if (vCURRENT_ELEMENT.MACHINE_NAME != "") {
+            console.log("updateTabFUELData: Loading new FUEL data...(" + (new Date()) + ").");
+            getCMDTelemetryData("GENERAL", "FUEL_LEVEL", vCURRENT_ELEMENT.MACHINE_NAME, vStart, vEnd, updateTabFUEL,
+                function(data) {
+                    vUpdatingTabs = false;
+                });
+        }
+    }
+}
+
+function updateTabEVENTData() {
+    var vEnd = new Date();
+    var vStart = getStartTime();
+    if (vCURRENT_ELEMENT != null) {
+        if (vCURRENT_ELEMENT.MACHINE_NAME != "") {
+            console.log("updateTabEVENTData: Loading new EVENT data...(" + (new Date()) + ").");
+            getCMDTelemetryData("EVENT", "", vCURRENT_ELEMENT.MACHINE_NAME, vStart, vEnd, updateTabEVENT,
+                function(data) {
+                    vUpdatingTabs = false;
+                });
+        }
+    }
+}
+
+var vGridEVENT = {};
+var vRowDataEVENT = [];
+
+function updateTabEVENT(vEventData) {
+    var vROWData = [];
+    var vLastCodes = new Map();
+    var vLastCodes2 = new Map();
+    if (vEventData.length < 1) {
+        vCMDEventsCache.forEach((olddata) => {
+            if (olddata.MACHINE_NAME == vCURRENT_ELEMENT.MACHINE_NAME) {
+                vEventData.push(olddata);
+            }
+        });
+    }
+    //console.log("EVENTDATA["+JSON.stringify(vEventData)+"].");
+    vEventData.forEach((vELEMENT_DATA, index2, arr2) => {
+        var vData = {};
+        var vNewCodes = new Map();
+        vData.START_TIME = vELEMENT_DATA.START_TIME;
+        vData.END_TIME = "";
+        vData.MACHINE_NAME = vELEMENT_DATA.MACHINE_NAME;
+        vData.SERIAL_SERIAL = vELEMENT_DATA.MACHINE_SERIAL;
+        vData.TYPE = vELEMENT_DATA.TYPE;
+        if (vELEMENT_DATA.VALUE != "" && vELEMENT_DATA.VALUE != null) {
+            var vCODES = vELEMENT_DATA.VALUE.split(';');
+            vCODES.forEach((vCODE, index, arr) => {
+                if (vCODE != "" && vCODE != null) {
+                    var vCODE_ELEMENT = vCODE.split(":");
+                    var vCODE_VALUE = vCODE_ELEMENT[1];
+                    if (vCODE_VALUE != "" && vCODE_VALUE != null) {
+                        var vPARTS = vCODE_VALUE.replace(')', '').split('(');
+                        vData.ITEM = vCODE_ELEMENT[0];
+                        vData.VALUE = vPARTS[0];
+                        vData.LEVEL = vPARTS[1];
+                        vKey = vData.ITEM + '-' + vData.VALUE + '-' + vData.LEVEL;
+                        if (!vLastCodes.has(vKey)) {
+                            vLastCodes.set(vKey, JSON.parse(JSON.stringify(vData)));
+                        }
+                        vNewCodes.set(vKey, JSON.parse(JSON.stringify(vData)));
+                    }
+                }
+            });
+            vLastCodes2 = new Map();
+            vLastCodes.forEach((olddata) => {
+                var vFound = false;
+                var vOldKey = olddata.ITEM + '-' + olddata.VALUE + '-' + olddata.LEVEL;
+                vNewCodes.forEach((newdata) => {
+                    var vNewKey = newdata.ITEM + '-' + newdata.VALUE + '-' + newdata.LEVEL;
+                    if (vOldKey === vNewKey) {
+                        vFound = true;
+                    }
+                });
+                if (!vFound) {
+                    olddata.END_TIME = vData.START_TIME;
+                    vROWData.push(JSON.parse(JSON.stringify(olddata)));
+                } else {
+                    vLastCodes2.set(vOldKey, olddata);
+                }
+            });
+            vLastCodes = new Map(vLastCodes2);
+        }
+    })
+    //Now lets add all of the Remaining Current Error Codes
+    vLastCodes.forEach((olddata) => {
+        vROWData.push(JSON.parse(JSON.stringify(olddata)));
+    });
+    vRowDataEVENT = vROWData;
+    vGridEVENT.forceRender();
+    vUpdatingTabs = false;
+}
+
+function getRowDataIMPACT() {
+    var vNewRowData = [];
+    vRowDataIMPACT.forEach((value, array) => {
+        vNewRowData.push(createRowDataIMPACT(value));
+    });
+    return vNewRowData;
+}
+
+function getRowDataEVENT() {
+    var vNewRowData = [];
+    vRowDataEVENT.forEach((value, array) => {
+        vNewRowData.push(createRowDataEVENT(value));
+    });
+    return vNewRowData;
+}
+
+function createRowDataIMPACT(row) {
+    let vStart = moment(new Date(row.START_TIME));
+    let vStartStr = "" + vStart.format('YYYY-MM-DD HH:mm:ss');
+    let vValues = row.VALUE.split(':');
+    let vForce = vValues[0];
+    let vSpeed = "-";
+    if (vValues.length > 1) {
+        vSpeed = vValues[1];
+    }
+    let vControl = "-";
+    if (vValues.length > 2) {
+        switch (vValues[2]) {
+            case "0":
+                vControl = "Teleremote";
+                break;
+            case "1":
+                vControl = "Copilot";
+                break;
+            case "2":
+                vControl = "Autopilot";
+                break;
+            case "3":
+                vControl = "Recovery";
+                break;
+            default:
+                vControl = "Unknown[" + vValues[2] + "]";
+        }
+    }
+    //var vRow=[ row.MACHINE_NAME, row.MACHINE_SERIAL, vStartStr, row.TYPE, row.VALUE];
+    var vRow = [row.MACHINE_NAME, row.CONSOLE, vStartStr, row.TYPE, vForce, vSpeed, vControl];
+    return vRow;
+}
+
+function createRowDataEVENT(row) {
+    let vStart = moment(new Date(row.START_TIME));
+    let vStartStr = "" + vStart.format('YYYY-MM-DD HH:mm:ss');
+    let vEndStr = "";
+    if (row.END_TIME != "") {
+        let vEnd = moment(new Date(row.END_TIME));
+        vEndStr = "" + vEnd.format('YYYY-MM-DD HH:mm:ss');
+    }
+    let vErrorDescription = "";
+    if (vErrorCodes.has(row.VALUE.split("-")[0])) {
+        vErrorDescription = "" + vErrorCodes.get(row.VALUE.split("-")[0]).DESCRIPTION;
+    }
+    let vErrorItemDescription = "" + row.ITEM;
+    if (vErrorItemCodes.has(row.ITEM)) {
+        vErrorItemDescription = "" + vErrorItemCodes.get(row.ITEM).DESCRIPTION;
+    }
+    let vErrorMeasureDescription = "-";
+    if (row.VALUE.split("-").length > 1) {
+        if (vErrorMeasureCodes.has(row.VALUE.split("-")[1])) {
+            vErrorMeasureDescription = "" + vErrorMeasureCodes.get(row.VALUE.split("-")[1]).DESCRIPTION;
+        }
+    }
+    var vRow = [row.MACHINE_NAME, vStartStr, row.TYPE, vErrorItemDescription, vErrorMeasureDescription, row.LEVEL, vErrorDescription, row.VALUE, row.ITEM];
+    return vRow;
+}
+
+function getColumnsIMPACT() {
+    var vNewColumnData = {
+        columns: [{
+                name: 'MACHINE',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            },
+            {
+                name: 'CONSOLE',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            },
+            {
+                name: 'START_TIME',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+                //formatter: (cell) => getFormatting(cell,vCurrentConfigData.management_address)
+            },
+            {
+                name: 'TYPE',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            },
+            {
+                name: 'FORCE',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            },
+            {
+                name: 'SPEED',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            },
+            {
+                name: 'CONTROL',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            }
+        ]
+    };
+    return vNewColumnData;
+}
+
+function getColumnsEVENT() {
+    var vNewColumnData = {
+        columns: [{
+                name: 'MACHINE',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            },
+            {
+                name: 'START_TIME',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+                //formatter: (cell) => getFormatting(cell,vCurrentConfigData.management_address)
+            },
+            /*{
+                    name: 'END_TIME',
+                    sort: { compare: (a,b) => { if (a > b){ return 1; } else if (b > a) { return -1; } else { return 0; } } }
+                    //formatter: (cell) => getFormatting(cell,vCurrentConfigData.management_address)
+            },*/
+            {
+                name: 'TYPE',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            },
+            {
+                name: 'ITEM',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            },
+            {
+                name: 'FAULT',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            },
+            {
+                name: 'LEVEL',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            },
+            {
+                name: 'DESCRIPTION',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            },
+            {
+                name: 'ERROR_CODE',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            },
+            {
+                name: 'ITEM_NO',
+                sort: {
+                    compare: (a, b) => {
+                        if (a > b) {
+                            return 1;
+                        } else if (b > a) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    }
+                }
+            }
+        ]
+    };
+    return vNewColumnData;
+}
+
+function makeTabDETAILContent() {
+
+    if (vCURRENT_ELEMENT == null) {
+        document.getElementById('DETAIL').innerHTML = "Please select a console for details...";
+        return;
+    }
+    var vELEMENT_DATA = JSON.parse(JSON.stringify(vCURRENT_ELEMENT));
+
+    var vControlClass = "div-4";
+    if (vELEMENT_DATA.MODE == "TELE_REMOTE") {
+        vControlClass = "div-3";
+    } else if (vELEMENT_DATA.MODE == "CO_PILOT") {
+        vControlClass = "div-2";
+    } else if (vELEMENT_DATA.MODE == "AUTO_PILOT") {
+        vControlClass = "div-1";
+    }
+
+    vELEMENT_DATA = parseCODES(vELEMENT_DATA);
+    var vSeconds = 0;
+    var vStart = 0;
+    var vEnd = 0;
+    if (vELEMENT_DATA.START_TIME != "") {
+        var vStart = (new Date(vELEMENT_DATA.START_TIME)).getTime();
+        var vEnd = (new Date()).getTime();
+        if ((vELEMENT_DATA.END_TIME != "") && (vELEMENT_DATA.END_TIME != null) && (vELEMENT_DATA.END_TIME != "null")) {
+            vEnd = (new Date(vELEMENT_DATA.END_TIME)).getTime();
+        }
+        vSeconds = vEnd - vStart;
+    }
+    var vDStr = millisecondsToStrTime8Char(vSeconds);
+
+    var vContent = '<LEFT><TABLE style="width:100%">';
+    vContent = vContent + '<TR><TD>CONSOLE:</TD><TD>' + vELEMENT_DATA.GROUP + '-' + vELEMENT_DATA.CONSOLE + '</TD><TD>MACHINE_NAME:</TD><TD>' + vELEMENT_DATA.MACHINE_NAME + '</TD></TR>';
+    vContent = vContent + '<TR><TD>OPERATOR:</TD><TD>' + vELEMENT_DATA.OPERATOR_NAME + '</TD><TD>START_TIME:</TD><TD>' + vELEMENT_DATA.START_TIME + '</TD></TR>';
+    vContent = vContent + '<TR><TD>SPONSORED:</TD><TD>' + vDStr + '</TD><TD>CONTROL_MODE:</TD><TD><div class="' + vControlClass + '"> ' + vELEMENT_DATA.MODE + '</DIV></TD></TR>';
+    vContent = vContent + '<TR><TD>FUEL_LEVEL:</TD><TD>' + vELEMENT_DATA.FUEL_LEVEL + '</TD><TD>ENGINE_COOLANT_TEMPERATURE:</TD><TD>' + vELEMENT_DATA.ENGINE_COOLANT_TEMPERATURE + '</TD></TR>';
+    vContent = vContent + '<TR><TD>HYDRAULIC_OIL_TEMPERATURE:</TD><TD>' + vELEMENT_DATA.HYDRAULIC_OIL_TEMPERATURE + '</TD><TD>ECM_ENCLOSURE_TEMPERATURE:</TD><TD>' + vELEMENT_DATA.ECM_ENCLOSURE_TEMPERATURE + '</TD></TR>';
+    vContent = vContent + '<TR><TD>AIR_INLET_TEMPERATURE:</TD><TD>' + vELEMENT_DATA.AIR_INLET_TEMPERATURE + '</TD><TD>TRANSMISSION_OIL_TEMPERATURE:</TD><TD>' + vELEMENT_DATA.TRANSMISSION_OIL_TEMPERATURE + '</TD></TR>';
+    vContent = vContent + '<TR><TD>FRONT_AXLE_OIL_TEMPERATURE:</TD><TD>' + vELEMENT_DATA.FRONT_AXLE_OIL_TEMPERATURE + '</TD><TD>REAR_AXLE_OIL_TEMPERATURE:</TD><TD>' + vELEMENT_DATA.REAR_AXLE_OIL_TEMPERATURE + '</TD></TR>';
+    vContent = vContent + '<TR><TD>PANEL_ASSIGNED:</TD><TD>' + vELEMENT_DATA.PANEL_ASSIGNED + '</TD><TD>PANEL_SERVICING:</TD><TD>' + vELEMENT_DATA.PANEL_SERVICING + '</TD></TR>';
+    vContent = vContent + '<TR><TD>ERROR_LEVEL_COUNT_3:</TD><TD>' + vELEMENT_DATA.ERROR_LEVEL_COUNT_3 + '</TD><TD>ERROR_LEVEL_CODE_3:</TD><TD>' + vELEMENT_DATA.ERROR_LEVEL_CODE_3 + '</TD></TR>';
+    vContent = vContent + '<TR><TD>ERROR_LEVEL_COUNT_2:</TD><TD>' + vELEMENT_DATA.ERROR_LEVEL_COUNT_2 + '</TD><TD>ERROR_LEVEL_CODE_2:</TD><TD>' + vELEMENT_DATA.ERROR_LEVEL_CODE_2 + '</TD></TR>';
+    vContent = vContent + '<TR><TD>ERROR_LEVEL_COUNT_1:</TD><TD>' + vELEMENT_DATA.ERROR_LEVEL_COUNT_1 + '</TD><TD>ERROR_LEVEL_CODE_1:</TD><TD>' + vELEMENT_DATA.ERROR_LEVEL_CODE_1 + '</TD></TR>';
+    vContent = vContent + '<TR><TD>DELAY_CLASS_DESCRIPTION:</TD><TD SPAN=3>' + vELEMENT_DATA.DELAY_CLASS_DESCRIPTION + '</TD></TR>';
+    vContent = vContent + '<TR><TD>DELAY_DESCRIPTION:</TD><TD SPAN=3>' + vELEMENT_DATA.DELAY_DESCRIPTION + '</TD></TR>';
+    vContent = vContent + '</TABLE></LEFT>';
+    document.getElementById('DETAIL').innerHTML = "" + vContent;
+}
+
+function makeTabIMPACTContent() {
+    vGridIMPACT = new gridjs.Grid({
+        columns: [],
+        style: {
+            table: {
+                'white-space': 'nowrap',
+                th: {}
+            },
+            header: {
+                'display': 'none'
+            },
+            container: {
+                'display': 'flex',
+                'flexDirection': 'column-reverse'
+            }
+        },
+        pagination: {
+            limit: 10,
+            summary: true,
+            resetPageOnUpdate: false
+        },
+        search: true,
+        sort: true,
+        autoWidth: true,
+        data: getRowDataIMPACT,
+        resizable: true
+    });
+
+    var vColumns = getColumnsIMPACT();
+    vGridIMPACT.updateConfig(vColumns);
+    vGridIMPACT.render(document.getElementById('IMPACT'));
+}
+
+function makeTabEVENTContent() {
+    vGridEVENT = new gridjs.Grid({
+        columns: [],
+        style: {
+            table: {
+                'white-space': 'nowrap',
+                th: {}
+            },
+            header: {
+                'display': 'none'
+            },
+            container: {
+                'display': 'flex',
+                'flexDirection': 'column-reverse'
+            }
+        },
+        pagination: {
+            limit: 10,
+            summary: true,
+            resetPageOnUpdate: false
+        },
+        search: true,
+        sort: true,
+        autoWidth: true,
+        data: getRowDataEVENT,
+        resizable: true
+    });
+
+    var vColumns = getColumnsEVENT();
+    vGridEVENT.updateConfig(vColumns);
+    vGridEVENT.render(document.getElementById('EVENT'));
+}
+
+function updateTabIMU(vData) {
+    var vIMU_MAX_Z_N = [];
+    var vIMU_MIN_Z_N = [];
+    var vIMU_XY_N = [];
+    var vLabels = [];
+    //document.getElementById("IMU").innerHTML=JSON.stringify(vData);
+    vData.forEach((vIMU, index, arr) => {
+        var vTimeStamp = new Date(vIMU.START_TIME);
+        //Check if a reasonable timestamp.)
+        if (vTimeStamp > 1715000000) {
+            if (vIMU.VALUE < -32737 || vIMU.VALUE > 32737) {
+                vIMU.VALUE = 0;
+            }
+            if (vIMU.TYPE == "IMU_MAX_Z_N") {
+                vIMU_MAX_Z_N.push({
+                    x: vTimeStamp,
+                    y: vIMU.VALUE
+                });
+                vLabels.push(vTimeStamp);
+            } else if (vIMU.TYPE == "IMU_MIN_Z_N") {
+                vIMU_MIN_Z_N.push({
+                    x: vTimeStamp,
+                    y: vIMU.VALUE
+                });
+                vLabels.push(vTimeStamp);
+            } else if (vIMU.TYPE == "IMU_MAX_XY_N") {
+                vIMU_XY_N.push({
+                    x: vTimeStamp,
+                    y: vIMU.VALUE
+                });
+                vLabels.push(vTimeStamp);
+            }
+        }
+    });
+    vIMUChart.data.datasets[0].data = vIMU_MAX_Z_N;
+    vIMUChart.data.datasets[1].data = vIMU_MIN_Z_N;
+    vIMUChart.data.datasets[2].data = vIMU_XY_N;
+    vIMUChart.data.labels = vLabels;
+    vIMUChart.update();
+    vUpdatingTabs = false;
+}
+
+function updateTabTEMP(vData) {
+    var vTEMP1 = [];
+    var vTEMP2 = [];
+    var vTEMP3 = [];
+    var vTEMP4 = [];
+    var vTEMP5 = [];
+    var vTEMP6 = [];
+    var vTEMP7 = [];
+    var vLabels = [];
+    vData.forEach((vIMU, index, arr) => {
+        var vTimeStamp = new Date(vIMU.START_TIME);
+        if (vIMU.TYPE == "ENGINE_COOLANT_TEMPERATURE") {
+            vTEMP1.push({
+                x: vTimeStamp,
+                y: vIMU.VALUE
+            });
+            vLabels.push(vTimeStamp);
+        } else if (vIMU.TYPE == "HYDRAULIC_OIL_TEMPERATURE") {
+            vTEMP2.push({
+                x: vTimeStamp,
+                y: vIMU.VALUE
+            });
+            vLabels.push(vTimeStamp);
+        } else if (vIMU.TYPE == "ECM_ENCLOSURE_TEMPERATURE") {
+            vTEMP3.push({
+                x: vTimeStamp,
+                y: vIMU.VALUE
+            });
+            vLabels.push(vTimeStamp);
+        } else if (vIMU.TYPE == "AIR_INLET_TEMPERATURE") {
+            vTEMP4.push({
+                x: vTimeStamp,
+                y: vIMU.VALUE
+            });
+            vLabels.push(vTimeStamp);
+        } else if (vIMU.TYPE == "TRANSMISSION_OIL_TEMPERATURE") {
+            vTEMP5.push({
+                x: vTimeStamp,
+                y: vIMU.VALUE
+            });
+            vLabels.push(vTimeStamp);
+        } else if (vIMU.TYPE == "FRONT_AXLE_OIL_TEMPERATURE") {
+            vTEMP6.push({
+                x: vTimeStamp,
+                y: vIMU.VALUE
+            });
+            vLabels.push(vTimeStamp);
+        } else if (vIMU.TYPE == "REAR_AXLE_OIL_TEMPERATURE") {
+            vTEMP7.push({
+                x: vTimeStamp,
+                y: vIMU.VALUE
+            });
+            vLabels.push(vTimeStamp);
+        }
+    });
+    vTEMPChart.data.datasets[0].data = vTEMP1;
+    vTEMPChart.data.datasets[1].data = vTEMP2;
+    vTEMPChart.data.datasets[2].data = vTEMP3;
+    vTEMPChart.data.datasets[3].data = vTEMP4;
+    vTEMPChart.data.datasets[4].data = vTEMP5;
+    vTEMPChart.data.datasets[5].data = vTEMP6;
+    vTEMPChart.data.datasets[6].data = vTEMP7;
+    vTEMPChart.data.labels = vLabels;
+    vTEMPChart.update();
+    vUpdatingTabs = false;
+}
+
+function updateTabFUEL(vData) {
+    var vFUEL = [];
+    var vLabels = [];
+    vData.forEach((vIMU, index, arr) => {
+        var vTimeStamp = new Date(vIMU.START_TIME);
+        if (vIMU.TYPE == "FUEL_LEVEL") {
+            vFUEL.push({
+                x: vTimeStamp,
+                y: vIMU.VALUE
+            });
+            vLabels.push(vTimeStamp);
+        }
+    });
+    vFUELChart.data.datasets[0].data = vFUEL;
+    vFUELChart.data.labels = vLabels;
+    vFUELChart.update();
+    vUpdatingTabs = false;
+}
+
+
+var vIMUChart = {};
+
+function makeTabIMUContent() {
+    var vIMU_MAX_Z_N = [];
+    var vIMU_MIN_Z_N = [];
+    var vIMU_XY_N = [];
+    var vIMUChartData = [{
+            label: 'IMU_MAX_Z_N',
+            data: vIMU_MAX_Z_N,
+            fill: false,
+            borderColor: 'rgb(192,32,32)',
+            tension: 0.1
+        },
+        {
+            label: 'IMU_MIN_Z_N',
+            data: vIMU_MIN_Z_N,
+            fill: false,
+            borderColor: 'rgb(32,32,192)',
+            tension: 0.1
+        },
+        {
+            label: 'IMU_MAX_XY_N',
+            data: vIMU_XY_N,
+            fill: false,
+            borderColor: 'rgb(32,192,32)',
+        }
+    ];
+    var vIMUDiv = document.getElementById("IMU");
+    vIMUDiv.innerHTML = '<canvas id="IMUCTX" width="800" height="200"></canvas>';
+    var vIMUCTX = document.getElementById("IMUCTX").getContext('2d');
+    vIMUChart = new Chart(vIMUCTX, {
+        type: 'line',
+        data: {
+            labels: ['IMU_MAX_Z_N', 'IMU_MIN_Z_N', 'IMU_MAX_XY_N'],
+            datasets: vIMUChartData
+        },
+        options: {
+            transitions: {
+                zoom: {
+                    animation: {
+                        duration: 0
+                    }
+                }
+            },
+            animation: {
+                duration: 0
+            },
+            scales: {
+                yAxis: {
+                    min: -40,
+                    max: 40
+                },
+                xAxis: {
+                    type: 'time',
+                    time: {
+                        unit: 'second',
+                        displayFormats: {
+                            minute: 'HH:mm:ss',
+                        }
+                    }
+                }
+            },
+            plugins: {
+                zoom: {
+                    zoom: {
+                        drag: {
+                            enabled: true,
+                        },
+                        wheel: {
+                            enabled: true,
+                        },
+                        pinch: {
+                            enabled: true,
+                        },
+                        mode: 'x',
+                    }
+                },
+            }
+        }
+    });
+}
+
+var vTEMPChart = {};
+
+function makeTabTEMPContent() {
+    var vTEMP1 = [];
+    var vTEMP2 = [];
+    var vTEMP3 = [];
+    var vTEMP4 = [];
+    var vTEMP5 = [];
+    var vTEMP6 = [];
+    var vTEMP7 = [];
+    var vLabels = [];
+    var vTEMPChartData = [{
+            label: 'ENGINE_COOLANT',
+            data: vTEMP1,
+            fill: false,
+            borderColor: 'rgb(192,72,72)',
+            tension: 0.1
+        },
+        {
+            label: 'HYDRAULIC_OIL',
+            data: vTEMP2,
+            fill: false,
+            borderColor: 'rgb(75,75,192)',
+            tension: 0.1
+        },
+        {
+            label: 'ECM_ENCLOSURE',
+            data: vTEMP3,
+            fill: false,
+            borderColor: 'rgb(75,192,75)',
+            tension: 0.1
+        },
+        {
+            label: 'AIR_INLET',
+            data: vTEMP4,
+            fill: false,
+            borderColor: 'rgb(32,192,32)',
+            tension: 0.1
+        },
+        {
+            label: 'TRANMISSION_OIL',
+            data: vTEMP5,
+            fill: false,
+            borderColor: 'rgb(32,32,192)',
+            tension: 0.1
+        },
+        {
+            label: 'FRONT_AXLE_OIL',
+            data: vTEMP6,
+            fill: false,
+            borderColor: 'rgb(92,0,192)',
+            tension: 0.1
+        },
+        {
+            label: 'REAR_AXLE_OIL',
+            data: vTEMP7,
+            fill: false,
+            borderColor: 'rgb(0,92,192)',
+            tension: 0.1
+        }
+    ];
+    var vTEMPDiv = document.getElementById("TEMP");
+    vTEMPDiv.innerHTML = '<canvas id="TEMPCTX" width="800" height="200"></canvas>';
+    var vTEMPCTX = document.getElementById("TEMPCTX").getContext('2d');
+    vTEMPChart = new Chart(vTEMPCTX, {
+        type: 'line',
+        data: {
+            labels: ['ENGINE_COOLANT', 'HYDRAULIC_OIL', 'ECM_ENCLOSURE', 'AIR_INLET', 'TRANMISSION_OIL', 'FRONT_AXLE_OIL', 'REAR_AXLE_OIL'],
+            datasets: vTEMPChartData
+        },
+        options: {
+            transitions: {
+                zoom: {
+                    animation: {
+                        duration: 0
+                    }
+                }
+            },
+            animation: {
+                duration: 0
+            },
+            scales: {
+                yAxis: {
+                    min: 0,
+                    max: 130
+                },
+                xAxis: {
+                    type: 'time',
+                    time: {
+                        unit: 'second',
+                        displayFormats: {
+                            minute: 'HH:mm:ss',
+                        }
+                    }
+                }
+            },
+            plugins: {
+                zoom: {
+                    zoom: {
+                        drag: {
+                            enabled: true,
+                        },
+                        wheel: {
+                            enabled: true,
+                        },
+                        pinch: {
+                            enabled: true,
+                        },
+                        mode: 'x',
+                    }
+                },
+            }
+        }
+    });
+}
+
+var vFUELChart = {};
+
+function makeTabFUELContent() {
+    var vFUEL = [];
+    var vFUELChartData = [{
+        label: 'FUEL',
+        data: vFUEL,
+        fill: false,
+        borderColor: 'rgb(72,72,192)',
+        tension: 0.1
+    }];
+    var vFUELDiv = document.getElementById("FUEL");
+    vFUELDiv.innerHTML = '<canvas id="FUELCTX" width="800" height="200"></canvas>';
+    var vFUELCTX = document.getElementById("FUELCTX").getContext('2d');
+    vFUELChart = new Chart(vFUELCTX, {
+        type: 'line',
+        data: {
+            labels: ['FUEL'],
+            datasets: vFUELChartData
+        },
+        options: {
+            transitions: {
+                zoom: {
+                    animation: {
+                        duration: 0
+                    }
+                }
+            },
+            animation: {
+                duration: 0
+            },
+            scales: {
+                yAxis: {
+                    min: 0,
+                    max: 120
+                },
+                xAxis: {
+                    type: 'time',
+                    time: {
+                        unit: 'second',
+                        displayFormats: {
+                            minute: 'HH:mm:ss',
+                        }
+                    }
+                }
+            },
+            plugins: {
+                zoom: {
+                    zoom: {
+                        drag: {
+                            enabled: true,
+                        },
+                        wheel: {
+                            enabled: true,
+                        },
+                        pinch: {
+                            enabled: true,
+                        },
+                        mode: 'x',
+                    }
+                },
+            }
+        }
+    });
+}
+
+function makeSummaryContent(vCount) {
+    //Make the content
+    var vContent = '<div class="tab">';
+    if (vCurrentTab === "DETAIL") {
+        vContent = vContent + '<button class="tablinks active" onclick="openTab(event, \'DETAIL\')">DETAIL</button>';
+    } else {
+        vContent = vContent + '<button class="tablinks" onclick="openTab(event, \'DETAIL\')">DETAIL</button>';
+    }
+    if (vCurrentTab === "IMPACT") {
+        vContent = vContent + '<button class="tablinks active" onclick="openTab(event, \'IMPACT\')">IMPACT</button>';
+    } else {
+        vContent = vContent + '<button class="tablinks" onclick="openTab(event, \'IMPACT\')">IMPACT</button>';
+    }
+    if (vCurrentTab === "IMU") {
+        vContent = vContent + '<button class="tablinks active" onclick="openTab(event, \'IMU\')">IMU</button>';
+    } else {
+        vContent = vContent + '<button class="tablinks" onclick="openTab(event, \'IMU\')">IMU</button>';
+    }
+    if (vCurrentTab === "TEMP") {
+        vContent = vContent + '<button class="tablinks active" onclick="openTab(event, \'TEMP\')">TEMP</button>';
+    } else {
+        vContent = vContent + '<button class="tablinks" onclick="openTab(event, \'TEMP\')">TEMP</button>';
+    }
+    if (vCurrentTab === "FUEL") {
+        vContent = vContent + '<button class="tablinks active" onclick="openTab(event, \'FUEL\')">FUEL</button>';
+    } else {
+        vContent = vContent + '<button class="tablinks" onclick="openTab(event, \'FUEL\')">FUEL</button>';
+    }
+    if (vCurrentTab === "EVENT") {
+        vContent = vContent + '<button class="tablinks active" onclick="openTab(event, \'EVENT\')">EVENT</button>';
+    } else {
+        vContent = vContent + '<button class="tablinks" onclick="openTab(event, \'EVENT\')">EVENT</button>';
+    }
+    vContent = vContent + '<CENTER><div id="SumaryTitle">NO MACHINE SELECTED</div></CENTER></div>';
+    vContent = vContent + '<div id="DETAIL" class="tabcontent"></div>';
+    //vContent=vContent+'<h3>IMPACT</h3><p>Table of impacts</p></div>';
+    vContent = vContent + '<div id="IMPACT" class="tabcontent"></div>';
+    //vContent=vContent+'<h3>IMPACT</h3><p>Table of impacts</p></div>';
+    vContent = vContent + '<div id="IMU" class="tabcontent">';
+    vContent = vContent + '<h3>IMU</h3><p>Graph of IMU</p></div>';
+    vContent = vContent + '<div id="TEMP" class="tabcontent">';
+    vContent = vContent + '<h3>TEMP</h3><p>Graph of Temperatures.</p></div>';
+    vContent = vContent + '<div id="FUEL" class="tabcontent">';
+    vContent = vContent + '<h3>FUEL</h3><p>Graph of Fuel Level.</p></div>';
+    vContent = vContent + '<div id="EVENT" class="tabcontent">';
+    //vContent=vContent+'<h3>FUEL</h3><p>Table of Events.</p></div>';
+    //Now the summary box.
+    var vConsole = {};
+    vConsole.id = String(vCount);
+    vConsole.content = "" + vContent;
+    vConsole.x = 0;
+    vConsole.y = 3;
+    vConsole.w = 8;
+    vConsole.h = 4;
+    return vConsole;
+}
+
+function parseCODES(vELEMENT_DATA) {
+    var vErrorCodes = [];
+    vELEMENT_DATA.ERROR_LEVEL_COUNT_1 = 0;
+    vELEMENT_DATA.ERROR_LEVEL_COUNT_2 = 0;
+    vELEMENT_DATA.ERROR_LEVEL_COUNT_3 = 0;
+    vELEMENT_DATA.ERROR_LEVEL_CODE_1 = "";
+    vELEMENT_DATA.ERROR_LEVEL_CODE_2 = "";
+    vELEMENT_DATA.ERROR_LEVEL_CODE_3 = "";
+    if (vELEMENT_DATA.COMMAND_CODES != "" && vELEMENT_DATA.COMMAND_CODES != null) {
+        var vCODES = vELEMENT_DATA.COMMAND_CODES.replace(',', ';').split(';');
+        var vErrorCodes = [];
+        vCODES.forEach((vCODES, index, arr) => {
+            var vCODE = vCODES.split(":");
+            var vSOURCE = vCODE[0];
+            var vDATA = vCODE[1];
+            if (vDATA != "" && vDATA != null) {
+                var vPARTS = vDATA.replace(')', '').split('(');
+                var vERROR = vPARTS[0];
+                var vLEVEL = vPARTS[1];
+                vErrorCodes.push(vERROR);
+                if (vLEVEL == 1) {
+                    vELEMENT_DATA.ERROR_LEVEL_COUNT_1++;
+                    vELEMENT_DATA.ERROR_LEVEL_CODE_1 += "" + vERROR + ";";
+                } else if (vLEVEL == 2) {
+                    vELEMENT_DATA.ERROR_LEVEL_COUNT_2++;
+                    vELEMENT_DATA.ERROR_LEVEL_CODE_2 += "" + vERROR + ";";
+                } else if (vLEVEL >= 3) {
+                    vELEMENT_DATA.ERROR_LEVEL_COUNT_3++;
+                    vELEMENT_DATA.ERROR_LEVEL_CODE_3 += "" + vERROR + ";";
+                }
+            }
+        });
+    }
+    vELEMENT_DATA.CODES = JSON.parse(JSON.stringify(vErrorCodes));
+    return vELEMENT_DATA;
+}
+
+function makeContent(vELEMENT_DATA) {
+    var vClass = "div-1";
+    if (vELEMENT_DATA.OPERATOR_NAME == "") {
+        vClass = "div-3";
+    } else if (vELEMENT_DATA.MACHINE_NAME == "") {
+        vClass = "div-2";
+    }
+
+    var vControlClass = "div-4";
+    if (vELEMENT_DATA.MODE == "TELE_REMOTE") {
+        vControlClass = "div-3";
+    } else if (vELEMENT_DATA.MODE == "CO_PILOT") {
+        vControlClass = "div-2";
+    } else if (vELEMENT_DATA.MODE == "AUTO_PILOT") {
+        vControlClass = "div-1";
+    }
+
+    var vFuelClass = "div-1";
+    if (vELEMENT_DATA.FUEL_LEVEL == "-") {
+        vFuelClass = "div-3";
+    } else if (vELEMENT_DATA.FUEL_LEVEL < 25) {
+        vFuelClass = "blink";
+    } else if (vELEMENT_DATA.FUEL_LEVEL < 50) {
+        vFuelClass = "div-2";
+    }
+
+    var vEngineCoolantTemperatureClass = "div-1";
+    if (vELEMENT_DATA.ENGINE_COOLANT_TEMPERATURE == "-") {
+        vEngineCoolantTemperatureClass = "div-3";
+    } else if (vELEMENT_DATA.ENGINE_COOLANT_TEMPERATURE > 90 && vELEMENT_DATA.ENGINE_COOLANT_TEMPERATURE < 100) {
+        vEngineCoolantTemperatureClass = "div-2";
+    } else if (vELEMENT_DATA.ENGINE_COOLANT_TEMPERATURE > 99) {
+        vEngineCoolantTemperatureClass = "blink";
+    }
+
+    var vErrorLevel1Class = "div-1";
+    if (vELEMENT_DATA.ERROR_LEVEL_COUNT_1 > 0) {
+        vErrorLevel1Class = "div-2";
+    }
+
+    var vErrorLevel2Class = "div-1";
+    if (vELEMENT_DATA.ERROR_LEVEL_COUNT_2 > 2) {
+        vErrorLevel2Class = "blink";
+    } else if (vELEMENT_DATA.ERROR_LEVEL_COUNT_2 > 0) {
+        vErrorLevel2Class = "div-2";
+    }
+
+    var vErrorLevel3Class = "div-1";
+    if (vELEMENT_DATA.ERROR_LEVEL_COUNT_3 > 1) {
+        vErrorLevel3Class = "blink";
+    }
+
+    vELEMENT_DATA = parseCODES(vELEMENT_DATA);
+    if (vShowDetails == "supervisor") {
+        var vContent = '<div id="' + vELEMENT_DATA.CONSOLE + '" class="' + vClass + '"><LEFT>';
+        vContent = vContent + '<TABLE class="table3" style="width:100%"><TR><TH style="width:90%"><b>' + vELEMENT_DATA.GROUP + '-' + vELEMENT_DATA.CONSOLE + '[' + vELEMENT_DATA.MACHINE_NAME + ']</b></TH><TH style="width:10%;text-align: right;"><div class="' + vErrorLevel3Class + '" title="Level 3 Error Codes">' + vELEMENT_DATA.ERROR_LEVEL_COUNT_3 + '</div></TH></TR>';
+        vContent = vContent + '<TR><TD><div class="' + vFuelClass + '">FUEL:[' + vELEMENT_DATA.FUEL_LEVEL + '%]</div></TD><TD style="width:10%;text-align: right;"><div class="' + vErrorLevel2Class + '" title="Level 2 Error Codes">' + vELEMENT_DATA.ERROR_LEVEL_COUNT_2 + '</div></TD></TR>';
+        vContent = vContent + '<TR><TD><div class="' + vEngineCoolantTemperatureClass + '">TEMP:[' + vELEMENT_DATA.ENGINE_COOLANT_TEMPERATURE + 'C]</div></TD><TD style="width:10%;text-align: right;"><div class="' + vErrorLevel1Class + '" title="Level 1 Error Codes">' + vELEMENT_DATA.ERROR_LEVEL_COUNT_1 + '</div></TD></TR></TABLE>';
+        vContent = vContent + '<div style="font-size:10px"> ' + vELEMENT_DATA.OPERATOR_NAME + '</div>';
+        vContent = vContent + ' PANEL:[' + vELEMENT_DATA.PANEL_ASSIGNED + ']<BR>';
+        var vSeconds = 0;
+        var vStart = 0;
+        var vEnd = 0;
+        if (vELEMENT_DATA.START_TIME != "") {
+            var vStart = (new Date(vELEMENT_DATA.START_TIME)).getTime();
+            var vEnd = (new Date()).getTime();
+            if ((vELEMENT_DATA.END_TIME != "") && (vELEMENT_DATA.END_TIME != null) && (vELEMENT_DATA.END_TIME != "null")) {
+                vEnd = (new Date(vELEMENT_DATA.END_TIME)).getTime();
+            }
+            vSeconds = vEnd - vStart;
+        }
+        var vDStr = millisecondsToStrTime8Char(vSeconds);
+        //""+vDate.toLocaleDateString()+" "+vDate.toLocaleTimeString();
+        if (vELEMENT_DATA.MACHINE_NAME != "") {
+            vContent = vContent + '<div style="font-size:10px"> SPONSORED:' + vDStr + '</div>';
+        }
+        vContent = vContent + '<div class="' + vControlClass + '"> ' + vELEMENT_DATA.MODE + '</DIV>';
+        var vSpacer = ";";
+        if ((vELEMENT_DATA.DELAY_CLASS_DESCRIPTION == "") || (vELEMENT_DATA.DELAY_DESCRIPTION == "")) {
+            vSpacer = "";
+        }
+        if (vELEMENT_DATA.DELAY_DURATION == 0) {
+            vContent = vContent + '<div class="div-5"> ' + vELEMENT_DATA.DELAY_CLASS_DESCRIPTION + vSpacer + vELEMENT_DATA.DELAY_DESCRIPTION + '</div>';
+        } else {
+            var vDDStr = millisecondsToStrTime8Char(vELEMENT_DATA.DELAY_DURATION);
+            vContent = vContent + '<div style="font-size:10px"><div class="div-5"> ' + vELEMENT_DATA.DELAY_CLASS_DESCRIPTION + vSpacer + vELEMENT_DATA.DELAY_DESCRIPTION + '(' + vDDStr + ')</div></div>';
+        }
+        //if (vELEMENT_DATA.MACHINE_NAME!=""){
+        //			vContent=vContent+'<div> CODES:'+vELEMENT_DATA.COMMAND_CODES+'</div>';
+        //}
+        vContent = vContent + '</LEFT></div>';
+    } else if (vShowDetails == "controller") {
+        var vContent = '<LEFT><div class="' + vClass + '"><b>' + vELEMENT_DATA.GROUP + '-' + vELEMENT_DATA.CONSOLE + '      [' + vELEMENT_DATA.MACHINE_NAME + ']</b><BR>';
+        vContent = vContent + '<div style="font-size:10px"> <div class="' + vFuelClass + '">FUEL:[' + vELEMENT_DATA.FUEL_LEVEL + '%]</div>';
+        vContent = vContent + '<div class="' + vEngineCoolantTemperatureClass + '">TEMP:[' + vELEMENT_DATA.ENGINE_COOLANT_TEMPERATURE + 'C]</div>';
+        vContent = vContent + ' ' + vELEMENT_DATA.OPERATOR_NAME + '<BR>';
+        vContent = vContent + ' PANEL:A[' + vELEMENT_DATA.PANEL_ASSIGNED + ']S[' + vELEMENT_DATA.PANEL_SERVICING + ']<BR>';
+        vContent = vContent + ' ' + vELEMENT_DATA.CONSOLE_NAME + '(' + vELEMENT_DATA.CONSOLE_IP + ')<BR>';
+        var vSeconds = 0;
+        var vStart = 0;
+        var vEnd = 0;
+        if (vELEMENT_DATA.START_TIME != "") {
+            var vStart = (new Date(vELEMENT_DATA.START_TIME)).getTime();
+            var vEnd = (new Date()).getTime();
+            if ((vELEMENT_DATA.END_TIME != "") && (vELEMENT_DATA.END_TIME != null) && (vELEMENT_DATA.END_TIME != "null")) {
+                vEnd = (new Date(vELEMENT_DATA.END_TIME)).getTime();
+            }
+            vSeconds = vEnd - vStart;
+        }
+        var vDStr = millisecondsToStrTime8Char(vSeconds);
+        //""+vDate.toLocaleDateString()+" "+vDate.toLocaleTimeString();
+        if (vELEMENT_DATA.MACHINE_NAME != "") {
+            vContent = vContent + ' SPONSORED:' + vDStr + '<BR>';
+        }
+        vContent = vContent + '<div class="' + vControlClass + '"> ' + vELEMENT_DATA.MODE + '</DIV>';
+        var vSpacer = ";";
+        if ((vELEMENT_DATA.DELAY_CLASS_DESCRIPTION == "") || (vELEMENT_DATA.DELAY_DESCRIPTION == "")) {
+            vSpacer = "";
+        }
+        if (vELEMENT_DATA.DELAY_DURATION == 0) {
+            vContent = vContent + '<div class="div-5"> ' + vELEMENT_DATA.DELAY_CLASS_DESCRIPTION + vSpacer + vELEMENT_DATA.DELAY_DESCRIPTION + '</div><BR>';
+        } else {
+            var vDDStr = millisecondsToStrTime8Char(vELEMENT_DATA.DELAY_DURATION);
+            vContent = vContent + '<div class="div-5"> ' + vELEMENT_DATA.DELAY_CLASS_DESCRIPTION + vSpacer + vELEMENT_DATA.DELAY_DESCRIPTION + '(' + vDDStr + ')</div><BR>';
+        }
+        vContent = vContent + '</div></DIV></LEFT>';
+    } else {
+        var vContent = '<LEFT><div class="' + vClass + '"><b>' + vELEMENT_DATA.GROUP + '-' + vELEMENT_DATA.CONSOLE + ' [' + vELEMENT_DATA.MACHINE_NAME + ']</b><BR>';
+        vContent = vContent + '<div class="' + vFuelClass + '">FUEL:[' + vELEMENT_DATA.FUEL_LEVEL + '%]</div>';
+        vContent = vContent + ' ' + vELEMENT_DATA.OPERATOR_NAME + '<BR>';
+        vContent = vContent + ' ' + vELEMENT_DATA.MACHINE_SERIAL + '<BR>';
+        vContent = vContent + ' PANEL:A[' + vELEMENT_DATA.PANEL_ASSIGNED + ']S[' + vELEMENT_DATA.PANEL_SERVICING + ']<BR>';
+        vContent = vContent + ' ' + vELEMENT_DATA.CONSOLE_NAME + '(' + vELEMENT_DATA.CONSOLE_IP + ')<BR>';
+        var vSeconds = 0;
+        var vStart = 0;
+        var vEnd = 0;
+        if (vELEMENT_DATA.START_TIME != "") {
+            var vStart = (new Date(vELEMENT_DATA.START_TIME)).getTime();
+            var vEnd = (new Date()).getTime();
+            if ((vELEMENT_DATA.END_TIME != "") && (vELEMENT_DATA.END_TIME != null) && (vELEMENT_DATA.END_TIME != "null")) {
+                vEnd = (new Date(vELEMENT_DATA.END_TIME)).getTime();
+            }
+            vSeconds = vEnd - vStart;
+        }
+        var vDStr = millisecondsToStrTime8Char(vSeconds);
+        //""+vDate.toLocaleDateString()+" "+vDate.toLocaleTimeString();
+        if (vELEMENT_DATA.MACHINE_NAME != "") {
+            vContent = vContent + ' SPONSORED:' + vDStr + '<BR>';
+        }
+        vContent = vContent + '<div class="' + vControlClass + '"> ' + vELEMENT_DATA.MODE + '</DIV>';
+        var vSpacer = ";";
+        if ((vELEMENT_DATA.DELAY_CLASS_DESCRIPTION == "") || (vELEMENT_DATA.DELAY_DESCRIPTION == "")) {
+            vSpacer = "";
+        }
+        if (vELEMENT_DATA.DELAY_DURATION == 0) {
+            vContent = vContent + '<div class="div-5"> ' + vELEMENT_DATA.DELAY_CLASS_DESCRIPTION + vSpacer + vELEMENT_DATA.DELAY_DESCRIPTION + '</div><BR>';
+        } else {
+            var vDDStr = millisecondsToStrTime8Char(vELEMENT_DATA.DELAY_DURATION);
+            vContent = vContent + '<div class="div-5"> ' + vELEMENT_DATA.DELAY_CLASS_DESCRIPTION + vSpacer + vELEMENT_DATA.DELAY_DESCRIPTION + '(' + vDDStr + ')</div><BR>';
+        }
+        if (vELEMENT_DATA.MACHINE_NAME != "") {
+            vContent = vContent + '<div> CODES:' + vELEMENT_DATA.COMMAND_CODES + '</div>';
+        }
+        vContent = vContent + '</div></DIV></LEFT>';
+    }
+
+    return vContent;
+}
+
+function makeCharts(details) {
+    var vConsoles = [];
+    var vCount = 0;
+    vConsoleDetails = [];
+    details.forEach((vELEMENT_DATA, index, arr) => {
+        vELEMENT_DATA.OPERATOR_NAME = "";
+        vELEMENT_DATA.MACHINE_NAME = "";
+        vELEMENT_DATA.START_TIME = "";
+        vELEMENT_DATA.END_TIME = "";
+        vELEMENT_DATA.MODE = "";
+        vELEMENT_DATA.DELAY_DESCRIPTION = "";
+        vELEMENT_DATA.DELAY_CLASS_DESCRIPTION = "";
+        vELEMENT_DATA.DELAY_DURATION = 0;
+        vELEMENT_DATA.FUEL_LEVEL = 0;
+        vELEMENT_DATA.ENGINE_COOLANT_TEMPERATURE = 0;
+        vELEMENT_DATA.HYDRAULIC_OIL_TEMPERATURE = 0;
+        vELEMENT_DATA.ECM_ENCLOSURE_TEMPERATURE = 0;
+        vELEMENT_DATA.AIR_INLET_TEMPERATURE = 0;
+        vELEMENT_DATA.TRANSMISSION_OIL_TEMPERATURE = 0;
+        vELEMENT_DATA.FRONT_AXLE_OIL_TEMPERATURE = 0;
+        vELEMENT_DATA.REAR_AXLE_OIL_TEMPERATURE = 0;
+        vELEMENT_DATA.COMMAND_CODES = "";
+        vConsoleDetails.push(vELEMENT_DATA);
+        var vConsole = {};
+        vConsole.id = String(vCount);
+        vConsole.content = makeContent(vELEMENT_DATA);
+        vConsole.x = vELEMENT_DATA.X;
+        vConsole.y = vELEMENT_DATA.Y;
+        vConsole.w = 1;
+        vConsole.h = 1;
+        vConsoles.push(vConsole);
+        vCount++;
+    });
+
+    //Now the summary box.
+    var vConsole = makeSummaryContent(vCount);
+    vConsoles.push(vConsole);
+
+    var vDetails = [];
+    if (localStorage.getItem('consoles-dash.config') === null) {
+        console.log("No Stored Grid.");
+    } else {
+        vDetails = JSON.parse(localStorage.getItem('consoles-dash.config'));
+        console.log("Stored Grid Loaded.");
+        console.log(JSON.parse(localStorage.getItem('consoles-dash.config')));
+        vConsoles.forEach((vConsole, index, arr) => {
+            vDetails.forEach((vDetail, index, arr) => {
+                if (vDetail.id === vConsole.id) {
+                    vConsole.x = vDetails[index].x;
+                    vConsole.y = vDetails[index].y;
+                    vConsole.w = vDetails[index].w;
+                    vConsole.h = vDetails[index].h;
+                }
+            });
+        });
+    }
+
+    vGrid = GridStack.init({
+        column: 12,
+        minRow: 1, //Dont let it collapse when empty
+        cellHeight: 160,
+        float: true,
+        draggable: {
+            cancel: '.no-drag'
+        } // example of additional custom elements with no drag.
+    });
+    vGrid.load(vConsoles);
+    vGrid.setStatic(vStaticGrid);
+
+    console.log("Grid Created.");
+    makeTabDETAILContent();
+    makeTabIMPACTContent();
+    makeTabIMUContent();
+    makeTabTEMPContent();
+    makeTabFUELContent();
+    makeTabEVENTContent();
+    myUpdater();
+}
+
+function myTimer() {
+    if (!vUpdatingTabs) {
+        var d = new Date();
+        var t = d.toLocaleTimeString();
+        document.getElementById("timestamp").innerHTML = t;
+    }
+}
+
+var myUpdate = setInterval(myUpdater, 2000);
+
+var vCurrentFilteredData = [];
+
+function myUpdater() {
+    //console.log("myUpdater: Forcing Update to refresh data...("+ (new Date()).toISOString()+").");
+    updateDataLock();
+}
+
+var vUpdateProcessCount = 0;
+var vCMDConsoleDataCache = {};
+var vFLTMachineDataCache = {};
+var vFLTPanelDataCache = {};
+var vFLTDelayDataCache = {};
+var vCMDEventsCache = {};
+var vCMDGeneralDataCache = {};
+var vUpdatingData = false;
+
+function updateDataLock() {
+    if (!vUpdatingData) {
+        vUpdatingData = true;
+        var vPromiseConsoleEvents = new Promise((resolve, reject) => {
+            if (vUpdateProcessCount == 0 || vUpdateProcessCount == 2 || vUpdateProcessCount == 4) {
+                console.log("updateCMDConsoleEventCurrent: Loading new Console data...");
+                getCMDConsoleEventCurrentData(
+                    function(data) {
+                        vCMDConsoleDataCache = data;
+                        resolve();
+                    },
+                    function(data) {
+                        reject(data);
+                    }
+                );
+            } else {
+                resolve();
+            }
+        });
+        var vPromiseMachineData = new Promise((resolve, reject) => {
+            console.log("updateMachines: Loading new machine data...");
+            getFLTMachineCurrentData("CMD",
+                function(data) {
+                    vFLTMachineDataCache = data;
+                    resolve();
+                },
+                function(data) {
+                    reject(data);
+                }
+            );
+        });
+        var vPromisePanelData = new Promise((resolve, reject) => {
+            if (vUpdateProcessCount == 0) {
+                console.log("updateFLTPanel: Loading new Panel data...");
+                getFLTPanelCurrentData(
+                    function(data) {
+                        vFLTPanelDataCache = data;
+                        resolve();
+                    },
+                    function(data) {
+                        reject(data);
+                    }
+                );
+            } else {
+                resolve();
+            }
+        });
+        var vPromiseDelayData = new Promise((resolve, reject) => {
+            if (vUpdateProcessCount == 0) {
+                console.log("updateFLTDelayCurrent: Loading new FLT Delay data...");
+                getFLTDelayCurrentData(
+                    function(data) {
+                        vFLTDelayDataCache = data;
+                        resolve();
+                    },
+                    function(data) {
+                        reject(data);
+                    }
+                );
+            } else {
+                resolve();
+            }
+        });
+        var vPromiseEventData = new Promise((resolve, reject) => {
+            if (vUpdateProcessCount == 0) {
+                console.log("updateCMDTelemtryCurrent: Loading new CMD Telemetry Events data...");
+                getCMDTelemetryCurrentData("EVENT", "MACHINE_CODES",
+                    function(data) {
+                        vCMDEventsCache = data;
+                        resolve();
+                    },
+                    function(data) {
+                        reject(data);
+                    }
+                );
+            } else {
+                resolve();
+            }
+        });
+        var vPromiseGeneralData = new Promise((resolve, reject) => {
+            if (vUpdateProcessCount == 0 || vUpdateProcessCount == 2 || vUpdateProcessCount == 4) {
+                console.log("updateCMDTelemtryCurrent: Loading new CMD Telemetry General data...");
+                getCMDTelemetryCurrentData("GENERAL", "ENGINE_COOLANT_TEMPERATURE,FUEL_LEVEL",
+                    function(data) {
+                        vCMDGeneralDataCache = data;
+                        resolve();
+                    },
+                    function(data) {
+                        reject(data);
+                    }
+                );
+            } else {
+                resolve();
+            }
+        });
+        vUpdateProcessCount++;
+        if (vUpdateProcessCount > 5) {
+            vUpdateProcessCount = 0;
+        }
+        Promise.allSettled([vPromiseConsoleEvents, vPromiseMachineData, vPromisePanelData, vPromiseDelayData, vPromiseEventData, vPromiseGeneralData])
+            .then((values) => updateChartsLock(values));
+    }
+}
+
+var vUpdatingChart = false;
+
+function updateChartsLock(values) {
+    //console.log("PROMISERESULTS:"+JSON.stringify(values)+".");
+    var vNow = new Date().getTime();
+    vUpdatingData = false;
+    if (!vUpdatingChart) {
+        var vCompleteData = [];
+        console.log("MACHINESDATA[" + vFLTDelayDataCache.length + "]ROSDATA[" + vCMDConsoleDataCache.length + "].");
+        vCMDConsoleDataCache.forEach((ros, index, arr) => {
+            if (ros.CONSOLE_NAME != ros.MACHINE_SERIAL) {
+                ros.MODE = "";
+                ros.OPERATOR_NAME = "";
+                vFLTMachineDataCache.forEach((data, index2, arr2) => {
+                    if (data.MACHINE_NAME == ros.MACHINE_NAME) {
+                        ros.MACHINE_OID = data.MACHINE_OID;
+                        ros.MODE = "" + data.MODE;
+                        ros.OPERATOR_NAME = "" + data.OPERATOR_NAME;
+                        //console.log("SET MODE ["+ros.CONSOLE_NAME+"]["+ros.MACHINE_NAME+"]["+data.MODE+"]."); 
+                    }
+                });
+                ros.DELAY_DESCRIPTION = "";
+                ros.DELAY_CLASS_DESCRIPTION = "";
+                ros.DELAY_DURATION = 0;
+                vFLTDelayDataCache.forEach((delay, index3, arr3) => {
+                    if (delay.MACHINE_NAME == ros.MACHINE_NAME) {
+                        if (delay.ACTIVE) {
+                            if ((delay.START_TIME != null) && (delay.END_TIME == null)) {
+                                if (delay.DELAY_STATUS == "ACTIVE") {
+                                    ros.DELAY_DESCRIPTION = "" + delay.DESCRIPTION;
+                                    ros.DELAY_CLASS_DESCRIPTION = "" + delay.CLASS_DESCRIPTION;
+                                    var vStart = Date.parse(delay.START_TIME);
+                                    ros.DELAY_DURATION = vNow - vStart;
+                                    //console.log("SET DELAY ["+ros.DELAY_DESCRIPTION+"]["+ros.MACHINE_NAME+"]["+ros.DELAY_DURATION+"].");
+                                }
+                            }
+                        }
+                    }
+                });
+
+                ros.PANEL_ASSIGNED = "";
+                ros.PANEL_SERVICING = "";
+                //Lets pass and join the panel data.
+                vFLTPanelDataCache.forEach((panel, index5, arr5) => {
+                    if (panel.ASSIGNED_MACHINE_OIDS != null) {
+                        panel.ASSIGNED_MACHINE_OIDS.forEach(vOID => {
+                            if (vOID === ros.MACHINE_OID) {
+                                ros.PANEL_ASSIGNED = panel.PANEL_NAME;
+                            }
+                        });
+                    }
+                    if (panel.SERVICING_MACHINE_OIDS != null) {
+                        panel.SERVICING_MACHINE_OIDS.forEach(vOID => {
+                            if (vOID === ros.MACHINE_OID) {
+                                ros.PANEL_SERVICING = panel.PANEL_NAME;
+                            }
+                        });
+                    }
+                });
+
+                ros.FUEL_LEVEL = "-";
+                ros.ENGINE_COOLANT_TEMPERATURE = "-";
+                ros.HYDRAULIC_OIL_TEMPERATURE = "-";
+                ros.ECM_ENCLOSURE_TEMPERATURE = "-";
+                ros.AIR_INLET_TEMPERATURE = "-";
+                ros.TRANSMISSION_OIL_TEMPERATURE = "-";
+                ros.FRONT_AXLE_OIL_TEMPERATURE = "-";
+                ros.REAR_AXLE_OIL_TEMPERATURE = "-";
+                vCMDGeneralDataCache.forEach((vims, index4, arr4) => {
+                    if (vims.MACHINE_NAME != "" && vims.MACHINE_NAME != null) {
+                        if (vims.MACHINE_NAME == ros.MACHINE_NAME) {
+                            if (vims.TYPE == "FUEL_LEVEL") {
+                                ros.FUEL_LEVEL = Number.parseFloat(vims.VALUE).toFixed(0);
+                            } else if (vims.TYPE == "ENGINE_COOLANT_TEMPERATURE") {
+                                ros.ENGINE_COOLANT_TEMPERATURE = Number.parseFloat(vims.VALUE).toFixed(0);
+                            } else if (vims.TYPE == "HYDRAULIC_OIL_TEMPERATURE") {
+                                ros.HYDRAULIC_OIL_TEMPERATURE = Number.parseFloat(vims.VALUE).toFixed(0);
+                            } else if (vims.TYPE == "ECM_ENCLOSURE_TEMPERATURE") {
+                                ros.ECM_ENCLOSURE_TEMPERATURE = Number.parseFloat(vims.VALUE).toFixed(0);
+                            } else if (vims.TYPE == "AIR_INLET_TEMPERATURE") {
+                                ros.AIR_INLET_TEMPERATURE = Number.parseFloat(vims.VALUE).toFixed(0);
+                            } else if (vims.TYPE == "TRANSMISSION_OIL_TEMPERATURE") {
+                                ros.TRANSMISSION_OIL_TEMPERATURE = Number.parseFloat(vims.VALUE).toFixed(0);
+                            } else if (vims.TYPE == "FRONT_AXLE_OIL_TEMPERATURE") {
+                                ros.FRONT_AXLE_OIL_TEMPERATURE = Number.parseFloat(vims.VALUE).toFixed(0);
+                            } else if (vims.TYPE == "REAR_AXLE_OIL_TEMPERATURE") {
+                                ros.REAR_AXLE_OIL_TEMPERATURE = Number.parseFloat(vims.VALUE).toFixed(0);
+                            }
+                        }
+                    }
+                });
+                ros.COMMAND_CODES = "";
+                vCMDEventsCache.forEach((codes, index6, arr6) => {
+                    if (codes.MACHINE_NAME != "" && codes.MACHINE_NAME != null) {
+                        if (codes.MACHINE_NAME == ros.MACHINE_NAME) {
+                            ros.COMMAND_CODES = "" + codes.VALUE;
+                        }
+                    }
+                });
+                vCompleteData.push(ros);
+            }
+        });
+        vUpdatingChart = true;
+        updateCharts(vCompleteData);
+        document.getElementById(vCurrentTab).style.display = "block";
+        vCompleteData.forEach((vELEMENT_DATA, index, arr) => {
+            if (vELEMENT_DATA.CONSOLE.startsWith("R")) {
+                let divElement = document.getElementById(vELEMENT_DATA.CONSOLE);
+                //console.log("Setting up eventListeners for ["+vELEMENT_DATA.CONSOLE+"]["+divElement+"].");
+                if (divElement != null) {
+                    divElement.ELEMENT_DATA = vELEMENT_DATA;
+                    divElement.addEventListener("click", selectMachine, false);
+                }
+            }
+        });
+        vUpdatingChart = false;
+    }
+}
+
+function selectMachine(evt) {
+    var vELEMENT_DATA = evt.currentTarget.ELEMENT_DATA;
+    console.log("Clicked ROS " + vELEMENT_DATA.CONSOLE + ".");
+    vCURRENT_ELEMENT = vELEMENT_DATA;
+    var vName = "NO MACHINE SELECTED";
+    if (vELEMENT_DATA.MACHINE_NAME != "" && vELEMENT_DATA.MACHINE_NAME != null) {
+        vName = vELEMENT_DATA.MACHINE_NAME;
+    }
+    var vTitle = document.getElementById("SumaryTitle");
+    if (vTitle != null) {
+        vTitle.innerHTML = "<div style='font-size:large;'><b>" + vName + "</b></div>";
+    }
+    vUpdateCount = 0;
+    updateTabs();
+}
+
+var vUpdatingTabs = false;
+var vUpdateWaitCount = 5;
+var vUpdateCount = 0;
+
+function updateTabs() {
+    if (vCURRENT_ELEMENT != null && vCURRENT_ELEMENT.MACHINE_NAME != "" && vCURRENT_ELEMENT.MACHINE_NAME != null) {
+        //console.log("Updating tabs "+vCurrentTab+".");
+        if (vCurrentTab == "DETAIL") {
+            makeTabDETAILContent();
+        } else {
+            if (vUpdateCount == 0) {
+                vUpdatingTabs = true;
+                document.getElementById("timestamp").innerHTML = 'Updating...';
+                if (vCurrentTab == "IMPACT") {
+                    updateTabIMPACTData();
+                } else if (vCurrentTab == "IMU") {
+                    updateTabIMUData();
+                } else if (vCurrentTab == "TEMP") {
+                    updateTabTEMPData();
+                } else if (vCurrentTab == "FUEL") {
+                    updateTabFUELData();
+                } else if (vCurrentTab == "EVENT") {
+                    updateTabEVENTData();
+                }
+            }
+        }
+        vUpdateCount++;
+        if (vUpdateCount > vUpdateWaitCount) {
+            vUpdateCount = 0;
+        }
+    }
+}
+
+function updateCharts(vFilteredData) {
+    //console.log("updateCharts: Started Updating Grid(" +vFilteredData.length+")("+ (new Date())+")");
+    var vConsoles = [];
+    var vCount = 0;
+    var vNewDetails = [];
+    vConsoleDetails.forEach((vELEMENT_DATA, index, arr) => {
+        vELEMENT_DATA.OPERATOR_NAME = "";
+        vELEMENT_DATA.MACHINE_NAME = "";
+        vELEMENT_DATA.MACHINE_SERIAL = "";
+        vELEMENT_DATA.START_TIME = "";
+        vELEMENT_DATA.END_TIME = "";
+        //vELEMENT_DATA.CONSOLE_IP ="";
+        vELEMENT_DATA.MODE = "";
+        vELEMENT_DATA.DELAY_DESCRIPTION = "";
+        vELEMENT_DATA.DELAY_CLASS_DESCRIPTION = "";
+        vELEMENT_DATA.DELAY_DURATION = 0;
+        vELEMENT_DATA.PANEL_ASSIGNED = "";
+        vELEMENT_DATA.PANEL_SERVICING = "";
+        vELEMENT_DATA.FUEL_LEVEL = "-";
+        vELEMENT_DATA.ENGINE_COOLANT_TEMPERATURE = "-";
+        vELEMENT_DATA.HYDRAULIC_OIL_TEMPERATURE = "-";
+        vELEMENT_DATA.ECM_ENCLOSURE_TEMPERATURE = "-";
+        vELEMENT_DATA.AIR_INLET_TEMPERATURE = "-";
+        vELEMENT_DATA.TRANSMISSION_OIL_TEMPERATURE = "-";
+        vELEMENT_DATA.FRONT_AXLE_OIL_TEMPERATURE = "-";
+        vELEMENT_DATA.REAR_AXLE_OIL_TEMPERATURE = "-";
+        vELEMENT_DATA.COMMAND_CODES = "";
+        var vFound = false;
+        //console.log("DEBUG:"+JSON.stringify(vFilteredData)+".");
+        vFilteredData.forEach((data, index2, arr2) => {
+            if (data.CONSOLE_NAME == vELEMENT_DATA.CONSOLE_NAME) {
+                vELEMENT_DATA.OPERATOR_NAME = "" + data.OPERATOR_NAME;
+                if (!vFound) {
+                    vELEMENT_DATA.MACHINE_NAME = "" + data.MACHINE_NAME;
+                    vELEMENT_DATA.MACHINE_SERIAL = "" + data.MACHINE_SERIAL;
+                    vELEMENT_DATA.START_TIME = "" + data.START_TIME;
+                    vELEMENT_DATA.MODE = "" + data.MODE;
+                    vELEMENT_DATA.DELAY_DESCRIPTION = "" + data.DELAY_DESCRIPTION;
+                    vELEMENT_DATA.DELAY_CLASS_DESCRIPTION = "" + data.DELAY_CLASS_DESCRIPTION;
+                    vELEMENT_DATA.DELAY_DURATION = data.DELAY_DURATION;
+                    vELEMENT_DATA.PANEL_ASSIGNED = data.PANEL_ASSIGNED;
+                    vELEMENT_DATA.PANEL_SERVICING = data.PANEL_SERVICING;
+                    vELEMENT_DATA.FUEL_LEVEL = data.FUEL_LEVEL;
+                    vELEMENT_DATA.ENGINE_COOLANT_TEMPERATURE = data.ENGINE_COOLANT_TEMPERATURE;
+                    vELEMENT_DATA.HYDRAULIC_OIL_TEMPERATURE = data.HYDRAULIC_OIL_TEMPERATURE;
+                    vELEMENT_DATA.ECM_ENCLOSURE_TEMPERATURE = data.ECM_ENCLOSURE_TEMPERATURE;
+                    vELEMENT_DATA.AIR_INLET_TEMPERATURE = data.AIR_INLET_TEMPERATURE;
+                    vELEMENT_DATA.TRANSMISSION_OIL_TEMPERATURE = data.TRANSMISSION_OIL_TEMPERATURE;
+                    vELEMENT_DATA.FRONT_AXLE_OIL_TEMPERATURE = data.FRONT_AXLE_OIL_TEMPERATURE;
+                    vELEMENT_DATA.REAR_AXLE_OIL_TEMPERATURE = data.REAR_AXLE_OIL_TEMPERATURE;
+                    vELEMENT_DATA.COMMAND_CODES = data.COMMAND_CODES;
+                } else {
+                    vELEMENT_DATA.MACHINE_NAME += "," + data.MACHINE_NAME;
+                    vELEMENT_DATA.MACHINE_SERIAL += "," + data.MACHINE_SERIAL;
+                    if (data.START_TIME < vELEMENT_DATA.START_TIME) {
+                        vELEMENT_DATA.START_TIME = data.START_TIME;
+                    }
+                    vELEMENT_DATA.MODE += "," + data.MODE;
+                    vELEMENT_DATA.DELAY_DESCRIPTION += "," + data.DELAY_DESCRIPTION;
+                    vELEMENT_DATA.DELAY_CLASS_DESCRIPTION += "," + data.DELAY_CLASS_DESCRIPTION;
+                    if (data.DELAY_DURATION > vELEMENT_DATA.DELAY_DURATION) {
+                        vELEMENT_DATA.DELAY_DURATION = data.DELAY_DURATION;
+                    }
+                    vELEMENT_DATA.PANEL_ASSIGNED += "," + data.PANEL_ASSIGNED;
+                    vELEMENT_DATA.PANEL_SERVICING += "," + data.PANEL_SERVICING;
+                    vELEMENT_DATA.FUEL_LEVEL += "," + data.FUEL_LEVEL;
+                    vELEMENT_DATA.ENGINE_COOLANT_TEMPERATURE += "," + data.ENGINE_COOLANT_TEMPERATURE;
+                    vELEMENT_DATA.HYDRAULIC_OIL_TEMPERATURE += "," + data.HYDRAULIC_OIL_TEMPERATURE;
+                    vELEMENT_DATA.ECM_ENCLOSURE_TEMPERATURE += "," + data.ECM_ENCLOSURE_TEMPERATURE;
+                    vELEMENT_DATA.AIR_INLET_TEMPERATURE += "," + data.AIR_INLET_TEMPERATURE;
+                    vELEMENT_DATA.TRANSMISSION_OIL_TEMPERATURE += "," + data.TRANSMISSION_OIL_TEMPERATURE;
+                    vELEMENT_DATA.FRONT_AXLE_OIL_TEMPERATURE += "," + data.FRONT_AXLE_OIL_TEMPERATURE;
+                    vELEMENT_DATA.REAR_AXLE_OIL_TEMPERATURE += "," + data.REAR_AXLE_OIL_TEMPERATURE;
+                    vELEMENT_DATA.COMMAND_CODES += "," + data.COMMAND_CODES;
+                }
+                vELEMENT_DATA.END_TIME = "" + data.END_TIME;
+                vELEMENT_DATA.CONSOLE_IP = "" + data.CONSOLE_IP;
+                if (data.OPERATOR_NAME == null) {
+                    vELEMENT_DATA.OPERATOR_NAME = "";
+                }
+                if (data.MACHINE_NAME == null) {
+                    vELEMENT_DATA.MACHINE_NAME = "";
+                }
+                vFound = true;
+            }
+        });
+        if (vELEMENT_DATA.CONSOLE.startsWith("R")) {
+            let divElement = document.getElementById(vELEMENT_DATA.CONSOLE);
+            if (divElement != null) {
+                divElement.innerHTML = makeContent(vELEMENT_DATA);
+            }
+        };
+
+        /*var vConsole = {};
+                                vConsole.id = String(vCount);
+                                vConsole.content = ""+makeContent(vELEMENT_DATA);
+				vConsole.x = vELEMENT_DATA.X;
+				vConsole.y = vELEMENT_DATA.Y;
+                                vConsoles.push(vConsole);*/
+        vCount++;
+        vNewDetails.push(vELEMENT_DATA);
+    });
+
+    //Now the summary box.
+    //vConsoles.push(makeSummaryContent(vCount));
+    vConsoleDetails = vNewDetails;
+    //vGrid.load(vConsoles);
+    //console.log("updateCharts: Finished Updated Charts(" +vFilteredData.length+")("+ (new Date())+").");
+    updateTabs();
+}
+
+function updateGlobalTimes(id, newstart, newstop) {
+    if (id == "TimeRange") {
+        vGlobalStartTime = newstart;
+        if ((vGlobalEndTime != newstop) && vWhen === 0) {
+            vWhen = 1;
+        }
+        vGlobalEndTime = newstop;
+        vRange = ((vGlobalEndTime - vGlobalStartTime) / (3600 * 1000));
+        updateButtons();
+    }
+    updateDataLock();
+}
+
+var myClock = setInterval(myTimer, 1000);
+
+//		function myRefresh() {
+//			var s = ""+ location['href'];
+//			self.location.replace(s.substring(0, s.indexOf('?'))+"?exclusion="+vExclusion+"&entitytype="+vEntityType+"&graphtype="+vGraphType+"&startdatetime="+(new Date(vGlobalStartTime).toISOString())+"&enddatetime="+(new Date(vGlobalEndTime).toISOString())+"&range="+vRange+"&when="+vWhen+"&timeinclusion=both");
+//                }
+
+//		var myRefresher = setInterval(myRefresh, 300000);
+
+$(document).ready(function() {
+    (function() {
+        getCMDConsoleDetails(makeCharts,
+            function(data) {});
+        getCMDTelemetryErrorCodes(
+            function(data) {
+                data.forEach((code) => {
+                    vErrorCodes.set(code.ERROR_CODE, code);
+                })
+            },
+            function(data) {}
+        );
+        getCMDTelemetryErrorItemCodes(
+            function(data) {
+                data.forEach((code) => {
+                    vErrorItemCodes.set(code.ITEM_CODE, code);
+                })
+            },
+            function(data) {}
+        );
+        getCMDTelemetryErrorMeasureCodes(
+            function(data) {
+                data.forEach((code) => {
+                    vErrorMeasureCodes.set(code.MEASURE_CODE, code);
+                })
+            },
+            function(data) {}
+        );
+    })();
+});
+    </script>
+</body>
+
+</html>

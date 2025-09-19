@@ -1,0 +1,12 @@
+{
+  "apps": [
+    {
+      	"name": "ptfidetails",
+      	"script": "./ptfidetails.mjs",
+      	"node_args": "",
+      	"cwd": "/home/ugtrm/node_apps/ptfidetails",
+      	"timestamp": "YYYY-MM-DD HH:mm:ss",
+		"log_date_format": "YYYY-MM-DD HH:mm:ss",
+    }
+  ]
+}
