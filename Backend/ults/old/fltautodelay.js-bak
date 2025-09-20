@@ -1,0 +1,369 @@
+//LIBRARIES
+const express = require('express'); //npm install express
+const bodyParser = require('body-parser'); // npm install body-parser
+const http = require('http');
+const cp = require('child_process');
+const EventSource = require('eventsource');
+var sql = require("mssql");
+const config = require('config');
+const dayjs = require('dayjs');
+var utc = require('dayjs/plugin/utc');
+dayjs.extend(utc);
+const axios = require('axios');
+//const whichPolygon = require('which-polygon');
+const PolygonLookup = require('polygon-lookup');
+//VARIABLES
+var vReadQSize=50; 
+const vFLTServer = config.get('FLTServer');
+const vFLTServerAuth = config.get('FLTServerAuth');//`Basic bWNoYW1iZXI6ODAwMTYzNTc=`
+var reconnectFrequencySeconds = 1;
+var vZoneEvtSource;
+var vDelayEvtSource;
+var vLocationEvtSource;
+
+var vZoneLookup;
+var vFLTZones;
+var vFLTDelays;
+var vFLTLocations;
+
+//Initializing connection string
+var dbConfig = config.get('dbConfig');
+var APP_VERSION = "1.3";
+var PORT = process.env.PORT || 4770;
+
+//var vFLTMachineMap = new Map();
+var vFLTZoneMap = new Map();
+var vFLTDelayMap = new Map();
+var vFLTLocationMap = new Map();
+
+const vTimeInterval = 300000;
+async function startDBConnect(){
+        try {
+                await dbConn.connect();
+        } catch(err) {
+                console.log("FLTAUTODELAY:CONNECTION-ERROR:" + err);
+        };
+	console.log("FLTAUTODELAY:Starting process to load MineStar Delay update data...");
+	await loadZoneData();
+	setupZoneEventSource();
+	await loadDelayData();
+	setupDelayEventSource();
+	await loadLocationData();
+	setupLocationEventSource();
+}
+
+var waitFunc = function() { return reconnectFrequencySeconds * 1000 };
+
+var tryToSetupFunc = function() {
+    setupEventSource();
+    reconnectFrequencySeconds *= 2;
+    if (reconnectFrequencySeconds >= 64) {
+        reconnectFrequencySeconds = 64;
+    }
+};
+
+var reconnectFunc = function() { setTimeout(tryToSetupFunc, waitFunc()) };
+
+async function loadDataPeriodic(){
+        loadData(60);
+}
+
+//Initial load of zone data.
+var vLoadingZoneData=false;
+async function loadZoneData(){
+        if(!vLoadingZoneData){
+                vLoadingZoneData=true;
+                try {
+                        console.log("FLTAUTODELAY:LOADZONES: Requesting active zones...");
+                        const params = {
+                                method: 'GET',
+                                url: 'http://' + vFLTServer + ':1100/underground/api/zones?active=true',
+                                json: true,
+                                headers: {
+                                        Authorization: vFLTServerAuth 
+                                },
+                                timeout: 30000,
+                        };
+
+                        const data = await axios(params);
+			console.log('FLTAUTODELAY:LOADZONES: Updating Zones.');
+			vFLTZones=data.data;
+			console.log('Creating polygon group...');
+                        vZoneLookup = new PolygonLookup(vFLTZones);
+                } catch (e) {
+                        console.error("FLTAUTODELAY:LOADZONES: ERROR:"+e); // should contain code (exit code) and signal (that caused the termination).
+                }
+                console.log("FLTAUTODELAY:LOADZONES: FINISHED LOADING ALL ZONES("+vFLTZones.features.length+").");
+                vLoadingZoneData=false;
+        }
+}
+
+//Initial load of delay data.
+var vLoadingDelayData=false;
+async function loadDelayData(){
+        if(!vLoadingDelayData){
+                vLoadingDelayData=true;
+                try {
+                        console.log("FLTAUTODELAY:LOADDELAYS: Requesting active delays...");
+                        const params = {
+                                method: 'GET',
+                                url: 'http://' + vFLTServer + ':1100/underground/api/delays?active=true',
+                                json: true,
+                                headers: {
+                                        Authorization: vFLTServerAuth
+                                },
+                                timeout: 30000,
+                        };
+
+                        const data = await axios(params);
+			console.log('FLTAUTODELAY:LOADDELAYS: Updating Delays.');
+			vFLTDelays=data.data;
+			vFLTDelays.forEach((value,index) => {
+				vFLTDelayMap.set(value.machine_oid,value);
+			});
+			//console.log('FLTAUTODELAY:LOADDELAYS: DELAYS['+JSON.stringify(vFLTDelays)+'].');
+                } catch (e) {
+                        console.error("FLTAUTODELAY:LOADDELAYS: ERROR:"+e); // should contain code (exit code) and signal (that caused the termination).
+                }
+                console.log("FLTAUTODELAY:LOADDELAYS: FINISHED LOADING ALL DELAYS("+vFLTDelays.length+")("+vFLTDelayMap.size+").");
+                vLoadingDelayData=false;
+        }
+}
+
+//Initial load of Location data.
+var vLoadingLocationData=false;
+async function loadLocationData(){
+        if(!vLoadingLocationData){
+                vLoadingLocationData=true;
+                try {
+                        console.log("FLTAUTODELAY:LOADLOCATIONS: Requesting current machine locationss...");
+                        const params = {
+                                method: 'GET',
+                                url: 'http://' + vFLTServer + ':1100/underground/api/machines/locations?active=true',
+                                json: true,
+                                headers: {
+                                        Authorization: vFLTServerAuth
+                                },
+                                timeout: 30000,
+                        };
+
+                        const data = await axios(params);
+                        console.log('FLTAUTODELAY:LOADLOCATIONS: Updating Locations.');
+                        vFLTLocations=data.data;
+                      	vFLTLocations.features.forEach((value,index) => {
+                                vFLTLocationMap.set(value.properties.oid,value);
+                        });
+
+                } catch (e) {
+                        console.error("FLTAUTODELAY:LOADLOCATIONS: ERROR:"+e); // should contain code (exit code) and signal (that caused the termination).
+                }
+                console.log("FLTAUTODELAY:LOADLOCATIONS: FINISHED LOADING ALL LOCATIONS("+vFLTLocations.features.length+")("+vFLTLocationMap.size+").");
+                vLoadingLocationData=false;
+        }
+}
+
+//Creates and listens to the event source for messages.
+function setupZoneEventSource() {
+        vZoneEvtSource = new EventSource('http://' + vFLTServer + ':1100/underground/api/zones/subscribe', {
+  		headers: {
+    			Authorization: vFLTServerAuth,
+  		},
+	});
+        vZoneEvtSource.onopen = function(e) {
+                reconnectFrequencySeconds = 1;
+        };
+        vZoneEvtSource.onerror = function(e) {
+                evtSource.close();
+                reconnectFunc();
+        };
+	vZoneEvtSource.on('create', function(e) {
+                // status event
+                try {
+                        var vZoneData=JSON.parse(e.data);
+                        //var vDate= new Date();
+                        console.log('FLTAUTODELAY:ZONEDATA:CREATE Received['+vZoneData.properties.oid+'].');
+                        //storeZone(vData);
+			//
+			vFLTZones.push(vZoneData);
+                        console.log('Updating polygon group...');
+                        vZoneLookup = new PolygonLookup(vFLTZones);
+
+                } catch (err) {
+                        console.log('FLTAUTODELAY:ZONEDATA:CREATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+                }
+        });
+
+        vZoneEvtSource.on('update', function(e) {
+                // status event
+                try {
+                        var vZoneData=JSON.parse(e.data);
+			for ( var vFeature of vFLTZones.features ) {
+				if ( vFeature.properties.oid == vZoneData.properties.oid ) {
+					vFeature = vZoneData;
+				}
+			}
+			console.log('Updating polygon group...');
+                        vZoneLookup = new PolygonLookup(vFLTZones);
+			//var vDate= new Date();
+                	console.log('FLTAUTODELAY:ZONEDATA:UPDATE Received['+vZoneData.properties.oid+'].');
+			//storeZone(vData);
+                } catch (err) {
+                        console.log('FLTAUTODELAY:ZONEDATA:UPDATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+                }
+        });
+}
+
+//Creates and listens to the event source for messages.
+function setupDelayEventSource() {
+        vDelayEvtSource = new EventSource('http://' + vFLTServer + ':1100/underground/api/delays/subscribe', {
+                headers: {
+                        Authorization: vFLTServerAuth,
+                },
+        });
+        vDelayEvtSource.onopen = function(e) {
+                reconnectFrequencySeconds = 1;
+        };
+        vDelayEvtSource.onerror = function(e) {
+                evtSource.close();
+                reconnectFunc();
+        };
+        vDelayEvtSource.on('create', function(e) {
+                // status event
+                try {
+                        var vDelayData=JSON.parse(e.data);
+			vFLTDelayMap.set(vDelayData.machine_oid,vDelayData);
+                        //var vDate= new Date();
+                        console.log('FLTAUTODELAY:DELAYDATA:CREATE Received MACHINE_OID['+vDelayData.machine_oid+']OID['+vDelayData.oid+'].');
+                        //storeZone(vData);
+                } catch (err) {
+                        console.log('FLTAUTODELAY:DELAYDATA:CREATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+                }
+        });
+
+        vDelayEvtSource.on('update', function(e) {
+                // status event
+                try {
+                        var vDelayData=JSON.parse(e.data);
+			vFLTDelayMap.set(vDelayData.machine_oid,vDelayData);
+                        //var vDate= new Date();
+                        console.log('FLTAUTODELAY:DELAYDATA:UPDATE Received MACHINE_OID['+vDelayData.machine_oid+']['+vDelayData.oid+'].');
+                        //storeZone(vData);
+                } catch (err) {
+                        console.log('FLTAUTODELAY:DELAYDATA:UPDATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+                }
+        });
+}
+
+//Creates and listens to the event source for messages.
+function setupLocationEventSource() {
+        vLocationEvtSource = new EventSource('http://' + vFLTServer + ':1100/underground/api/machines/locations/subscribe', {
+                headers: {
+                        Authorization: vFLTServerAuth,
+                },
+        });
+        vLocationEvtSource.onopen = function(e) {
+                reconnectFrequencySeconds = 1;
+        };
+        vLocationEvtSource.onerror = function(e) {
+                evtSource.close();
+                reconnectFunc();
+        };
+        vLocationEvtSource.on('create', function(e) {
+                // status event
+                try {
+                        var vLocationData=JSON.parse(e.data);
+                        //var vDate= new Date();
+                        console.log('FLTAUTODELAY:LOCATIONDATA:CREATE Received['+vLocationData.properties.oid+'].');
+                        //storeZone(vData);
+                } catch (err) {
+                        console.log('FLTAUTODELAY:LOCATIONDATA:CREATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+                }
+        });
+
+        vLocationEvtSource.on('update', function(e) {
+                // status event
+                try {
+                        var vLocationData=JSON.parse(e.data);
+			var poly = vZoneLookup.search( vLocationData.geometry.coordinates[0],vLocationData.geometry.coordinates[1], -1 );
+			vFLTZoneMap.set(vLocationData.properties.oid,poly.features[0]);
+			var vZoneName = "Not In Zone";
+			if ( poly.features[0] != null ) {
+				vZonename = ""+poly.features[0].properties.name;
+			}
+                        //var vDate= new Date();
+			var vDelay = vFLTDelayMap.get(vLocationData.properties.oid);	
+			//console.log('Delay:'+JSON.stringify(vDelay)+'.');
+			if ( vDelay != null ){
+                        	console.log('FLTAUTODELAY:LOCATIONDATA:UPDATE Received['+vLocationData.properties.oid+']MACHINE['+vLocationData.properties.name+']X['+vLocationData.geometry.coordinates[0]+']Y['+vLocationData.geometry.coordinates[1]+']DELAY['+vDelay.class_description+']MACHINE_OID['+vDelay.machine_oid+']ZONE['+vZoneName+'].');
+			}
+                        //console.log('IN ZONE='+JSON.stringify(poly)+'.');
+                        //storeZone(vData);
+                } catch (err) {
+                        console.log('FLTAUTODELAY:LOCATIONDATA:UPDATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+                }
+        });
+}
+
+//Stores the event source data into the SQL Datbase.
+async function storeDelayLog(vData) {
+        //vCurrentMachine.set(vData.name,vData);
+                try {
+                        var request = dbConn.request();
+                        let result = await request
+				.input( "void", sql.BigInt , vData.properties.oid )
+				.input( "vactive", sql.Bit,  vData.properties.active )
+				.input( "vmodel_update_version", sql.BigInt ,  vData.properties.model_update_version )
+				.input( "vname", sql.NVarChar ( 64 ), vData.properties.name )
+				.input( "vtype", sql.NVarChar ( 64 ), vData.properties.type )
+				.input( "vis_clockwise", sql.Bit,  vData.properties.is_clockwise )
+				.input( "vcolor", sql.NVarChar ( 64 ), vData.properties.color )
+				.input( "vhas_speed_limit", sql.Bit,  vData.properties.has_speed_limit )
+				.input( "vhas_gear_limit", sql.Bit,  vData.properties.has_gear_limit )
+				.input( "vspeed_limit", sql.NVarChar ( 64 ), vData.properties.speed_limit )
+				.input( "vgear_limit", sql.NVarChar ( 64 ), vData.properties.gear_limit )
+				.input( "vis_passable", sql.Bit,  vData.properties.is_passable )
+				.input( "vmachine_class_oids", sql.NVarChar ( 256 ), vData.properties.machine_class_oids )
+				.input( "vgeometry", sql.NVarChar ( 2048 ), vData.geometry )
+				.query( "EXECUTE mrcFLTAUTODELAYMerge @void, @vactive, @vmodel_update_version,@vname,  @vtype,@vis_clockwise, @vcolor,@vhas_speed_limit,@vhas_gear_limit,@vspeed_limit,@vgear_limit,@vis_passable,@vmachine_class_oids,@vgeometry");
+			if (result !== null) { 
+				console.log('FLTAUTODELAY:STOREZONE ZONE[' + vData.properties.oid + '] SAVED RESULT:' + result.rowsAffected);
+				//vDelayUpdateCount++;
+			}
+		} catch (err) {
+                        console.log('FLTAUTODELAY:SQL ERROR:' + err + ' DELAY['+ vData.oid + '].');
+		}
+}
+
+//async function getMachineAtTime(vStartDateTime){
+//	var vReturnData = [];
+	//Load the Latest FLTMachine table at the time.
+//        console.log("MSDATA:FLTAUTODELAYAtTime GETTING FLTAUTODELAY Rows...");
+//        try {
+//        	var request = dbConn.request();
+//                let result = await request.query("EXECUTE [dbo].[mrcFLTAUTODELAYAtTime] '" + vStartDateTime + "';");
+//                if (result !== null) {
+//                	for (const recordset of result.recordsets) {
+                        	//vDATAFLTDelay=[].concat(recordset);
+//                                console.log("MSDATA:FLTAUTODELAYAtTime NEW DATA SIZE["+ recordset.length + "].");
+//                                recordset.forEach((value,index) => {
+//                                	vReturnData.push(value);
+//                                });
+//                        }
+//                        console.log("MSDATA:FLTAUTODELAYAtTime TOTAL DATA SIZE["+ vReturnData.length + "].");
+//                }
+//	} catch(err) {
+//		console.log("MSDATA:FLTAUTODELAYAtTime SQL-ERROR:" + err);
+//	};
+//	return vReturnData;
+//}
+
+//Setup the database connection pool.
+var dbConn = new sql.ConnectionPool(dbConfig);
+//Subscribe to Zones
+//Subscribe to Delays
+//Subscribe to Locations
+startDBConnect();
+//Subscribe to Zones
+//Subscribe to Delays
+//Subscribe to Locations
+//setInterval(loadDataPeriodic,vTimeInterval);

@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>REALTIME-TRACKING-DISPATCH</title>
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico" />
+
+    <link rel="stylesheet" href="css/leaflet.css" />
+    <link rel="stylesheet" href="css/example-commons.css" />
+    <link rel="stylesheet" href="css/jquery-ui.css" />
+    <script type="text/javascript" src="js/jquery-1.12.4.js"></script>
+    <script type="text/javascript" src="js/jquery-ui.js"></script>
+    <script type="text/javascript" src="js/moment.js"></script>
+    <script src="js/leaflet-src.js"></script>
+    <script src="js/leaflet-rotate-src.js"></script><!-- Leaflet-Rotate -->
+    <script type="text/javascript" src="js/ptfi-mrc.js"></script>
+    <script type="text/javascript" src="js/ptfi-mrc-api.js"></script>
+    <script type="text/javascript" src="js/ptfi-mrc-utils.js"></script>
+    <script type="text/javascript" src="config/ptfi-siteconfig.js"></script>
+    <script type="text/javascript" src="js/MovingMarker.js"></script>
+    <script type="text/javascript" src="js/leaflet.rotatedMarker.js"></script>
+    <script type="text/javascript" src="js/leaflet.edgebuffer.js"></script>
+    <link rel="stylesheet" href="css/Leaflet.StyleEditor.css" />
+    <script type="text/javascript" src="js/Leaflet.StyleEditor.js"></script>
+    <script type="text/javascript" src="js/leaflet.Path.Drag.js"></script>
+    <script type="text/javascript" src="js/Leaflet.Editable.js"></script>
+    <link rel="stylesheet" href="css/L.Control.Layers.Tree.css" />
+    <script type="text/javascript" src="js/L.Control.Layers.Tree.js"></script>
+    <link rel="stylesheet" href="css/L.cascadeButtons.css" />
+    <link rel="stylesheet" href="css/all.min.css" />
+    <script type="text/javascript" src="js/wise-leaflet-pip.js"></script>
+    <!--Polygon in Points .contains-->
+    <link rel="stylesheet" href="css/font-awesome.css" />
+    <link rel="stylesheet" href="css/jsgrid.css">
+    <link rel="stylesheet" href="css/jsgrid-theme.css">
+    <script src="js/jsgrid.js"></script>
+    <link rel="stylesheet" href="css/Control.FullScreen.css" />
+    <script type="text/javascript" src="js/Control.FullScreen.js"></script>
+    <link rel="stylesheet" href="css/L.Control.clock.css" />
+    <script src="js/lodash.min.js"></script>
+    <!--Mainly for cloneDeep -->
+    <script src="js/utm.js"></script>
+    <script type="text/javascript" src="js/tracking-controls.js"></script>
+    <!--Move script from this page-->
+    <link rel="stylesheet" href="css/tracking.css" />
+</head>
+
+<body>
+    <table style="width: 100%">
+        <colgroup>
+            <col span="1" style="width:70%;">
+            <col span="1" style="width:30%;">
+        </colgroup>
+        <TR style="height:80%;">
+            <TD>
+                <div id='map'></div>
+            </TD>
+            <TD class="grid-table">
+                <TABLE width="100%">
+                    <TR>
+                        <TD>
+                            <div id="containerFLT"></div>
+                        </TD>
+                    </TR>
+                </TABLE>
+            </TD>
+        </TR>
+        <TR style="height:20%;">
+            <TABLE style="border-collapse: collapse;border-spacing: 0px;">
+                <TR style="padding: 0;">
+                    <TD style="padding: 0;">
+                        <fieldset style="margin-inline: 0px;border-width: 2px;padding-inline: 0;padding-block: 0 0;">
+                            <legend>TARP</legend>
+                            <select id="tarpmenu">
+                                <option value="" selected="selected">None</option>
+                                <option value="TARP3">TARP3</option>
+                                <option value="TARP4">TARP4</option>
+                            </select>
+                        </fieldset>
+                    </TD>
+                    <TD style="padding: 0;" width="50%">
+                        <TABLE style="border-collapse: collapse;;border-spacing: 0px;" width="100%">
+                            <TR>
+ 								<TD width="12.5%" align='center'><div id="personcount"></div></TD>
+                                <TD width="12.5%" align='center'><div id="vehiclecount1"></div></TD>
+                                <TD width="12.5%" align='center'><div id="vehiclecount2"></div></TD>
+                                <TD width="12.5%" align='center'><div id="vehiclecount3"></div></TD>
+                                <TD width="12.5%" align='center'><div id="vehiclecount4"></div></TD>
+                                <TD width="12.5%" align='center'><div id="vehiclecount5"></div></TD>
+                                <TD width="12.5%" align='center'><div id="vehiclecount6"></div></TD>
+                                <TD width="12.5%" align='center'><div id="vehiclecount7"></div></TD>
+                            </TR>
+                        </TABLE>
+					</TD>
+                </TR>
+				<TR style="padding: 0;">
+					<TD style="padding: 0;">
+						<fieldset style="margin-inline: 0px;border-width: 2px;padding-inline: 0;padding-block: 0 0;">
+                            <legend>SEISMIC</legend>
+                            <label for="SEISMICA">A
+                                <input type="checkbox" id="SEISMICA" class="sesmicchecks">
+                            </label>
+                            <label for="SEISMICB">B
+                                <input type="checkbox" id="SEISMICB" class="sesmicchecks">
+                            </label>
+                            <label for="SEISMICC">C
+                                <input type="checkbox" id="SEISMICC" class="sesmicchecks">
+                            </label>
+                            <label for="SEISMICC1">C1
+                                <input type="checkbox" id="SEISMICC1" class="sesmicchecks">
+                            </label>
+                            <label for="SEISMICD">D
+                                <input type="checkbox" id="SEISMICD" class="sesmicchecks">
+                            </label>
+                            <label for="SEISMICE">E
+                                <input type="checkbox" id="SEISMICE" class="sesmicchecks">
+                            </label>
+                            <label for="SEISMICF">F
+                                <input type="checkbox" id="SEISMICF" class="sesmicchecks">
+                            </label>
+                            <label for="SEISMICG">G
+                                <input type="checkbox" id="SEISMICG" class="sesmicchecks">
+                            </label>
+                            <label for="LFF">LFF
+                                <input type="checkbox" id="LFF" class="sesmicchecks">
+                            </label>
+                        </fieldset>
+                  	</TD>
+ 					<TD width="50%">
+                        <TABLE style="border-collapse: collapse;border-spacing: 0px;" width="100%">
+                            <TR>
+                                <TD width="12.5%" align='center'><img width="50" height="50" src="images/svg/person-100.svg" /></TD>
+                                <TD width="12.5%" align='center'><img width="100" height="50" src="images/svg/LHD410.svg"></TD>
+                                <TD width="12.5%" align='center'><img width="100" height="50" src="images/svg/LHD1600.svg"></TD>
+                                <TD width="12.5%" align='center'><img width="100" height="50" src="images/svg/LHD1700.svg"></TD>
+                                <TD width="12.5%" align='center'><img width="50" height="50" src="images/svg/underground-minecat-round.svg"></TD>
+                                <TD width="12.5%" align='center'><img width="50" height="50" src="images/svg/underground-lightvehicle-toyota.svg"</TD>
+                                <TD width="12.5%" align='center'><img width="100" height="50" src="images/svg/LHD1600-RockBreaker4.svg"></TD>
+                                <TD width="12.5%" align='center'><img width="100" height="50" src="images/svg/GetManWaterCannon2.svg"></TD>
+                            </TR>
+                    	</TABLE>
+					</TD>
+				</TR>
+            </TABLE>
+            </TD>
+        </TR>
+    </TABLE>
+    <script>
+//VARIABLES
+//var vCycleFilter = "";
+//var vGridFLT;
+var vRotation = vMapRotation;
+//var vDrawing = false;
+//var vCurrentPolygon = {};
+var vNewFeatures = [];
+//var vShowLabels = true;
+//var vShowAllUpdate = false;
+//var vShowOnlyLastUpdate = true;
+//var vMinLastUpdate = 1800000;
+//var vMinLastUpdateLong = 14*24*3600000;
+//var vWorkerSizeY = 100;
+var vBackgroundFeatureGroup = {};
+var vZoneFeatureGroup = {};
+var vTrackingZoneID = 0;
+var vZoneEntitiesData = [];
+var vUpdatingData = false;
+var vCount = 0;
+var vCountMax = 0;
+var vMaxZFilter = 4000;
+var vMinZFilter = 0;
+var vGlobalStartTime = new Date().getTime();
+var vMarkers = new Map();
+var vFeatures = new Map();
+var vFMILayers = new Map();
+var vCurrentLayer = null;
+var ssMain = 12;
+var cssRules = (document.all) ? 'rules' : 'cssRules'; //console.log("CSS:["+JSON.stringify(cssRules)+"].");
+var addressPoints = [];
+var vWallLayer = new Map();
+var vCenterLineLayer = new Map();
+var vFLTZoneLayer = {};
+//var vFMIZoneLayer = {};
+var vAreaLayer = {};
+var vPanelLayer = {};
+var vClassOIDList = "0"; //Used to filter the ULTS Location Requests.
+var vFMIEntityTypes = new Map();
+var vEntities = [];
+var vTableRowCount = 0;
+var vTableConfig = {};
+var vTableGrid = {};
+var vOverWriteZoneData = false;
+var vUpdatingChart = false;
+var vSelectedMarker = 0;
+var vLastPosMap = new Map();
+
+//***DEFAULTS
+var vStyleWallLayer = JSON.parse(localStorage.getItem('tracking-dash-walllayer-Extraction Map-style'));
+console.log("STYLE WALL:" + JSON.stringify(vStyleWallLayer) + ".");
+if (vStyleWallLayer === null) {
+    vStyleWallLayer = {
+        stroke: true,
+        color: "#2980b9",
+        fillColor: "#2c3e50",
+        fillOpacity: 0.2,
+        weight: 1
+    };
+}
+var vStyleCenterLineLayer = JSON.parse(localStorage.getItem('tracking-dash-centerlinelayer-Extraction Map-style'));
+if (vStyleCenterLineLayer === null) {
+    vStyleCenterLineLayer = {
+        stroke: true,
+        color: "grey",
+        weight: 1
+    };
+}
+var vStyleFLTZoneLayer = JSON.parse(localStorage.getItem('tracking-dash-fltzonelayer-style'));
+if (vStyleFLTZoneLayer === null) {
+    vStyleFLTZoneLayer = {
+        stroke: true,
+        color: "yellow",
+        weight: 1
+    };
+}
+/*var vStyleFMIZoneLayer = JSON.parse(localStorage.getItem('tracking-dash-fmizonelayer-style'));
+if (vStyleFMIZoneLayer === null) {
+    vStyleFMIZoneLayer = {
+        stroke: true,
+        color: "blue",
+        weight: 1,
+		fillOpacity: 0.1,
+    };
+}*/
+var vStyleAreaLayer = JSON.parse(localStorage.getItem('tracking-dash-arealayer-style'));
+if (vStyleAreaLayer === null) {
+    vStyleAreaLayer = {
+        stroke: true,
+        color: "aqua",
+        weight: 1
+    };
+}
+var vStylePanelLayer = JSON.parse(localStorage.getItem('tracking-dash-panellayer-style'));
+if (vStylePanelLayer === null) {
+    vStyleAreaLayer = {
+        stroke: true,
+        color: "green",
+        weight: 1
+    };
+}
+
+var vStyleFMIZoneLayer = JSON.parse(localStorage.getItem('tracking-dash-fmizonelayer-style'));
+console.log("FMISTYLE["+JSON.stringify(vStyleFMIZoneLayer)+"].");
+if (vStyleFMIZoneLayer === null) {
+    vStyleFMIZoneLayer = {
+        stroke: true,
+        color: "blue",
+        weight: 1,
+		fillOpacity: 0.1,
+    };
+}
+
+//***Default Icon
+var vLHDIcon = L.Icon.extend({
+    options: {
+        //iconUrl: 'images/lhd.png',
+        shadowUrl: '',
+        //iconSize: [150, 40],
+        shadowSize: [0, 0],
+        //iconAnchor: [150 / 2, 40 / 2],
+        shadowAnchor: [32, 9],
+        popupAnchor: [0, 0],
+        className: 'empty'
+    }
+});
+
+//Lets set the Title
+document.title = vMineName + '-REALTIME-TRACKING-DISPATCH';
+//**SETUP GUI***
+$("#tarpmenu").selectmenu({
+    change: setTarpZones,
+    position: {
+        collision: 'flip'
+    }
+});
+$(".sesmicchecks").checkboxradio({});
+$(".sesmicchecks").on("change", setSeimicZones);
+
+
+//Lets create a reverse lookup for ClassNames
+var vFMIEntityNameToClass = new Map();
+vFMIEntityClassToName.forEach((data, key) => {
+    vFMIEntityNameToClass.set(data, key);
+});
+var vLabelFontSize = JSON.parse(localStorage.getItem('label-font-size'));
+//console.log("STYLE WALL:"+JSON.stringify(vStyleWallLayer)+".");
+if (vLabelFontSize === null) {
+    vLabelFontSize = 8;
+}
+var vShowAnimation = JSON.parse(localStorage.getItem('config-show-animation'));
+if (vShowAnimation === null) {
+    vShowAnimation = false;
+}
+var vShowPersonnelCircle = JSON.parse(localStorage.getItem('config-show-personnel-circle'));
+if (vShowPersonnelCircle === null) {
+    vShowPersonnelCircle = true;
+}
+
+//***FUNCTIONS***
+function updateZoneName(el) {
+    vCurrentLayer.feature.properties.name = el.value;
+    console.log("Updating name=" + el.value + ".");
+}
+
+function updateZoneType(el) {
+    vCurrentLayer.feature.properties.type = "FMI-" + el.value;
+    console.log("Updating type=" + el.value + ".");
+}
+
+function updateZoneZ(el) {
+    vCurrentLayer.feature.properties.avg_z = parseInt(el.value, 10);
+    console.log("Updating avg_z=" + el.value + "[" + vCurrentLayer.feature.properties.avg_z + "].");
+}
+
+function updateDetails() {
+    var vNewDetails = "";
+    if (vCurrentLayer.feature.properties.name === undefined || vCurrentLayer.feature.properties.type === undefined || vCurrentLayer.feature.properties.avg_z === undefined) {
+        //vNewDetails='<label for="ZoneNameInput">ZONE NAME:</LABEL><INPUT type="text" id="ZoneNameInput" name="ZoneNameInput" onchange="updateZoneName('+vLayer+',this);" onkeypress="this.onchange();" onpaste="this.onchange();" oninput="this.onchange();">';
+        vNewDetails = '<label for="ZoneNameInput">ZONE NAME:</LABEL><INPUT type="text" id="ZoneNameInput" name="ZoneNameInput" onchange="updateZoneName(this);" oninput="updateZoneName(this);" onkeypress="this.onchange(this)" onpaste="this.onchange(this)"><BR>';
+        vNewDetails = vNewDetails + '<label for="ZoneTypeInput">ZONE TYPE:</LABEL><INPUT type="text" id="ZoneTypeInput" name="ZoneTypeInput" onchange="updateZoneType(this);" oninput="updateZoneType(this);" onkeypress="this.onchange(this)" onpaste="this.onchange(this)"><BR>';
+        vNewDetails = vNewDetails + '<label for="ZoneZInput">ZONE Z:</LABEL><INPUT type="text" id="ZoneZInput" name="ZoneZInput" onchange="updateZoneZ(this);" oninput="updateZoneZ(this);" onkeypress="this.onchange(this)" onpaste="this.onchange(this)">';
+    } else {
+        vNewDetails = "<div>ZONE NAME:" + vCurrentLayer.feature.properties.name + "</div>";
+        vNewDetails = vNewDetails + "<div>ZONE TYPE:" + vCurrentLayer.feature.properties.type + "</div>";
+        vNewDetails = vNewDetails + "<div>ZONE Z:" + vCurrentLayer.feature.properties.avg_z + "</div>";
+        vNewDetails = vNewDetails + "<div id='tablerowcount'>ZONE ENTITY COUNT:" + vTableRowCount + "</div>";
+    }
+    var el = document.getElementById('details');
+    el.innerHTML = vNewDetails;
+}
+
+function setSeimicZones(e) {
+    var target = $(e.target);
+    var vName = "" + target[0].id;
+    console.log("CHECKBOX CHANGED:[" + JSON.stringify(vName) + "]FMILAYERSSIZE[" + vFMILayers.size + "].");
+    if (target.is(":checked")) {
+        if (vFMILayers.has(vName)) {
+            var vLayer = vFMILayers.get(vName);
+            if (!map.hasLayer(vLayer)) {
+                map.addLayer(vLayer);
+            }
+            console.log("CHECKBOX CHANGED: NAME[" + vName + "] Found Zone Added.");
+        } else {
+            console.log("CHECKBOX CHANGED: NAME[" + vName + "] Not Found.");
+            vFMILayers.forEach((value, key) => {
+                console.log("CHECKBOX CHANGED: VALUE[" + value + "][" + key + "].")
+            });
+        }
+    } else {
+        if (vFMILayers.has(vName)) {
+            var vLayer = vFMILayers.get(vName);
+            if (map.hasLayer(vLayer)) {
+                map.removeLayer(vLayer);
+            }
+            console.log("CHECKBOX CHANGED: NAME[" + vName + "] Found Zone Removed.");
+        };
+    }
+}
+
+function setTarpZones(event, data) {
+    var vName = data.item.value;
+    //Lets remove all TARP Layers excpe tthe one we selected.
+    vFMILayers.forEach((value, key) => {
+        if (key.substring(0, 4) === "TARP") {
+            if (key === vName) {
+                if (!map.hasLayer(value)) {
+                    map.addLayer(value);
+                }
+            } else {
+                if (map.hasLayer(value)) {
+                    map.removeLayer(value);
+                }
+            }
+        }
+    });
+}
+
+function rgbToHex(r, g, b) {
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+var setCurrentLayer = function(e) {
+	 //Stop auto pannning on Entity
+    vSelectedMarker=0;
+    //If wall or Center line ignore it.
+    var vReturn = false;
+    vWallLayer.forEach((wall) => {
+        if (wall.hasLayer(e.target)) vReturn = true;
+    });
+    vCenterLineLayer.forEach((cl) => {
+        if (cl.hasLayer(e.target)) vReturn = true;
+    });
+    if (vReturn) return;
+
+    //Highlight and set the selected layer.
+    if (vCurrentLayer != e.target) {
+
+        if (vCurrentLayer) {
+            highlightLayer(map, vCurrentLayer._leaflet_id);
+        }
+        highlightLayer(map, e.target._leaflet_id);
+    }
+    vCurrentLayer = e.target;
+    vCurrentLayer.bringToBack();
+    vWallLayer.forEach((wall) => {
+        wall.bringToBack();
+    });
+    vCenterLineLayer.forEach((cl) => {
+        cl.bringToBack();
+    });
+    var vLatLng = e.latlng;
+    if (vCurrentLayer.feature) {
+        if (vCurrentLayer.feature.properties) {
+            console.log('Layer Clicked[' + vCurrentLayer._leaflet_id + '][' + vCurrentLayer.feature.properties.name + '][' + vCurrentLayer.feature.properties.oid + ']latlng[' + JSON.stringify(vLatLng) + '].');
+        }
+    }
+    if (!vCurrentLayer.feature) {
+        vCurrentLayer.feature = {};
+        vCurrentLayer.feature.properties = {};
+        vCurrentLayer.feature.properties.active = true;
+        vCurrentLayer.feature.name = "FMILayer" + vCurrentLayer._leaflet_id;
+        vCurrentLayer.feature.color = [112, 112, 113, 1];
+        vNewFeatures.push(vCurrentLayer);
+    }
+    //console.log('Layer Clicked[' + vCurrentLayer._leaflet_id + '][' + vCurrentLayer.feature.properties.name + ']latlng[' + JSON.stringify(vLatLng) + '].');
+    //vTrackingZoneID = "" + vCurrentLayer.feature.properties.name;
+    vTrackingZoneID = parseInt(vCurrentLayer.feature.properties.oid);
+    vCount = 0;
+};
+
+var vFMILayerTypes = new Map();
+var vFMIStyleTypes = new Map();
+async function loadGeoJson() {
+    var vWallCount = 0;
+    var vCenterLineCount = 0;
+    vFMILayers = new Map();
+    //vFMILayerGroups = [];
+    var vPromiseFeatureWalls = new Promise(async (resolve, reject) => {
+        for (const [key, wallmap] of vFMIWallMaps) {
+            //SETUP THE WALL AND CENTERLINE LAYERS
+            console.log("loadGeoJson: Loading new Wall Centerline Map data...");
+            const response = await fetch(wallmap.filename); //"map/dmlz-el-2.geojson");
+            const vWallData = await response.json();
+            //console.log("WALLS-BEFORE["+JSON.stringify(vWallData.features)+"].");
+            var vWallFeatures = await fixCoords(vWallData.features, "BACKGROUND");
+            //console.log("WALLS-AFTER["+JSON.stringify(vWall)+"].");
+
+            //NOW LETS MAKE THE LAYERS
+            var vWall = L.geoJson(vWallFeatures, {
+                style: function(feature) {
+                    return vStyleWallLayer;
+                },
+                filter: function(feature) {
+                    if (feature.properties && feature.properties.layer === wallmap.walllayername) {
+                        //console.log("PARSE  WALL["+feature.properties.name+"].");
+                        return true;
+                    }
+                    return false;
+                },
+                onEachFeature: function(feature, layer) {
+                    //console.log("ADDING WALL["+vWallCount+"]["+feature.properties.name+"].");
+                    vWallCount++;
+                },
+                edgeBufferTiles: 2,
+                maxZoom: 24,
+                minZoom: 16,
+                maxNativeZoom: 24,
+                minNativeZoom: 16,
+                keepbuffer: 6
+            }).addTo(map);
+            vWall.config = wallmap;
+            vWallLayer.set("" + wallmap.wallmenutext, vWall);
+            //console.log("WALL Bounds["+JSON.stringify(vWall.getBounds())+".");
+
+            var vCL = L.geoJson(vWallFeatures, {
+                style: function(feature) {
+                    return vStyleCenterLineLayer;
+                },
+                filter: function(feature) {
+                    if (feature.properties && feature.properties.layer === wallmap.centerlinelayername) {
+                        //console.log("ADDING CENTERLINE["+feature.properties.name+"].");
+                        return true;
+                    }
+                    return false;
+                },
+                onEachFeature: function(feature, layer) {
+                    ////console.log("ADDING CENTERLINE["+vCenterLineCount+"]["+feature.properties.name+"].");
+                    vCenterLineCount++;
+                },
+                edgeBufferTiles: 2,
+                maxZoom: 24,
+                minZoom: 16,
+                maxNativeZoom: 24,
+                minNativeZoom: 16,
+                keepbuffer: 6
+            }).addTo(map);
+            vCL.config = wallmap;
+            vCenterLineLayer.set("" + wallmap.centerlinemenutext, vCL);
+            //console.log("CENTER LINE Bounds["+JSON.stringify(vCL.getBounds())+".");
+        };
+        console.log("ADDED WALLS[" + vWallCount + "]CENTERLINES[" + vCenterLineCount + "].");
+        resolve();
+    });
+	//SETUP THE ZONE LAYER
+    var vPromiseFeatureFLTZones = new Promise((resolve, reject) => {
+        console.log("loadGeoJson: Loading new FLT Zone data...");
+        getFLTAutoZoneFeatures("FLTZONE",
+            async function(data) {
+                    //console.log("FLTZONES-BEFORE["+JSON.stringify(data)+"].");
+                    var vData = await fixCoords(data.features, "FLTZONES");
+                    //console.log("FLTZONES-AFTER["+JSON.stringify(vData)+"].");
+                    vFLTZoneLayer = L.geoJson(vData, {
+                        style: function(feature) {
+                            return vStyleFLTZoneLayer;
+                        }
+                    }).addTo(map);
+                    resolve();
+                },
+                function(data) {
+                    reject(data);
+                });
+    });
+
+    //SETUP THE FMI ZONE LAYER
+    var vPromiseFeatureFMIZones = new Promise((resolve, reject) => {
+        console.log("loadGeoJson: Loading new FMI Zone data...");
+        getFLTAutoZoneFeatures("FMIZONE",
+            async function(data) {
+                    //console.log("FMIZONES-BEFORE["+JSON.stringify(data)+"].");
+                    var vData = await fixCoords(data.features, "FMIZONES");
+                    for( var feature of vData){
+                        //if (feature.properties.type != "FMI-TARP" && feature.properties.type != "FMI-SEISMIC"){
+						if (vFMILayerTypes.has(feature.properties.type) && (feature.properties.type != "FMI-TARP" && feature.properties.type != "FMI-SEISMIC" && (feature.properties.type != "FMI-SUBLEVEL" && feature.properties.name != "LFF"))) {
+                           	//Layer already existis lets add this to it.
+                           	vFMILayerTypes.get(feature.properties.type).addData(feature);
+                        } else {
+							//if (feature.properties.type != "FMI-TARP" && feature.properties.type != "FMI-SEISMIC"){
+                           		var vLayer = L.geoJSON(feature, {
+                               		style: function(feature) {
+                                   		var vColorArray = Array.from(feature.properties.color);
+                                   		var vColor = rgbToHex(parseInt(vColorArray[0]), parseInt(vColorArray[1]), parseInt(vColorArray[2]));
+                                   		if (parseInt(vColorArray[0]) + parseInt(vColorArray[1]) + parseInt(vColorArray[2]) === 0) {
+                                       		vColor = "blue";
+                                   		}
+                                   		vStyle = {
+                                       		stroke: true,
+                                       		color: vColor,
+                                       		weight: 1,
+											fillColor: vColor,
+        									fillOpacity: 0.05,
+                                   		};
+                                   		return vStyle;
+                               		}
+                           		});
+								vLayer.addData(feature);
+								if (feature.properties.type === "FMI-TARP" || feature.properties.type === "FMI-SEISMIC" || (feature.properties.type === "FMI-SUBLEVEL" && feature.properties.name === "LFF")) {
+									var vLayerGroup = L.layerGroup();
+									vLayerGroup.addLayer(vLayer);
+                            		vLayerGroup.addTo(map);
+                            		vLayerGroup.remove();
+								}else{
+									vLayer.addTo(map);
+									vLayer.remove();
+								}
+								vFMILayerTypes.set(feature.properties.type, vLayer);
+								vFMILayers.set(""+feature.properties.name, vLayer);
+                            //console.log("Adding TARP or SCIESMIC FMI Zone[" + vName + "][" + vFMILayers.size + "].");
+                        }
+						//}
+                    };
+                    resolve();
+                },
+                function(data) {
+                    reject(data);
+                });
+    });
+
+	//SETUP THE AREA LAYER
+    var vPromiseFeatureAreas = new Promise((resolve, reject) => {
+        console.log("loadGeoJson: Loading new FLT Area data...");
+        getFLTAutoZoneFeatures("AREA",
+            async function(data) {
+                    var vData = await fixCoords(data.features, "AREAS");
+                    vAreaLayer = L.geoJson(vData, {
+                        style: function(feature) {
+                            return vStyleAreaLayer;
+                        }
+                    }).addTo(map);
+                    resolve();
+                },
+                function(data) {
+                    reject(data);
+                });
+    });
+    //SETUP THE PANEL LAYER
+    var vPromiseFeaturePanels = new Promise((resolve, reject) => {
+        console.log("loadGeoJson: Loading new FLT Panel data...");
+        getFLTAutoZoneFeatures("PANEL",
+            async function(data) {
+                    var vData = await fixCoords(data.features, "PANEL");
+                    vPanelLayer = L.geoJson(vData, {
+                        style: function(feature) {
+                            return vStylePanelLayer;
+                        }
+                    }).addTo(map);
+                    resolve();
+                },
+                function(data) {
+                    reject(data);
+                });
+    });
+
+    var vPromiseFLTLocationData = new Promise((resolve, reject) => {
+        //console.log("updateFLTLocationCurrent: Loading new FLT Location data...");
+        getULTSLocationCurrentOIDFilterData(
+            vClassOIDList,
+        //getULTSLocationCurrentData(
+            async function(data) {
+                    if (data.length > 0) {
+                        var vData = await fixCoords(data, "ENTITY");
+                        //console.log("DATA:["+JSON.stringify(vData)+"].");
+                        vData.forEach((feature) => {
+                            if (!vFMIEntityTypes.has(feature.properties.class_oid)) {
+                                var vEntityGroup = L.featureGroup().addTo(map);
+                                vFMIEntityTypes.set(feature.properties.class_oid, vEntityGroup);
+                                //Lets add the entity layer for selection
+                                if (vFMIEntityClassToName.has(feature.properties.class_oid)) {
+                                    vEntities.push({
+                                        label: vFMIEntityClassToName.get(feature.properties.class_oid),
+                                        layer: vEntityGroup
+                                    });
+                                } else {
+                                    vEntities.push({
+                                        label: feature.properties.class_oid,
+                                        layer: vEntityGroup
+                                    });
+                                }
+                                if (feature.properties.class_oid >= vFMIEntityNameToClass.get("PERSONNEL")) {
+                                    vEntityGroup.bringToFront();
+                                }
+                                console.log("Creating EntityGroup[" + feature.properties.class_oid + "].");
+                            }
+                            vFeatures.set(feature.id, feature);
+                        });
+                        await updateDataLock();
+                    }
+                    resolve();
+                },
+                function(data) {
+                    reject(data);
+                }
+        );
+    });
+
+    Promise.allSettled([vPromiseFeatureWalls, vPromiseFeatureFLTZones, vPromiseFeatureFMIZones, vPromiseFeaturePanels, vPromiseFeatureAreas, vPromiseFLTLocationData])
+        .then((values) => addGeoJson(values));
+}
+
+var vFMILayer =  new Map();
+async function addGeoJson(values) {
+    console.log("LOAD FEATURES[" + JSON.stringify(values) + "].");
+    var baseTree = [];
+    vWallLayer.forEach((wall, key) => {
+        wall.bringToBack();
+        baseTree.push({
+            label: key,
+            layer: wall
+        });
+    });
+	var vLayerCount=0;
+    var overlaysTree = [];
+    vCenterLineLayer.forEach((cl, key) => {
+        console.log("LOAD CENTER[" + key + "].");
+        cl.bringToBack();
+        overlaysTree.push({
+            label: key,
+            layer: cl
+        });
+    });
+
+ 	overlaysTree.push({
+        label: 'Fleet Zones',
+        name: '',
+        selectAllCheckbox: true,
+        children: [{
+            label: 'Zones',
+            layer: vFLTZoneLayer,
+        }, {
+            label: 'Areas',
+            layer: vAreaLayer,
+        }, {
+            label: 'Panels',
+            layer: vPanelLayer,
+        }],
+    });
+
+ 	//lets make the FMI Zones.
+    var vChildren = [];
+	vFMILayerTypes.forEach((vLayer, vKey) => {
+		if (vKey != "FMI-TARP" && vKey != "FMI-SEISMIC"){
+        	vChildren.push({
+            	label: vKey.replace("FMI-",""),
+            	layer: vLayer
+        	});
+		}
+		//console.log("LAYER:{"+JSON.stringify(vLayer.feature,getCircularReplacer())+"].");
+    });
+
+    overlaysTree.push({
+        label: 'FMI Zones',
+        name: '',
+        selectAllCheckbox: true,
+        children: vChildren,
+    });
+
+    console.log("Finished updating data to get entitytypes[" + vFMIEntityTypes.size + "].");
+    //lets make the FMI Zones.
+    vFMIEntityTypes.forEach((vLayer, vKey) => {
+        if (vFMIEntityClassToName.has(vKey)) {
+            vEntities.push({
+                label: vFMIEntityClassToName.get(vKey),
+                layer: vLayer
+            });
+        } else {
+            vEntities.push({
+                label: vKey,
+                layer: vLayer
+            });
+        }
+    });
+    console.log("Setup [" + vEntities.length + "] Entity groups.");
+
+	overlaysTree.push({
+        label: 'Entities',
+        name: '',
+        selectAllCheckbox: true,
+        children: vEntities,
+    });
+
+    var lay = L.control.layers.tree(baseTree, overlaysTree, {
+        //namedToggle: true,
+        //selectorBack: false,
+        closedSymbol: '&#8862; &#x1f5c0;',
+        openedSymbol: '&#8863; &#x1f5c1;',
+        //collapseAll: 'Collapse all',
+        //expandAll: 'Expand all',
+        collapsed: true,
+    });
+
+    lay.addTo(map).collapseTree().expandSelected().collapseTree(true);
+    map.on('overlayadd', onOverlayAdd);
+    map.on('overlayremove', onOverlayRemove);
+    map.on('baselayerchange', onBaseLayerChange);
+	//Now lets turn of the layers for startup.
+	vFMILayerTypes.forEach((vLayer, vKey) => {
+		map.removeLayer(vLayer);
+	});
+    //vChildren.forEach((child) => {
+    //    map.removeLayer(child.layer);
+    //});
+    map.removeLayer(vFLTZoneLayer);
+    map.removeLayer(vAreaLayer);
+    map.removeLayer(vPanelLayer);
+    var vFirst = true;
+    vWallLayer.forEach((wall, key) => {
+        if (!vFirst) {
+            map.removeLayer(wall);
+        } else {
+            vMinZFilter = wall.config.minzfilter;
+            vMaxZFilter = wall.config.maxzfilter;
+        }
+        vFirst = false;
+    });
+    vCenterLineLayer.forEach((cl, key) => {
+        map.removeLayer(cl);
+    });
+    lay.collapseTree(true);
+}
+
+function onBaseLayerChange(e) {
+    //	if (e.layer instanceof L.Marker && layer.getElement()) {
+    //		console.log("Layer Marker Added["+JSON.stringify(e.layer.getElement(),getCircularReplacer())+"].");
+    //	}else if (e.layer instanceof L.layerGroup){
+    //		console.log("Layer Group Added["+JSON.stringify(e.layer.getLayers(),getCircularReplacer())+"].");
+    //	}else{
+    console.log("Base Layer Changed.");
+    vWallLayer.forEach((wall, key) => {
+        if (map.hasLayer(wall)) {
+            vMinZFilter = wall.config.minzfilter;
+            vMaxZFilter = wall.config.maxzfilter;
+            //console.log("New Z filter["+JSON.stringify(wall.config)+"].");
+        }
+    });
+    //	}
+}
+
+function onOverlayAdd(e) {
+    if (e.layer instanceof L.Marker && layer.getElement()) {
+        console.log("Layer Marker Added[" + JSON.stringify(e.layer.getElement(), getCircularReplacer()) + "].");
+    } else if (e.layer instanceof L.layerGroup) {
+        console.log("Layer Group Added[" + JSON.stringify(e.layer.getLayers(), getCircularReplacer()) + "].");
+//    } else if (e.layer instanceof L.Layer) {
+//        console.log("Layer Added[" + JSON.stringify(e.layer, getCircularReplacer()) + "].");
+    } else {
+        console.log("Layer Added["+e.name+"].");
+    }
+}
+
+function onOverlayRemove(e) {
+    if (e.layer instanceof L.Marker && layer.getElement()) {
+        console.log("Layer Marker Removed[" + JSON.stringify(e.layer.getElement(), getCircularReplacer()) + "].");
+    } else if (e.layer instanceof L.featureGroup) {
+        console.log("Layer Group Removed[" + JSON.stringify(e.layer.getLayers(), getCircularReplacer()) + "].");
+//    } else if (e.layer instanceof L.Layer) {
+//        console.log("Layer Removed[" + JSON.stringify(e.layer, getCircularReplacer()) + "].");
+    } else {
+        console.log("Layer Removed["+e.name+"].");
+    }
+}
+
+async function fixCoords(data, vLayerType) {
+    var vReturnData = [];
+    if (Array.isArray(data)) {
+        data.forEach((feature, featureindex, featurearr) => {
+            if (feature.geometry) {
+                if (feature.geometry.coordinates) {
+                    var vFeature = {};
+                    vFeature.id = "" + feature.id;
+                    vFeature.type = "" + feature.type;
+                    vFeature.geometry = {}; //feature.geometry;
+                    vFeature.geometry.type = "" + feature.geometry.type;
+                    vFeature.geometry.coordinates = [];
+                    var vRecord = false;
+                    var vTotalZ = 0;
+                    var vCount = 0;
+                    if (feature.geometry.type === "Polygon") {
+                        vFeature.geometry.coordinates[0] = [];
+                        feature.geometry.coordinates.forEach((groups, groupindex, grouparr) => {
+                            //console.log("FIXCOORDS:POLYGON:["+JSON.stringify(coords)+"].");
+                            if (Array.isArray(groups[0])) {
+                                groups.forEach((coords, index, arr) => {
+                                    if (Array.isArray(coords) && coords[0] != null && coords[1] != null) {
+                                        var vLatLon = toLatLon(parseFloat(coords[0]), parseFloat(coords[1]), 53, 'M');
+                                        if (vLatLon) {
+                                            //console.log("FIXCOORDS:POLYGON:["+JSON.stringify(coords)+"].");
+                                            vFeature.geometry.coordinates[0].push([vLatLon.longitude, vLatLon.latitude]);
+                                            vRecord = true;
+                                        }
+                                        if (coords[2] != null) {
+                                            vTotalZ = vTotalZ + parseFloat(coords[2]);
+                                            vCount++;
+                                        }
+                                    }
+                                });
+                            } else {
+                                coords = groups;
+                                if (Array.isArray(coords) && coords[0] != null && coords[1] != null) {
+                                    var vLatLon = toLatLon(parseFloat(coords[0]), parseFloat(coords[1]), 53, 'M');
+                                    if (vLatLon) {
+                                        //console.log("FIXCOORDS:POLYGON:["+JSON.stringify(coords)+"].");
+                                        vFeature.geometry.coordinates[0].push([vLatLon.longitude, vLatLon.latitude]);
+                                        vRecord = true;
+                                    }
+                                    if (coords[2] != null) {
+                                        vTotalZ = vTotalZ + parseFloat(coords[2]);
+                                        vCount++;
+                                    }
+                                }
+                            }
+                        });
+                    } else if (feature.geometry.type === "LineString") {
+                        feature.geometry.coordinates.forEach((coords, index, arr) => {
+                            if (Array.isArray(coords) && coords[0] != null && coords[1] != null) {
+                                var vLatLon = toLatLon(parseFloat(coords[0]), parseFloat(coords[1]), 53, 'M');
+                                if (vLatLon) {
+                                    vFeature.geometry.coordinates.push([vLatLon.longitude, vLatLon.latitude]);
+                                    vRecord = true;
+                                }
+                                if (coords[2] != null) {
+                                    vTotalZ = vTotalZ + parseFloat(coords[2]);
+                                    vCount++;
+                                }
+                            }
+                        });
+                    } else if (feature.geometry.type === "Point") {
+                        if (feature.geometry.coordinates[0] && feature.geometry.coordinates[1] &&
+                            feature.geometry.coordinates[0] > 0 && feature.geometry.coordinates[1] > 100000 &&
+                            feature.geometry.coordinates[0] < 999999 && feature.geometry.coordinates[1] < 9999999) {
+                            var vLatLon = toLatLon(parseFloat(feature.geometry.coordinates[0]), parseFloat(feature.geometry.coordinates[1]), 53, 'M');
+                            //feature.geometry.coordinates=[ vLatLon.longitude, vLatLon.latitude ];
+                            vFeature.geometry.coordinates = [vLatLon.longitude, vLatLon.latitude];
+                            //vLatLon.count=3;
+                            //console.log("TESTDATA["+feature.geometry.coordinates[0]+","+feature.geometry.coordinates[1]+"]["+JSON.stringify(vLatLon)+"].");
+                            vRecord = true;
+                            if (feature.geometry.coordinates[2] != null) {
+                                vTotalZ = vTotalZ + parseFloat(feature.geometry.coordinates[2]);
+                                vCount++;
+                            }
+                        } else {
+                            console.log("FIXCOORDS:ERROR:Something Wrong with NAME[" + feature.properties.name + "]Coordinates[" + feature.geometry.coordinates[0] + "," + feature.geometry.coordinates[1] + "].");
+                        }
+                    }
+                    if (vRecord) {
+                        vFeature.properties = JSON.parse(JSON.stringify(feature.properties));
+						if(feature.ZONES){
+							vFeature.ZONES = Array.from(feature.ZONES);
+						}
+                        if (!vFeature.properties.type) {
+                            vFeature.properties.type = vLayerType;
+                        }
+                        vFeature.properties.avg_z = (vTotalZ / vCount);
+                        vReturnData.push(vFeature);
+                    }
+                }
+            }
+
+        });
+    }
+    return vReturnData;
+}
+
+function getRowDataFLT(filter) {
+    var vNewRowData = [];
+    var vNameSearch = document.getElementById('namesearch').value.toUpperCase();
+    var vOperatorNameSearch = document.getElementById('operatornamesearch').value.toUpperCase();
+    var vPersonCount = 0;
+    var vVehicleCount = 0;
+    var vVehicleCount1 = 0;
+    var vVehicleCount2 = 0;
+    var vVehicleCount3 = 0;
+    var vVehicleCount4 = 0;
+    var vVehicleCount5 = 0;
+    var vVehicleCount6 = 0;
+    var vVehicleCount7 = 0;
+    vRowDataFLT.forEach((value, key, array) => {
+		var vLayerON=false;
+		if ( vMarkers.has(value.ID)) {
+			vLayerON=map.hasLayer(vMarkers.get(value.ID));
+			//console.log("getRowDataFLT:Found ID["+value.ID+"]Result["+vLayerON+"].");
+		}//else{
+			//console.log("getRowDataFLT:Could not find ID["+value.ID+"].");
+		//}
+		if ( vLayerON ){
+        if (!value.NAME || value.NAME.toUpperCase().includes(vNameSearch) || vNameSearch == "") {
+            if (!value.OPERATOR_NAME || value.OPERATOR_NAME.toUpperCase().includes(vOperatorNameSearch) || vOperatorNameSearch == "") {
+                if (vTrackingZoneID === 0) {
+                    vNewRowData.push(value);
+                    if (value.CLASS_OID >= vFMIEntityNameToClass.get("PERSONNEL")) {
+                        vPersonCount++;
+                    } else {
+                        vVehicleCount++;
+						if ( value.CLASS_OID == vFMIEntityNameToClass.get("LH410")){
+                             vVehicleCount1++;
+                        }else
+                        if ( value.CLASS_OID == vFMIEntityNameToClass.get("R1600H")){
+                             vVehicleCount2++;
+                        }else
+                        if ( value.CLASS_OID == vFMIEntityNameToClass.get("R1700K") || value.CLASS_OID == vFMIEntityNameToClass.get("R1700H")){
+                             vVehicleCount3++;
+                        }else
+                        if ( value.CLASS_OID == vFMIEntityNameToClass.get("SUPPORT")){
+                             vVehicleCount4++;
+                        }else
+                        if ( value.CLASS_OID == vFMIEntityNameToClass.get("LIGHT VEHICLE")){
+                             vVehicleCount5++;
+                        }else
+                        if ( value.CLASS_OID == vFMIEntityNameToClass.get("MOBILE ROCKBREAKER")){
+                             vVehicleCount6++;
+                        }else
+                        if ( value.CLASS_OID == vFMIEntityNameToClass.get("WATER CANNON")){
+                             vVehicleCount7++;
+                        }
+                    }
+                } else {
+                    //console.log("TRACKING["+vTrackingZoneID+"]Data["+JSON.stringify(value.ZONES)+"].");
+                    if (Array.isArray(value.ZONES)) {
+                        value.ZONES.forEach((zone) => {
+                            if (zone.OID === vTrackingZoneID) {
+                                vNewRowData.push(value);
+                                if (value.CLASS_OID >= vFMIEntityNameToClass.get("PERSONNEL")) {
+                                    vPersonCount++;
+                                } else {
+                                    vVehicleCount++;
+									if ( value.CLASS_OID == vFMIEntityNameToClass.get("LH410")){
+										vVehicleCount1++;
+									}else
+									if ( value.CLASS_OID == vFMIEntityNameToClass.get("R1600H")){
+                                        vVehicleCount2++;
+                                    }else
+                        			if ( value.CLASS_OID == vFMIEntityNameToClass.get("R1700K") || value.CLASS_OID == vFMIEntityNameToClass.get("R1700H")){
+                             			vVehicleCount3++;
+                        			}else
+                        			if ( value.CLASS_OID == vFMIEntityNameToClass.get("SUPPORT")){
+                             			vVehicleCount4++;
+                        			}else
+                        			if ( value.CLASS_OID == vFMIEntityNameToClass.get("LIGHT VEHICLE")){
+                             			vVehicleCount5++;
+                        			}else
+                        			if ( value.CLASS_OID == vFMIEntityNameToClass.get("MOBILE ROCKBREAKER")){
+                             			vVehicleCount6++;
+                        			}else
+                        			if ( value.CLASS_OID == vFMIEntityNameToClass.get("WATER CANNON")){
+                             			vVehicleCount7++;
+                        			}
+                                }
+                                //console.log("MATCHED TRACKING["+vTrackingZoneID+"]Data["+JSON.stringify(zone)+"].");
+                            }
+                        });
+                    }
+                }
+            }
+        }
+		}
+    });
+    var el = document.getElementById('personcountfull');
+    if (el) {
+        el.innerHTML = "<H1 style='color: #FFFFFF'>" + vPersonCount + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount1full');
+    if (el) {
+        el.innerHTML = "<H1 style='color: #FFFFFF'>" + vVehicleCount1 + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount2full');
+    if (el) {
+        el.innerHTML = "<H1 style='color: #FFFFFF'>" + vVehicleCount2 + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount3full');
+    if (el) {
+        el.innerHTML = "<H1 style='color: #FFFFFF'>" + vVehicleCount3 + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount4full');
+    if (el) {
+        el.innerHTML = "<H1 style='color: #FFFFFF'>" + vVehicleCount4 + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount5full');
+    if (el) {
+        el.innerHTML = "<H1 style='color: #FFFFFF'>" + vVehicleCount5 + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount6full');
+    if (el) {
+        el.innerHTML = "<H1 style='color: #FFFFFF'>" + vVehicleCount6 + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount7full');
+    if (el) {
+        el.innerHTML = "<H1 style='color: #FFFFFF'>" + vVehicleCount7 + "</H1>";
+    }
+    var el = document.getElementById('personcount');
+    if (el) {
+        el.innerHTML = "<H1>" + vPersonCount + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount1');
+    if (el) {
+        el.innerHTML = "<H1>" + vVehicleCount1 + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount2');
+    if (el) {
+        el.innerHTML = "<H1>" + vVehicleCount2 + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount3');
+    if (el) {
+        el.innerHTML = "<H1>" + vVehicleCount3 + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount4');
+    if (el) {
+        el.innerHTML = "<H1>" + vVehicleCount4 + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount5');
+    if (el) {
+        el.innerHTML = "<H1>" + vVehicleCount5 + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount6');
+    if (el) {
+        el.innerHTML = "<H1>" + vVehicleCount6 + "</H1>";
+    }
+    var el = document.getElementById('vehiclecount7');
+    if (el) {
+        el.innerHTML = "<H1>" + vVehicleCount7 + "</H1>";
+    }
+
+    //console.log("TABLEDATA["+JSON.stringify(vNewRowData)+"].");
+    return vNewRowData;
+}
+
+function createRowDataFLT(row) {
+    var vRow = [row.NAME, row.OPERATOR_NAME];
+    return vRow;
+}
+
+function updateSearch(e) {
+    var vInputFLT = document.getElementById('containerFLT').querySelector(".gridjs-search-input");
+    vInputFLT.value = "" + e.target.value;
+    var vEvent = new Event('input', {
+        bubbles: true,
+        cancelable: true,
+    });
+    vInputFLT.dispatchEvent(vEvent);
+}
+
+function makeTableFLT() {
+    vRowDataFLT = [];
+    vTableGrid = new jsGrid.Grid($("#containerFLT"), {
+        width: "100%",
+        height: "80vh",
+
+        filtering: true,
+        inserting: false,
+        editing: false,
+        sorting: true,
+        paging: false,
+        autoload: true,
+        selecting: true,
+
+        //filterRowRenderer: function(){
+        //	return "<TR><TD><input type='text' id='namesearch' name='namesearch'></TD><TD><input type='text' id='operatornamesearch' name='operatornamesearch'></TD></TR>";
+        //},
+        rowClick: function(item, itemindex, event) {
+            console.log("ROW[" + itemindex + "]Clicked.ITEM[" + item.item.NAME + "].");
+            var vSelected = 0;
+            vFeatures.forEach((vFeature, vKey) => {
+                if (vFeature.properties.name === item.item.NAME) {
+                    //Select and Zoom to this marker.
+                    vSelected = vKey;
+                    if (vMarkers.has(vSelected)) {
+                        map.setView(vMarkers.get(vSelected).getLatLng(), map._zoom, {
+                            pan: {
+                                "animate": true
+                            }
+                        });
+                        map.setView(vMarkers.get(vSelected).getLatLng(), 20);
+                        map.setView(vMarkers.get(vSelected).getLatLng(), 21);
+                    }
+                }
+            });
+            console.log("ROW[" + itemindex + "]Clicked.ITEM[" + item.item.NAME + "]SelectedID[" + vSelected + "].");
+        },
+
+        //pageSize: 15,
+        //pageButtonCount: 5,
+
+        controller: {
+            loadData: function(filter) {
+                return getRowDataFLT(filter);
+            }
+        },
+        //data: getRowDataFLT,
+
+        fields: [{
+                name: "NAME",
+                type: "text",
+                width: 150,
+                validate: "required",
+                filtering: true,
+                filterTemplate: function() {
+                    return "<input type='text' id='namesearch' name='namesearch'>";
+                },
+                filterValue: function() {
+                    return document.getElementById('namesearch').value;
+                },
+                //headerTemplate: function(){
+                //	return "NAME("+vTableRowCount+")";
+                //},
+            },
+            {
+                name: "OPERATOR_NAME",
+                type: "text",
+                width: 150,
+                filtering: true,
+                filterTemplate: function() {
+                    return "<input type='text' id='operatornamesearch' name='operatornamesearch'>";
+                },
+                filterValue: function() {
+                    return document.getElementById('operatornamesearch').value;
+                }
+            },
+            //{ type: "control" }
+        ]
+    });
+}
+
+function getArray(vMap) {
+    var vArray = [];
+
+    for (const [name, value] of vMap) {
+        vArray.push(value);
+    }
+    return vArray;
+}
+
+async function updateDataLock() {
+    vGlobalStartTime = new Date().getTime();
+    if (!vUpdatingData) {
+        vUpdatingData = true;
+        //console.log("REALTIME["+JSON.stringify(realtime);
+        var vPromiseFLTLocationData = new Promise((resolve, reject) => {
+            //console.log("updateFLTLocationCurrent: Loading new FLT Location data...");
+            getULTSLocationCurrentOIDFilterData(
+                vClassOIDList,
+                async function(data) {
+                        var vData = await fixCoords(data, "ENTITY");
+                        vZoneEntitiesData = [];
+                        vData.forEach((feature) => {
+                            //console.log("Data["+JSON.stringify(feature)+"].");
+                            var vEntity = {};
+                            vEntity.NAME = feature.properties.name;
+                            if (Array.isArray(feature.ZONES)) {
+                                vEntity.ZONES = Array.from(feature.ZONES);
+                            } else {
+                                vEntity.ZONES = [];
+                            }
+                            vEntity.OPERATOR_NAME = feature.properties.operator_name;
+                            vEntity.CLASS_OID = parseInt(feature.properties.class_oid);
+							vEntity.ID = feature.id;
+                            vZoneEntitiesData.push(vEntity);
+                        });
+                        //var vData = await fixCoords(data, "ENTITY");
+                        //console.log("DATA:["+JSON.stringify(vData)+"].");
+                        vData.forEach((feature) => {
+                            vFeatures.set(feature.id, feature);
+                        });
+                        resolve();
+                    },
+                    function(data) {
+                        reject(data);
+                    });
+        });
+        Promise.allSettled([vPromiseFLTLocationData]) //, vPromiseFLTAutoZoneData])
+            .then((values) => updateChartLock(values));
+    }
+}
+
+async function updateChartLock(values) {
+    //console.log("PROMISERESULTS:"+JSON.stringify(values)+".");
+    vUpdatingData = false;
+    if (!vUpdatingChart) {
+        vUpdatingChart = true;
+        var currentZoom = map.getZoom();
+        var scale = map.getZoomScale(currentZoom, 21);
+        var vCompareTimestamp = (new Date()).getTime() - vMinLastUpdate; //Used to remove old entities
+        var vCompareTimestampLong = (new Date()).getTime() - vMinLastUpdateLong; //Used to remove old entities
+        var vCompareTimestampGoRed = (new Date()).getTime() - 60000; //Used to turn red entities that have not had a new position.
+        vFeatures.forEach((vFeature) => {
+            vFeature.config = vFMIEntityClassToConfig.get(vFeature.properties.class_oid);
+            if (vFeature.config) {
+                if (vFeature.properties.class_oid >= vFMIEntityNameToClass.get("PERSONNEL") ||
+                    vFeature.properties.position_source === "mstarfleet" ||
+                    vFeature.properties.position_source === "command" ||
+                    vFeature.properties.position_source === "minetec") {
+                    if (vMarkers.has(vFeature.id)) {
+                        var vMarker = vMarkers.get(vFeature.id);
+                        //Lets remove entity where the class has changed
+                        if (vFeature.properties.class_oid != vMarker.class_oid || vRefreshMarkers) {
+                            vMarkers.delete(vFeature.id);
+                            vFMIEntityTypes.get(vMarker.class_oid).removeLayer(vMarker);
+                        } else
+                            //Lets remove any that are out of bounds.
+                            if (vFeature.properties.avg_z > vMaxZFilter || vFeature.properties.avg_z < vMinZFilter) {
+                                console.log("NAME[" + vFeature.properties.name + "]AVGZ[" + vFeature.properties.avg_z + "] Outside of Range[" + vMinZFilter + "<->[" + vMaxZFilter + "].");
+                                vMarkers.delete(vFeature.id);
+                                vFMIEntityTypes.get(vFeature.properties.class_oid).removeLayer(vMarker);
+                            } else
+                        if (vFeature.config.moving) {
+                            //Lets remove old entities
+							//if (vShowOnlyLastUpdate && ((!vFeature.properties.reported_at) || vFeature.properties.reported_at < vCompareTimestamp)) {
+                            if (!vShowAllUpdate &&((!vFeature.properties.reported_at) || (!vShowOnlyLastUpdate && (vFeature.properties.reported_at < vCompareTimestampLong)) || (vShowOnlyLastUpdate && (vFeature.properties.reported_at < vCompareTimestamp)))){
+                               	vMarkers.delete(vFeature.id);
+                               	vFMIEntityTypes.get(vFeature.properties.class_oid).removeLayer(vMarker);
+                            }
+                            //Now lets move the Entity
+                            else {
+                                var vNewLatLng = {};
+                                vNewLatLng.lat = vFeature.geometry.coordinates[1];
+                                vNewLatLng.lng = vFeature.geometry.coordinates[0];
+                                var vCurrentLatLng = vMarker.getLatLng();
+                                var vNewLatLng2 = L.latLng(vNewLatLng.lat, vNewLatLng.lng);
+                                vMarker.speed = vCurrentLatLng.distanceTo(vNewLatLng2);
+                                if (!vFeature.config.rotate) {
+                                    vFeature.properties.heading = vMapRotation;
+                                }
+                                if (vMarker.speed > 0.5) {
+                                    vMarker.animateTo(vNewLatLng, convertHeading(vFeature.properties.heading), 1000);
+                                }
+								if (vFeature.config.articulated){
+									
+									//var vNewAngle = angleDelta(convertHeading(vFeature.properties.heading),convertHeading(vFeature.properties.steering_angle));
+									/*if ( vNewAngle > 360 ) {
+										vNewAngle=vNewAngle-360;
+									}
+									if ( vNewAngle < 0 ) {
+										vNewAngle=vNewAngle+360;
+									}*/
+									vMarker.setArticulationAngle(vFeature.properties.steering_angle);
+								}
+									
+                                if (vLastPosMap.has(vFeature.id)) {
+                                    var vName = "" + vFeature.properties.name;
+                                    if (vFeature.properties.operator_name && vFeature.properties.class_oid >= vFMIEntityNameToClass.get("PERSONNEL")) {
+                                        vName = "" + vFeature.properties.operator_name;
+                                    }
+                                    if (vCompareTimestampGoRed > vFeature.properties.reported_at) {
+                                        //if ( vLastPosMap.get(vFeature.id) === vFeature.properties.reported_at)
+                                        vMarker.setTooltipContent("<div class='greyToolTip smallToolTip' style='font-size: " + vLabelFontSize + "px'>" + vName + "</div>");
+                                    } else {
+                                        vMarker.setTooltipContent("<div class='smallToolTip' style='font-size: " + vLabelFontSize + "px'>" + vName + "</div>");
+                                    }
+                                }
+                                vLastPosMap.set(vFeature.id, vFeature.properties.reported_at);
+                                //console.log("Heading["+convertHeading(vFeature.properties.heading)+"].");
+                            }
+                        }
+                        //Lets show the tooltip if the entity has a label and labels are enabled
+                        if (vFeature.config.label) {
+                            if (vShowLabels) {
+                                if (!vMarker.isTooltipOpen()) {
+                                    vMarker.openTooltip();
+                                }
+                            } else {
+                                if (vMarker.isTooltipOpen()) {
+                                    vMarker.closeTooltip();
+                                }
+                            }
+                        }
+                        if (vMarker.isPopupOpen()) {
+                            vMarker.setPopupContent(getPopupContent(vFeature));
+                        }
+                    } else {
+                        //Lets not create old entities
+                        //if (vShowOnlyLastUpdate && ((!vFeature.properties.reported_at) || vFeature.properties.reported_at < vCompareTimestamp) && vFeature.config.moving) {
+						if (vFeature.config.moving && (!vShowAllUpdate &&((!vFeature.properties.reported_at) || (!vShowOnlyLastUpdate && (vFeature.properties.reported_at < vCompareTimestampLong)) || (vShowOnlyLastUpdate && (vFeature.properties.reported_at < vCompareTimestamp))))){
+                            //vFeatures.delete(vFeature.id);
+                        }
+                        //Lets not create any that are out of bounds.
+                        else if (vFeature.properties.avg_z > vMaxZFilter || vFeature.properties.avg_z < vMinZFilter || vFeature.id == 0) {
+                            //vFeatures.delete(vFeature.id);
+                        }
+                        //Lets create new entity.
+                        else {
+                            //console.log("ID["+vFeature.id+"]Making New Marker.");
+                            var vNewLatLng = {};
+                            vNewLatLng.lat = vFeature.geometry.coordinates[1];
+                            vNewLatLng.lng = vFeature.geometry.coordinates[0];
+                            var vNewMarker = {};
+                            if (!vFeature.config.image) {
+                                vNewMarker = createTrackIcon(vFeature, vNewLatLng);
+                            } else {
+                                //If not rotating lets set it to match the map
+                                if (!vFeature.config.rotate) {
+                                    vFeature.properties.heading = vMapRotation;
+                                }
+                                var vMarkerScale = scale;
+                                if (vFeature.config.scalefactor && vFeature.config.scalefactor != 1) {
+                                    vMarkerScale = ((vFeature.config.scalefactor + 1) * scale) / (vFeature.config.scalefactor * scale + 1);
+                                }
+                                vNewMarker = createTrackMarker(vFeature, vNewLatLng, vMarkerScale);
+                            }
+                            vNewMarker.featureid = vFeature.id;
+                            //If Animation Required (Personel Nodes)
+                            if (vFeature.config.animation && vShowAnimation) {
+                                vNewMarker.animStep = 1;
+                                vNewMarker.animStepMax = vFeature.config.animstepmax;
+                                vNewMarker.animFramesPerSec = vFeature.config.animframespersec;
+                                vNewMarker.animFramesPerMeter = vFeature.config.animframespermeter;
+                                vNewMarker.calcHeading = vFeature.config.calcheading;
+                                if (vShowPersonnelCircle) {
+                                    vNewMarker.classBase = "" + vFeature.config.classbase + "-circle";
+                                } else {
+                                    vNewMarker.classBase = "" + vFeature.config.classbase;
+                                }
+                                vNewMarker.speed = 0;
+                                vNewMarker.title = "TESTY";
+                            }
+                            vMarkers.set(vFeature.id, vNewMarker);
+                            //vFeatures.set(vFeature.id, vFeature);
+                            if (vFMIEntityTypes.has(vFeature.properties.class_oid)) {
+                                vFMIEntityTypes.get(vFeature.properties.class_oid).addLayer(vNewMarker);
+                                //console.log("Adding to EntityGroup["+vFeature.properties.class_oid+"].");
+                            } else {
+                                var vEntityGroup = L.featureGroup().addTo(map);
+                                vEntityGroup.addLayer(vNewMarker);
+                                vFMIEntityTypes.set(vFeature.properties.class_oid, vEntityGroup);
+                                //console.log("Creating EntityGroup["+vFeature.properties.class_oid+"].");
+                            }
+                            if (vFeature.config.label) {
+                                var vName = "" + vFeature.properties.name;
+                                if (vFeature.properties.operator_name && vFeature.properties.class_oid >= vFMIEntityNameToClass.get("PERSONNEL")) {
+                                    vName = "" + vFeature.properties.operator_name;
+                                }
+								if ( vFeature.properties.class_oid >= vFMIEntityNameToClass.get("PERSONNEL")) {
+                                	vNewMarker.bindTooltip("<div class='smallToolTip' style='font-size: " + vLabelFontSize + "px'>" + vFeature.properties.name + "</div>", {
+                                    	permanent: true,
+                                    	opacity: 0.8,
+                                    	direction: 'bottom',
+                                    	offset: [0, 0] //-vFeature.config.sizey]
+                                	}).openTooltip();
+								}else{
+									vNewMarker.bindTooltip("<div class='smallToolTip' style='font-size: " + vLabelFontSize + "px'>" + vFeature.properties.name + "</div>", {
+                                    	permanent: true,
+                                    	opacity: 0.8,
+                                    	direction: 'top',
+                                    	offset: [0, 0] //-vFeature.config.sizey]
+                                	}).openTooltip();
+								}
+                            }
+                            vNewMarker.featureid = vFeature.id;
+                            vNewMarker.class_oid = vFeature.properties.class_oid;
+                            vNewMarker.on('click', function(e) {
+                                this.getElement().focus();
+                                console.log("MARKER CLICKED[" + vFeatures.get(this.featureid).properties.name + "]id[" + this.featureid + "]" + this.getLatLng() + "ELEMENT[" + JSON.stringify(this.getElement(), getCircularReplacer()) + "].");
+                                vFMIEntityTypes.get(vFeatures.get(this.featureid).properties.class_oid).getLayer(this._leaflet_id).getElement().focus();
+                                vSelectedMarker = this.featureid;
+                            });
+							vNewMarker.on('move', function(){
+                                if ( this.featureid == vSelectedMarker){
+                                    map.panTo(this.getLatLng());
+                                }
+                            });
+                            var vPopupOptions = {
+                                maxWidth: 400,
+                                offset: [0, 0],
+                                className: 'popupCustom'
+                            };
+                            vNewMarker.bindPopup(getPopupContent(vFeature), vPopupOptions);
+                        }
+                    }
+                }
+            } else {
+                console.log("NO MACHINE CONFIG FOR[" + vFeature.properties.class_oid + "].");
+            }
+        });
+        if (vRefreshMarkers) {
+            console.log("MARKERS REFRESHED!");
+        }
+        vRefreshMarkers = false;
+        //Now lets update the table
+        vZoneEntitiesData = vZoneEntitiesData.sort(function(a, b) {
+            if (a.Name < b.Name) {
+                return -1;
+            }
+            if (a.Name > b.Name) {
+                return 1;
+            }
+            return 0;
+        });
+        vRowDataFLT = Array.from(vZoneEntitiesData);
+        $("#containerFLT").jsGrid("loadData").done(function() {
+            var sorting = $("#containerFLT").jsGrid("getSorting");
+            $("#containerFLT").jsGrid("sort", sorting);
+        });
+        vUpdatingChart = false;
+    }
+}
+
+async function setupUPSEventSource() {
+    var vURL = "" + window.location.protocol + "//" + window.location.host + "/api/getUPSEvents";
+    console.log("Setting up ULTS EventSource...[" + vURL + "]");
+    var vUPSEvtSource = new EventSource(vURL, {
+        withCredentials: true
+    }); //, {
+    //    headers: {
+    //            Authorization: 'basic YWRtaW46cGFzc3dvcmQ=',
+    //    },
+    //});
+    console.log("ULTS EventSource created[" + JSON.stringify(vUPSEvtSource.readyState) + "].");
+    vUPSEvtSource.onopen = function(e) {
+        console.log('OPENED:', e.data);
+    };
+    vUPSEvtSource.onmessage = function(e) {
+        console.log('Message:', e.data);
+    };
+    vUPSEvtSource.onerror = function(e) {
+        vUPSEvtSource.close();
+        console.error('Error occurred', e);
+    };
+
+    //vUPSEvtSource.addEventListener("data", (e) => {
+    //	console.log('data:', e.data);
+    //});
+
+    //vUPSEvtSource.addEventListener("message", (e) => {
+    //        console.log('message:', e.data);
+    //});
+
+    /*vUPSEvtSource.on('create', function(e) {
+            // status event
+            try {
+            } catch (err) {
+                    console.log('UPSTRACKING:AREADATA:CREATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+            }
+    });
+
+    vUPSEvtSource.on('update', function(e) {
+            // status event
+            try {
+            } catch (err) {
+                    console.log('UPSTRACKING:AREADATA:UPDATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+            }
+    });*/
+}
+
+//**MAKE MAP
+//Lets make the map.
+var map = L.map('map', {
+    attributionControl: false,
+    zoomControl: true,
+    boxZoom: false,
+    doubleClickZoom: false,
+    editable: true,
+    rotate: true,
+    bearing: vRotation,
+    rotateControl: {
+        closeOnZeroBearing: false,
+        position: 'bottomleft'
+    },
+    shiftKeyRotate: true,
+    edgeBufferTiles: 2,
+    maxZoom: 24,
+    minZoom: 16,
+    maxNativeZoom: 24,
+    minNativeZoom: 16,
+    keepbuffer: 6,
+    fullscreenControl: true,
+    fullscreenControlOptions: {
+        position: 'topleft',
+        // optional
+        title: 'Show me the fullscreen !',
+        titleCancel: 'Exit fullscreen mode'
+    },
+    //zoomAnimation: false,
+    zoomAnimationThreshold: 0,
+    zoomSnap: 0.1,
+    zoomDelta: 0.5,
+    wheelPxPerZoomLevel: 120,
+    //wheelDebounceTime: 100,
+    //scrollWheelZoom: false, // disable original zoom function
+    //smoothWheelZoom: true,  // enable smooth zoom
+    //smoothSensitivity: 1,   // zoom speed. default is 1
+}).setView(vMapCenter, 16);
+
+// detect fullscreen toggling
+map.on('enterFullscreen', function() {
+    if (window.console) window.console.log('enterFullscreen');
+    clock.addTo(map);
+    clock.start();
+    personcount.addTo(map);
+    vehiclecount7.addTo(map);
+    vehiclecount6.addTo(map);
+    vehiclecount5.addTo(map);
+    vehiclecount4.addTo(map);
+    vehiclecount3.addTo(map);
+    vehiclecount2.addTo(map);
+    vehiclecount.addTo(map);
+});
+
+map.on('exitFullscreen', function() {
+    if (window.console) window.console.log('exitFullscreen');
+    clock.stop();
+    clock.remove();
+    personcount.remove();
+    vehiclecount.remove();
+    vehiclecount2.remove();
+    vehiclecount3.remove();
+    vehiclecount4.remove();
+    vehiclecount5.remove();
+    vehiclecount6.remove();
+    vehiclecount7.remove();
+});
+
+// toggler into fullscreen mode
+const toggleFullscreen = function() {
+    map.toggleFullscreen();
+};
+
+var currentZoom = map.getZoom();
+
+//***MAKE CONTROLS
+//***SCALE:Lets add the range scale on the bottom left.
+L.control.scale({
+    metric: true,
+    imperial: false
+}).addTo(map);
+
+//***COMPASS:Lets add the compass to controls
+var compass = L.control({
+    position: "topright"
+});
+compass.onAdd = function(map) {
+    var div = L.DomUtil.create("div", "info legend");
+    div.innerHTML = '<img id="compass" class="rotate-image invert" src="images/compass.png">';
+    return div;
+}
+compass.addTo(map);
+
+//***PERSONCOUNT:Lets add the person counter
+var personcount = L.control({
+    position: "bottomright"
+});
+personcount.onAdd = function(map) {
+    var div = L.DomUtil.create("div", "info legend");
+    div.innerHTML = '<table><TR><TD><div id="personcountfull"></div></TD><TD><img class="invert" src="images/svg/person-100.svg"></TD></TR></TABLE>';
+    return div;
+}
+//personcount.addTo(map);
+
+//***CLOCK: Lets add a clock.
+var clock = new L.Control.Clock();
+
+//***VEHICLECOUNT:Lets add the vehicle counter
+var vehiclecount = L.control({
+    position: "bottomright"
+});
+vehiclecount.onAdd = function(map) {
+    var div = L.DomUtil.create("div", "info legend");
+    div.innerHTML = '<table><TR><TD><div id="vehiclecount1full"></div></TD><TD><img width="100" height="50" src="images/svg/LHD410.svg"><h2 style="color: #FFFFFF;font-family: Arial";>LHD410&nbsp;&nbsp;&nbsp;</h2></TD></TR></TABLE>';
+    return div;
+}
+
+//***VEHICLECOUNT:Lets add the vehicle counter
+var vehiclecount2 = L.control({
+    position: "bottomright"
+});
+vehiclecount2.onAdd = function(map) {
+    var div = L.DomUtil.create("div", "info legend");
+    div.innerHTML = '<table><TR><TD><div id="vehiclecount2full"></div></TD><TD><img width="100" height="50" src="images/svg/LHD1600.svg"><h2 style="color: #FFFFFF;font-family: Arial;">LHD1600&nbsp;&nbsp;</h2></TD></TR></TABLE>';
+    return div;
+}
+
+//***VEHICLECOUNT3:Lets add the vehicle counter
+var vehiclecount3 = L.control({
+    position: "bottomright"
+});
+vehiclecount3.onAdd = function(map) {
+    var div = L.DomUtil.create("div", "info legend");
+    div.innerHTML = '<table><TR><TD><div id="vehiclecount3full"></div></TD><TD><img width="100" height="50" src="images/svg/LHD1700.svg"><h2 style="color: #FFFFFF;font-family: Arial;">LHD1700&nbsp;&nbsp;</h2></TD></TR></TABLE>';
+    return div;
+}
+//vehiclecount.addTo(map);
+
+//***VEHICLECOUNT4:Lets add the vehicle counter
+var vehiclecount4 = L.control({
+    position: "bottomright"
+});
+vehiclecount4.onAdd = function(map) {
+    var div = L.DomUtil.create("div", "info legend");
+    div.innerHTML = '<table><TR><TD><div id="vehiclecount4full"></div></TD><TD><img width="50" height="50" src="images/svg/underground-minecat-round.svg"><h2 style="color: #FFFFFF;font-family: Arial;">MINECAT&nbsp;&nbsp;</h2></TD></TR></TABLE>';
+    return div;
+}
+
+//***VEHICLECOUNT5:Lets add the vehicle counter
+var vehiclecount5 = L.control({
+    position: "bottomright"
+});
+vehiclecount5.onAdd = function(map) {
+    var div = L.DomUtil.create("div", "info legend");
+    div.innerHTML = '<table><TR><TD><div id="vehiclecount5full"></div></TD><TD><img width="50" height="50" src="images/svg/underground-lightvehicle-toyota.svg"><h2 style="color: #FFFFFF;font-family: Arial;">L.VEHICLE</h2></TD></TR></TABLE>';
+    return div;
+}
+
+//***VEHICLECOUNT6:Lets add the vehicle counter
+var vehiclecount6 = L.control({
+    position: "bottomright"
+});
+vehiclecount6.onAdd = function(map) {
+    var div = L.DomUtil.create("div", "info legend");
+    div.innerHTML = '<table><TR><TD><div id="vehiclecount6full"></div></TD><TD><img width="100" height="50" src="images/svg/LHD1600-RockBreaker4.svg"><h2 style="color: #FFFFFF;font-family: Arial;">R.BREAKER</h2></TD></TR></TABLE>';
+    return div;
+}
+
+//***VEHICLECOUNT7:Lets add the vehicle counter
+var vehiclecount7 = L.control({
+    position: "bottomright"
+});
+vehiclecount7.onAdd = function(map) {
+    var div = L.DomUtil.create("div", "info legend");
+    div.innerHTML = '<table><TR><TD><div id="vehiclecount7full"></div></TD><TD><img width="100" height="50" src="images/svg/GetManWaterCannon2.svg"><h2 style="color: #FFFFFF;font-family: Arial;">W.CANNON&nbsp;</h2></TD></TR></TABLE>';
+    return div;
+}
+
+//vehiclecount.addTo(map);
+
+//***STYLE:Create the Style Controls to change the colours etc. of map elements.
+map.addControl(new L.NewStyleControl());
+
+//***CONFIG:Create the application configuration options controls.
+map.addControl(new L.NewConfigControl());
+
+//EVENT HANDLERS
+//Now lets clear the history after editing.
+map.on('editable:drawing:end', function() {
+    redoBuffer = [];
+    //Lets save the polygon.
+});
+
+map.on('layeradd', function(e) {
+    if (e.layer instanceof L.Polygon)
+        e.layer.on('click', L.DomEvent.stop).on('click', setCurrentLayer, e.target);
+});
+
+map.on('click', function(e) {
+    vTrackingZoneID = 0;
+    //setCurrentLayer(null);
+    vCount = 0;
+    //var el = document.getElementById('details');
+    //	el.innerHTML = "";
+    if (vCurrentLayer) {
+        highlightLayer(map, 0);
+        vCurrentLayer = null;
+    }
+});
+
+map.on('zoomend', function() {
+    currentZoom = map.getZoom();
+    var scale = map.getZoomScale(currentZoom, 21);
+    //console.log("SCALE:"+scale+".");
+    vMarkers.forEach((marker, key, arr) => {
+        var vFeature = vFeatures.get(key);
+        if (vFeature.config.zoom) {
+            var vMarkerScale = scale;
+            if (vFeature.config.scalefactor && vFeature.config.scalefactor != 1) {
+                vMarkerScale = ((vFeature.config.scalefactor + 1) * scale) / (vFeature.config.scalefactor * scale + 1);
+            }
+            var vIconSizeX = Math.round(vFeature.config.sizex * vMarkerScale);
+            var vIconSizeY = Math.round(vFeature.config.sizey * vMarkerScale);
+            var vIconAnchorX = vIconSizeX / 2;
+            var vIconAnchorY = vIconSizeY / 2;
+            vFeature.properties.speed = 1;
+            var vImageURL = vFeature.config.imageurl;
+            if (vFeature.properties.class_oid >= vFMIEntityNameToClass.get("PERSONNEL")) {
+                if (vShowPersonnelCircle) {
+                    vImageURL = "" + vFeature.config.imagecircleurl;
+                }
+            }
+			if (vFeature.config.articulated){
+				//console.log('Zoom Scaling ICONXY['+vIconSizeX+','+vIconSizeY+'] ANCHORXY['+vIconAnchorX+','+vIconAnchorY+'] SCALE['+vMarkerScale+','+vFeature.config.scalefactor+'].');
+				var vBaseImageURL = vImageURL.split('.')[0];
+				var vHTML = '<div class="marker-back" style="padding: 0px 0px 0px 0px;border: 0px 0px 0px 0px;transform: translateX(0px) translateY(0px);width:' + vIconSizeX + 'px; height:' + vIconSizeY + 'px;"> ';
+				//var vHTML = '<div class="marker-back" style="position:absolute;left:0; top:0; width:' + vIconSizeX + 'px; height:' + vIconSizeY + 'px;"> ';
+				vHTML = vHTML + '<img style="display:block; vertical-align: bottom;" width="'+vIconSizeX+'" height="'+vIconSizeY+'" src="'+vBaseImageURL+'-back.svg"> </div>';
+				//vHTML = vHTML + '<div class="marker-front" style="position:absolute;margin-left:-'+vIconAnchorX+'px;margin-top:-'+vIconAnchorY+'px; width:'+vIconSizeX+'px; height:'+vIconSizeY+'px;"> ';
+				vHTML = vHTML + '<div class="marker-front" style="padding: 0px 0px 0px 0px;border: 0px 0px 0px 0px;margin-left:0px;margin-top:-'+vIconSizeY+'px;width:'+vIconSizeX+'px; height:'+vIconSizeY+'px;"> ';
+				//vHTML = vHTML + '<div class="marker-front" style="transform: translateX(0px) translateY(-'+vIconSizeY+'px)margin-left:0px;margin-top:-'+vIconSizeY+'px;width:'+vIconSizeX+'px; height:'+vIconSizeY+'px;"> ';
+				vHTML = vHTML + '<img style="display:block; vertical-align: bottom;" width="'+vIconSizeX+'" height="'+vIconSizeY+'" src="'+vBaseImageURL+'-front.svg"> </div>'; 
+				var vDivIcon = L.divIcon({
+                		iconSize: [vIconSizeX, vIconSizeY],
+                		html: vHTML,
+						//bgPos: [0, 0],
+                		//iconUrl: vImageURL,
+                		//shadowUrl: '',
+                		//shadowSize: [0, 0],
+                		iconAnchor: [vIconAnchorX, vIconAnchorY],
+                		//shadowAnchor: [32, 9],
+                		popupAnchor: [0, 0],
+                		className: 'machine' + vFeature.id,
+                		//role: vFeature.properties.role.toLowerCase()
+            	});
+            	marker.setIcon(vDivIcon);
+			}else{
+            	marker.setIcon(new vLHDIcon({
+                	iconUrl: vImageURL,
+                	iconSize: [vIconSizeX, vIconSizeY],
+                	iconAnchor: [vIconAnchorX, vIconAnchorY],
+                	className: 'machine' + vFeature.id
+            	}));
+			}
+            if (vFeature.properties.class_oid >= vFMIEntityNameToClass.get("PERSONNEL")) {
+                if (marker._icon) {
+					//if ( vFeature.properties.entitygrouprole_oid > 7 && vFeature.properties.entitygrouprole_oid < 17 ){
+					//	L.DomUtil.addClass(marker._icon, "setupworker");
+					//}else{
+					//	L.DomUtil.addClass(marker._icon, "trackindoworker");
+					//}
+                    L.DomUtil.addClass(marker._icon, "worker");
+                }
+            }
+        }
+    });
+});
+
+map.on('rotate', function() {
+    vRotation = map.getBearing();
+    //console.log("ROTATING:"+vRotation+".");
+    vMarkers.forEach((marker, key, arr) => {
+        var vFeature = vFeatures.get(key);
+        if (vFeature.config.rotate) {
+            marker.setRotationAngle(convertHeading(vFeature.properties.heading));
+        }
+		if (vFeature.config.articulated) {
+            	marker.setArticulationAngle(vFeature.properties.steering_angle);
+        }
+    });
+    document.styleSheets[ssMain][cssRules][2].style['transform'] = ' rotate(' + vRotation + 'deg)';
+}, this);
+
+var myClock = {};
+$(document).ready(function() {
+    (async function() {
+        vClassOIDList = "/0";
+        for (const [key, value] of vFMIEntityClassToConfig) {
+            if (value.moving) {
+                vClassOIDList += "|" + key;
+				if (  vFMIEntityClassToName.has(key)){
+					console.log("ENTITYGROUPSETUP:key["+key+"].");
+            		var vEntityGroup = L.featureGroup().addTo(map);
+            		vFMIEntityTypes.set(key, vEntityGroup);
+				}
+            }
+        };
+        vClassOIDList += "/";
+		//Lets presetup the EntityTypeLayers so they are always visible.
+		//vFMIEntityClassToName.forEach((data, key) => {
+		//	if (
+		//	console.log("ENTITYGROUPSETUP:key["+key+"]Name["+data+"].");
+		//	var vEntityGroup = L.featureGroup().addTo(map);
+        //    vFMIEntityTypes.set(key, vEntityGroup);
+		//});
+
+        await makeTableFLT();
+        //vShowOnlyLastUpdate=false;
+        await updateDataLock();
+        //vShowOnlyLastUpdate=false;
+        await loadGeoJson();
+        myClock = setInterval(updateDataLock, 1000);
+        //setupUPSEventSource();
+    })();
+});
+    </script>
+</body>
+
+</html>

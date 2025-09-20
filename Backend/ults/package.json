@@ -1,0 +1,25 @@
+{
+  "name": "fltautodelay",
+  "version": "1.0.0",
+  "description": "Subscribes to the Fleet Zone,Delays and Locations and set auto delays based on info. Also store FLTZONE,FLTDELAY and FLTLOCATION DATA in Tables.",
+  "main": "fltautodelay.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "FLT",
+    "API",
+    "MSSQL",
+    "PTFI"
+  ],
+  "author": "Mark Chambers",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "file:node-20.3.1.tgz",
+    "@types/tape": "file:tape-5.6.0.tgz",
+    "@types/through": "file:through-0.0.30.tgz",
+    "quickselect": "file:quickselect-2.0.0.tgz",
+    "rbush-3d": "file:rbush-3d-0.0.4.tgz",
+    "polygon-lookup-3d": "file:polygon-lookup-3d-2.6.0.tgz"
+  }
+}

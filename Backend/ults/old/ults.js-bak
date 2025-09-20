@@ -1,0 +1,2061 @@
+//LIBRARIES
+const express = require('express'); //npm install express
+const bodyParser = require('body-parser'); // npm install body-parser
+const http = require('http');
+const cp = require('child_process');
+const EventSource = require('eventsource');
+var sql = require("mssql");
+const config = require('config');
+const dayjs = require('dayjs');
+var utc = require('dayjs/plugin/utc');
+const filter = require("mrc-filter");
+const utils = require("mrc-utils");
+const axios = require('axios');
+const dgram = require('dgram');
+const _ = require('lodash');
+dayjs.extend(utc);
+//const whichPolygon = require('which-polygon');
+const PolygonLookup = require('polygon-lookup');
+//VARIABLES
+var vReadQSize = 50;
+const vFLTServer = config.get('FLTServer');
+const vFLTServerAuth = config.get('FLTServerAuth'); //`Basic bWNoYW1iZXI6ODAwMTYzNTc=`
+const vFLTAutoDelayPort = config.get('ULTSPort');
+var dbConfig = config.get('dbConfig');
+//VARIABLES
+var reconnectFrequencySecondsAreaEventSource = 1;
+var reconnectFrequencySecondsPanelEventSource = 1;
+var reconnectFrequencySecondsZoneEventSource = 1;
+var reconnectFrequencySecondsDelayEventSource = 1;
+var reconnectFrequencySecondsLocationEventSource = 1;
+var vAreaEvtSource;
+var vPanelEvtSource;
+var vZoneEvtSource;
+var vDelayEvtSource;
+var vLocationEvtSource;
+var vPanelLookup;
+var vZoneLookup;
+var vFMIZoneLookup;
+var vAreaLookup;
+var vFLTAreas;
+var vFLTPanels;
+var vFLTZones;
+var vFMIZones = {};
+vFMIZones.type = "FeatureCollection";
+vFMIZones.features = [];
+var vFLTDelays;
+var vFLTLocations;
+//Initializing connection string
+var APP_VERSION = "1.3";
+var PORT = process.env.PORT || vFLTAutoDelayPort;
+//var vFLTMachineMap = new Map();
+var vFLTAreaMap = new Map();
+var vFLTPanelMap = new Map();
+var vFLTZoneMap = new Map();
+var vFMIZoneMap = new Map();
+//var vFLTDelayMap = new Map();
+var vFLTLocationMap = new Map();
+var vMOLocationNameMap = new Map();
+var vMSLocationNameMap = new Map();
+var vMSLocationMap = new Map();
+var vEntityZonesMap = new Map();
+var vFLTNameToClassMap = new Map();
+var vZoneActivitiesCurrent = new Map();
+var vZoneActivities = [];
+const vTimeInterval = 300000;
+const vLoadDataInterval = 30000;
+var vFMIZonesNeedUpdate = true;
+
+var vWASPIDToMachineMap = new Map();
+vWASPIDToMachineMap.set("27418", "8117");
+vWASPIDToMachineMap.set("19698", "8122");
+vWASPIDToMachineMap.set("16936", "654");
+vWASPIDToMachineMap.set("10196", "873");
+//vWASPIDToMachineMap.set("10196", "657");
+vWASPIDToMachineMap.set("28160", "660");
+//vWASPIDToMachineMap.set("12551", "8101");
+//vWASPIDToMachineMap.set("12551", "665");
+vWASPIDToMachineMap.set("474", "897");
+vWASPIDToMachineMap.set("31336", "894");
+vWASPIDToMachineMap.set("13936", "659");
+//vWASPIDToMachineMap.set("12235", "659");
+vWASPIDToMachineMap.set("45166", "690");
+vWASPIDToMachineMap.set("24645", "882");
+
+var vULTSEntityMap = new Map();
+var vULTSPersonMap = new Map();
+var vULTSEntityGroupMap = new Map();
+//FUNCTIONS
+async function startDBConnect() {
+    try {
+        await dbConn.connect();
+    } catch (err) {
+        console.log("ULTS:CONNECTION-ERROR:" + err);
+    };
+    console.log("ULTS:Starting process to load MineStar Delay update data...");
+    await loadAreaData();
+    setupAreaEventSource();
+    await loadPanelData();
+    setupPanelEventSource();
+    await loadZoneData();
+    setupZoneEventSource();
+    await loadFMIZoneData();
+    await loadULTSEntityData();
+    await loadULTSPersonData();
+    await loadULTSEntityGroupData();
+    //await loadDelayData();
+    //setupDelayEventSource();
+    await loadLocationDataHistory();
+    await loadLocationData();
+    setupLocationEventSource();
+    await loadZoneActivityData();
+    await setupPositionPacketListener();
+    //await loadLocationDataHistory();
+}
+
+var waitFuncAreaEventSource = function() {
+    return reconnectFrequencySecondsAreaEventSource * 1000
+};
+var waitFuncPanelEventSource = function() {
+    return reconnectFrequencySecondsPanelEventSource * 1000
+};
+var waitFuncZoneEventSource = function() {
+    return reconnectFrequencySecondsZoneEventSource * 1000
+};
+var waitFuncDelayEventSource = function() {
+    return reconnectFrequencySecondsDelayEventSource * 1000
+};
+var waitFuncLocationEventSource = function() {
+    return reconnectFrequencySecondsLocationEventSource * 1000
+};
+
+var tryToSetupFuncAreaEventSource = function() {
+    setupAreaEventSource();
+    reconnectFrequencySecondsAreaEventSource *= 2;
+    if (reconnectFrequencySecondsAreaEventSource >= 64) {
+        reconnectFrequencySecondsAreaEventSource = 64;
+    }
+	console.log("ULTS:TRYTOSETUPFUNCAREAEVENTSOURCE: New Seconds["+reconnectFrequencySecondsAreaEventSource+"].");
+};
+
+var tryToSetupFuncPanelEventSource = function() {
+    setupPanelEventSource();
+    reconnectFrequencySecondsPanelEventSource *= 2;
+    if (reconnectFrequencySecondsPanelEventSource >= 64) {
+        reconnectFrequencySecondsPanelEventSource = 64;
+    }
+	console.log("ULTS:TRYTOSETUPFUNCPANELEVENTSOURCE: New Seconds["+reconnectFrequencySecondsPanelEventSource+"].");
+};
+
+var tryToSetupFuncZoneEventSource = function() {
+    setupZoneEventSource();
+    reconnectFrequencySecondsZoneEventSource *= 2;
+    if (reconnectFrequencySecondsZoneEventSource >= 64) {
+        reconnectFrequencySecondsZoneEventSource = 64;
+    }
+	console.log("ULTS:TRYTOSETUPFUNCZONEEVENTSOURCE: New Seconds["+reconnectFrequencySecondsZoneEventSource+"].");
+};
+
+var tryToSetupFuncDelayEventSource = function() {
+    setupDelayEventSource();
+    reconnectFrequencySecondsDelayEventSource *= 2;
+    if (reconnectFrequencySecondsDelayEventSource >= 64) {
+        reconnectFrequencySecondsDelayEventSource = 64;
+    }
+	console.log("ULTS:TRYTOSETUPFUNCDELAYEVENTSOURCE: New Seconds["+reconnectFrequencySecondsDelayEventSource+"].");
+};
+
+var tryToSetupFuncLocationEventSource = function() {
+    setupLocationEventSource();
+    reconnectFrequencySecondsLocationEventSource *= 2;
+    if (reconnectFrequencySecondsLocationEventSource >= 64) {
+        reconnectFrequencySecondsLocationEventSource = 64;
+    }
+	console.log("ULTS:TRYTOSETUPFUNCLOCATIONEVENTSOURCE: New Seconds["+reconnectFrequencySecondsLocationEventSource+"].");
+};
+
+
+var reconnectFuncAreaEventSource = function() {
+    setTimeout(tryToSetupFuncAreaEventSource, waitFuncAreaEventSource())
+};
+var reconnectFuncPanelEventSource = function() {
+    setTimeout(tryToSetupFuncPanelEventSource, waitFuncPanelEventSource())
+};
+var reconnectFuncZoneEventSource = function() {
+    setTimeout(tryToSetupFuncZoneEventSource, waitFuncZoneEventSource())
+};
+var reconnectFuncDelayEventSource = function() {
+    setTimeout(tryToSetupFuncDelayEventSource, waitFuncDelayEventSource())
+};
+var reconnectFuncLocationEventSource = function() {
+    setTimeout(tryToSetupFuncLocationEventSource, waitFuncLocationEventSource())
+};
+
+async function loadDataPeriodic() {
+    loadData(60);
+}
+
+//Initial load of zone data.
+var vLoadingAreaData = false;
+async function loadAreaData() {
+    if (!vLoadingAreaData) {
+        vLoadingAreaData = true;
+		vFLTAreas={};
+        try {
+            console.log("ULTS:LOADAREAS: Requesting active areas...");
+            const params = {
+                method: 'GET',
+                url: 'http://' + vFLTServer + ':1100/underground/api/areas/maps',
+                json: true,
+                headers: {
+                    Authorization: vFLTServerAuth
+                },
+                timeout: 30000,
+            };
+
+            const data = await axios(params);
+            console.log('ULTS:LOADAREAS: Updating Areas.');
+            vFLTAreas = data.data;
+            console.log('Creating polygon group...');
+            vAreaLookup = new PolygonLookup(vFLTAreas);
+        } catch (e) {
+            console.error("ULTS:LOADPANELS: ERROR:" + e); // should contain code (exit code) and signal (that caused the termination).
+        }
+        if (vFLTAreas.features) {
+            console.log("ULTS:LOADAREAS: FINISHED LOADING ALL AREAS(" + vFLTAreas.features.length + ").");
+        } else {
+            console.log("ULTS:LOADAREAS:ERROR FINISHED LOADING ALL AREAS No Areas Found.");
+        }
+        vLoadingZoneData = false;
+    }
+}
+//Initial load of zone data.
+var vLoadingPanelData = false;
+async function loadPanelData() {
+    if (!vLoadingPanelData) {
+        vLoadingPanelData = true;
+		vFLTPanels={};
+        try {
+            console.log("ULTS:LOADPANELS: Requesting active panels...");
+            const params = {
+                method: 'GET',
+                url: 'http://' + vFLTServer + ':1100/underground/api/panels?active=true',
+                json: true,
+                headers: {
+                    Authorization: vFLTServerAuth
+                },
+                timeout: 30000,
+            };
+
+            const data = await axios(params);
+            console.log('ULTS:LOADPANELS: Updating Panels.');
+            vFLTPanels = data.data;
+            console.log('Creating polygon group...');
+            vPanelLookup = new PolygonLookup(vFLTPanels);
+        } catch (e) {
+            console.error("ULTS:LOADPANELS: ERROR:" + e); // should contain code (exit code) and signal (that caused the termination).
+        }
+        if (vFLTPanels.features) {
+            console.log("ULTS:LOADPANELS: FINISHED LOADING ALL PANELS(" + vFLTPanels.features.length + ").");
+        } else {
+            console.log("ULTS:LOADPANELS:ERROR FINISHED LOADING ALL PANELS No panels Found...");
+        }
+        vLoadingZoneData = false;
+    }
+}
+
+//Initial load of zone data.
+var vLoadingZoneData = false;
+async function loadZoneData() {
+    if (!vLoadingZoneData) {
+        vLoadingZoneData = true;
+		vFLTZones={};
+        try {
+            console.log("ULTS:LOADZONES: Requesting active zones...");
+            const params = {
+                method: 'GET',
+                url: 'http://' + vFLTServer + ':1100/underground/api/zones?active=true',
+                json: true,
+                headers: {
+                    Authorization: vFLTServerAuth
+                },
+                timeout: 30000,
+            };
+
+            const data = await axios(params);
+            console.log('ULTS:LOADZONES: Updating Zones.');
+            vFLTZones = data.data;
+            console.log('Creating polygon group...');
+            vZoneLookup = new PolygonLookup(vFLTZones);
+        } catch (e) {
+            console.error("ULTS:LOADZONES: ERROR:" + e); // should contain code (exit code) and signal (that caused the termination).
+        }
+        if (vFLTZones.features) {
+            console.log("ULTS:LOADZONES: FINISHED LOADING ALL ZONES(" + vFLTZones.features.length + ").");
+        } else {
+            console.log("ULTS:LOADZONES:ERROR FINISHED LOADING ALL ZONES No Zones Found...");
+        }
+        vLoadingZoneData = false;
+    }
+}
+
+//Initial load of delay data.
+var vLoadingDelayData = false;
+/*async function loadDelayData(){
+        if(!vLoadingDelayData){
+                vLoadingDelayData=true;
+                try {
+                        console.log("ULTS:LOADDELAYS: Requesting active delays...");
+                        const params = {
+                                method: 'GET',
+                                url: 'http://' + vFLTServer + ':1100/underground/api/delays?active=true',
+                                json: true,
+                                headers: {
+                                        Authorization: vFLTServerAuth
+                                },
+                                timeout: 30000,
+                        };
+
+                        const data = await axios(params);
+			console.log('ULTS:LOADDELAYS: Updating Delays.');
+			vFLTDelays=data.data;
+			vFLTDelays.forEach((value,index) => {
+				vFLTDelayMap.set(value.machine_oid,value);
+			});
+			//console.log('ULTS:LOADDELAYS: DELAYS['+JSON.stringify(vFLTDelays)+'].');
+                } catch (e) {
+                        console.error("ULTS:LOADDELAYS: ERROR:"+e); // should contain code (exit code) and signal (that caused the termination).
+                }
+                console.log("ULTS:LOADDELAYS: FINISHED LOADING ALL DELAYS("+vFLTDelays.length+")("+vFLTDelayMap.size+").");
+                vLoadingDelayData=false;
+        }
+}*/
+
+//Initial load of Location data.
+var vLoadingLocationData = false;
+async function loadLocationData() {
+    if (!vLoadingLocationData) {
+        vLoadingLocationData = true;
+		vFLTLocations={};
+        try {
+            console.log("ULTS:LOADLOCATIONS: Requesting current machine locations...");
+            const params = {
+                method: 'GET',
+                url: 'http://' + vFLTServer + ':1100/underground/api/machines/locations?active=true',
+                json: true,
+                headers: {
+                    Authorization: vFLTServerAuth
+                },
+                timeout: 30000,
+            };
+
+            const data = await axios(params);
+            console.log('ULTS:LOADLOCATIONS: Updating Locations.');
+            var vSendTime = new Date().getTime();
+            vFLTLocations = data.data;
+            vFLTLocations.features.forEach((value, index) => {
+                vFLTLocationMap.set(parseInt(value.properties.oid), value);
+                vFLTNameToClassMap.set(value.properties.name, parseInt(value.properties.class_oid));
+                vMSLocationNameMap.set(value.properties.name, value);
+                value.sendTime = vSendTime;
+                value.properties.position_source = "mstarfleet";
+                vDelayedLocations.unshift(_.cloneDeep(value));
+            });
+
+        } catch (e) {
+            console.error("ULTS:LOADLOCATIONS: ERROR:" + e); // should contain code (exit code) and signal (that caused the termination).
+        }
+        if (vFLTLocations.features && vFLTLocationMap) {
+            console.log("ULTS:LOADLOCATIONS: FINISHED LOADING ALL LOCATIONS(" + vFLTLocations.features.length + ")(" + vFLTLocationMap.size + ").");
+        } else {
+            console.log("ULTS:LOADLOCATIONS:ERROR FINISHED LOADING ALL LOCATIONS No Location Data Found...");
+        }
+        vLoadingLocationData = false;
+    }
+}
+
+function secNSec2ms(secNSec) {
+    if (Array.isArray(secNSec)) {
+        return secNSec[0] * 1000 + secNSec[1] / 1000000;
+    }
+    return secNSec / 1000;
+}
+
+var vCPUPercent = 0;
+var vlastCPU = process.cpuUsage();
+var vlastTime = process.hrtime();
+var vLoadingFMIZoneData = false;
+async function loadFMIZoneData() {
+    var vElapsedUsage = process.cpuUsage(vlastCPU);
+    var vElapsedTime = secNSec2ms(process.hrtime(vlastTime));
+    var vElapsedUsageUser = secNSec2ms(vElapsedUsage.user);
+    var vElapsedUsageSystem = secNSec2ms(vElapsedUsage.system);
+    vCPUPercent = (100 * (vElapsedUsageUser + vElapsedUsageSystem) / vElapsedTime).toFixed(2);
+    vlastCPU = process.cpuUsage();
+    vlastTime = process.hrtime();
+    if (!vLoadingFMIZoneData) {
+        vLoadingFMIZoneData = true;
+		vFMIZones={};
+        var vUpdateFeatures = [];
+        //Load the CMDEvent table.
+        console.log("ULTS:loadFMIZoneData: GETTING FMI Zone Rows...");
+        try {
+            var request = dbConn.request();
+            let result = await request.query("SELECT * FROM FMIZONE WHERE ACTIVE=1 ORDER BY OID ASC;");
+            if (result !== null) {
+                for (const recordset of result.recordsets) {
+                    //vDATACMDEvent=[].concat(recordset);
+                    console.log("ULTS:loadFMIZoneData: NEW DATA SIZE[" + recordset.length + "].");
+                    recordset.forEach((value, index) => {
+                        try {
+                            var vFeature = {};
+                            vFeature.type = "Feature";
+                            vFeature.id = parseInt(value.OID);
+                            vFeature.properties = {};
+                            vFeature.properties.oid = parseInt(value.OID);
+                            vFeature.properties.active = value.ACTIVE;
+                            vFeature.properties.name = value.NAME;
+                            vFeature.properties.type = value.TYPE;
+                            if (value.COLOR) {
+                                vFeature.properties.color = JSON.parse(value.COLOR);
+                            } else {
+                                vFeature.properties.color = [0, 0, 0, 0]; //JSON.parse(value.color);
+                            }
+                            //console.log("ULTS:loadFMIZoneData:GeometryBefore["+JSON.stringify(value.GEOMETRY)+"].");
+                            vFeature.geometry = JSON.parse(value.GEOMETRY);
+                            //console.log("ULTS:loadFMIZoneData:GeometryJSONParseAfter["+JSON.stringify(vFeature.geometry)+"].");
+                            vFeature.properties.avg_z = 0;
+                            var vCount = 0;
+                            var vSum = 0;
+                            if (vFeature.geometry.coordinates) {
+                                vFeature.geometry.coordinates.forEach((coords, index, arr) => {
+                                    vSum += parseFloat(coords[2]);
+                                    vCount++;
+                                    arr[index] = [parseFloat(coords[0]), parseFloat(coords[1]), parseFloat(coords[2])];
+
+                                });
+                            }
+                            //#HACK should be 3d polygon detection. Leets get the avergae polygon height.
+                            if (vCount > 0) {
+                                vFeature.properties.avg_z = vSum / vCount;
+                            }
+                            //console.log("ULTS:loadFMIZoneData:GeometryAfter["+JSON.stringify(vFeature.geometry)+"].");
+                            vUpdateFeatures.push(vFeature);
+                        } catch (err) {
+                            console.log("ULTS:loadFMIZoneData:Parsing Error:" + err);
+                        }
+                    });
+                }
+                console.log("ULTS:loadFMIZoneData: TOTAL DATA SIZE[" + vUpdateFeatures.length + "].");
+            }
+        } catch (err) {
+            console.log("ULTS:loadFMIZoneData: SQL-ERROR:" + err);
+        };
+        console.log("ULTS:loadFMIZoneData: FINISHED LOADING ALL FMI ZONE Rows.");
+		if (vFMIZones){
+        vFMIZones.features = _.cloneDeep(vUpdateFeatures);
+        //console.log("ULTS:loadFMIZoneData: ZONES["+JSON.stringify(vFMIZones)+"].");
+        //console.log('ULTS:loadFMIZoneData: Creating FMI Zone polygon group...');
+        try {
+            vFMIZoneLookup = new PolygonLookup(vFMIZones);
+            //console.log("ULTS:loadFMIZoneData:PolygonLookup["+JSON.stringify(vFMIZoneLookup)+"].");
+        } catch (err) {
+            console.log("ULTS:loadFMIZoneData:PolygonLookup:ERROR:" + err);
+        };
+		}
+        //vFMIZonesNeedUpdate=false;
+        vLoadingFMIZoneData = false;
+    }
+}
+
+var vFLTLocationHistory = [];
+var vFLTLocationHistoryLastDate = (new Date().getTime() - 7 * 24 * 60 * 60 * 1000); //1 Week ago.
+var vLoadingLocationDataHistory = false;
+async function loadLocationDataHistory() {
+    if (!vLoadingLocationDataHistory) {
+        vLoadingLocationDataHistory = true;
+        //Load the CMDEvent table.
+        console.log("ULTS:loadLocationDataHistory: Getting location data history Rows...");
+        try {
+            var request = dbConn.request();
+            //let result = await request.query("SELECT * FROM FLTLOCATION WHERE START_TIME > DATEADD(s, " + vFLTLocationHistoryLastDate/1000 + ", '1970-01-01 00:00:00') WHERE OID=(SELECT MAX(OID) FROM GROUP BY [MACINE_NAME] ORDER BY START_TIME ASC;");
+            let result = await request.query("SELECT * FROM FLTLOCATION F INNER JOIN (SELECT MAX(OID) AS MAXOID FROM FLTLOCATION GROUP BY [MACHINE_NAME]) M ON F.OID=M.MAXOID ORDER BY [MACHINE_NAME] ASC;");
+            if (result !== null) {
+                for (const recordset of result.recordsets) {
+                    var vSendTime = new Date().getTime();
+                    //vDATACMDEvent=[].concat(recordset);
+                    console.log("ULTS:loadLocationDataHistory: NEW DATA SIZE[" + recordset.length + "].");
+                    for (const value of recordset) { //.forEach((value,index) => {
+                        try {
+                            var vPersonelTracker = {};
+                            vPersonelTracker.type = "Feature";
+                            vPersonelTracker.id = parseInt(value.MACHINE_OID);
+                            vPersonelTracker.geometry = {};
+                            vPersonelTracker.geometry.type = "Point";
+                            vPersonelTracker.geometry.coordinates = [value.x, value.y, value.z];
+                            vPersonelTracker.properties = {};
+                            vPersonelTracker.properties.oid = parseInt(value.MACHINE_OID);
+                            vPersonelTracker.properties.active = value.ACTIVE;
+                            vPersonelTracker.properties.name = value.MACHINE_NAME;
+                            vPersonelTracker.properties.class_oid = parseInt(value.CLASS_OID);
+                            vPersonelTracker.properties.operator_oid = value.OPERATOR_NAME;
+                            vPersonelTracker.properties.operator_name = "" + value.OPERATOR_NAME;
+                            vPersonelTracker.properties.serial_number = "NA";
+                            vPersonelTracker.properties.capabilities = [];
+                            vPersonelTracker.properties.fuel_level = 0;
+                            vPersonelTracker.properties.heading = value.HEADING;
+                            vPersonelTracker.properties.steering_angle = value.STEERING_ANGLE;
+                            vPersonelTracker.properties.reported_at = new Date(value.START_TIME).getTime();
+                            vPersonelTracker.sendTime = vSendTime;
+                            vPersonelTracker.properties.position_source = "" + value.POSITION_SOURCE;
+                            if (vULTSEntityMap.has(vPersonelTracker.id)) {
+                                vPersonelTracker.properties.role = "" + vULTSEntityMap.get(vPersonelTracker.id).ROLE;
+                                vPersonelTracker.properties.operator_name = "" + vULTSEntityMap.get(vPersonelTracker.id).OPERATOR_NAME;
+                            }
+                            //vFLTLocationMap.set(parseInt(value.OID),vPersonelTracker);
+                            vFLTNameToClassMap.set(value.MACHINE_NAME, parseInt(value.CLASS_OID));
+							vMSLocationNameMap.set(vPersonelTracker.properties.name, vPersonelTracker);
+                            //if (vPersonelTracker.geometry.coordinates){
+                            //	if (vPersonelTracker.geometry.coordinates.length > 1){
+                            //console.log("ULTS:loadLocationDataHistory:Entity["+JSON.stringify(vPersonelTracker)+"].");
+                            //	await processLocationData(vPersonelTracker);
+                            //	}
+                            //}
+                            vDelayedLocations.unshift(_.cloneDeep(vPersonelTracker));
+                        } catch (err) {
+                            console.log("ULTS:loadLocationDataHistory:Parsing Error:" + err);
+                        }
+                    };
+                }
+                console.log("ULTS:loadLocationDataHistory: TOTAL DATA SIZE[" + vFLTLocationMap.size + "].");
+            }
+        } catch (err) {
+            console.log("ULTS:loadLocationDataHistory: SQL-ERROR:" + err);
+        };
+        console.log("ULTS:loadLocationDataHistory: FINISHED LOADING ALL LOCATION DATA HISTORY Rows.");
+        //vFMIZones.features=_.cloneDeep(vUpdateFeatures);
+    };
+    vLoadingLocationDataHistory = false;
+}
+
+var vLoadingULTSEntityData = false;
+async function loadULTSEntityData() {
+    if (!vLoadingULTSEntityData) {
+        vLoadingULTSEntityData = true;
+        //Load the CMDEvent table.
+        console.log("ULTS:loadULTSEntityData: Getting ULTS Entities for additional entity info...");
+        try {
+            var request = dbConn.request();
+            let result = await request.query("SELECT e.[OID] ,e.[ACTIVE] ,e.[MACHINE_NAME] ,e.[OPERATOR_NAME] ,e.[ENTITYGROUPROLE_OID],e.[PERSON_OID],e.[MACHINE_OID],r.[ENTITYCLASS_OID] AS [CLASS_OID] ,r.[NAME] AS [ROLE] ,g.[NAME] AS [GROUP_NAME] FROM [gbc_mrcapps].[dbo].[ULTSENTITY] e LEFT JOIN [gbc_mrcapps].[dbo].[ULTSENTITYGROUPROLE] r ON e.[ENTITYGROUPROLE_OID]=r.[OID] LEFT JOIN [gbc_mrcapps].[dbo].[ULTSENTITYGROUP] g ON r.[ENTITYGROUP_OID]=g.[OID] ORDER BY [OID] ASC;");
+            if (result !== null) {
+                for (const recordset of result.recordsets) {
+                    console.log("ULTS:loadULTSEntityData: NEW DATA SIZE[" + recordset.length + "].");
+                    for (const value of recordset) {
+                        try {
+                            var vEntity = {};
+                            vEntity.OID = parseInt(value.OID);
+                            vEntity.ACTIVE = value.ACTIVE;
+                            vEntity.MACHINE_NAME = value.MACHINE_NAME;
+                            vEntity.OPERATOR_NAME = value.OPERATOR_NAME;
+                            vEntity.CLASS_OID = parseInt(value.CLASS_OID);
+                            vEntity.ROLE = value.ROLE;
+                            vEntity.PERSON_OID = parseInt(value.PERSON_OID);
+                            vEntity.MACHINE_OID = parseInt(value.MACHINE_OID);
+                            vEntity.ENTITYGROUPROLE_OID = parseInt(value.ENTITYGROUPROLE_OID);
+                            vULTSEntityMap.set(vEntity.OID, vEntity);
+                        } catch (err) {
+                            console.log("ULTS:loadULTSEntityData:Parsing Error:" + err);
+                        }
+                    };
+                }
+                console.log("ULTS:loadULTSEntityData: TOTAL DATA SIZE[" + vULTSEntityMap.size + "].");
+            }
+        } catch (err) {
+            console.log("ULTS:loadULTSEntityData: SQL-ERROR:" + err);
+        };
+        console.log("ULTS:loadULTSEntityData: FINISHED LOADING ULTS ENTITIES Rows.");
+        //vFMIZones.features=_.cloneDeep(vUpdateFeatures);
+    };
+    vLoadingULTSEntityData = false;
+}
+
+var vLoadingULTSPersonData = false;
+async function loadULTSPersonData() {
+    if (!vLoadingULTSPersonData) {
+        vLoadingULTSPersonData = true;
+        //Load the CMDEvent table.
+        console.log("ULTS:loadULTSPersonData: Getting ULTS Person for additional entity info...");
+        try {
+            var request = dbConn.request();
+            let result = await request.query("SELECT e.[OID] ,e.[ACTIVE] ,e.[PERSON_NAME] ,e.[DISPLAY_NAME] ,e.[EMPLOYEE_ID],e.[ENTITYGROUPROLE_OID],r.[ENTITYCLASS_OID] AS [CLASS_OID] ,r.[NAME] AS [ROLE] ,g.[NAME] AS [GROUP_NAME] FROM [gbc_mrcapps].[dbo].[ULTSPERSON] e LEFT JOIN [gbc_mrcapps].[dbo].[ULTSENTITYGROUPROLE] r ON e.[ENTITYGROUPROLE_OID]=r.[OID] LEFT JOIN [gbc_mrcapps].[dbo].[ULTSENTITYGROUP] g ON r.[ENTITYGROUP_OID]=g.[OID] ORDER BY [OID] ASC;");
+            if (result !== null) {
+                for (const recordset of result.recordsets) {
+                    console.log("ULTS:loadULTSPersonData: NEW DATA SIZE[" + recordset.length + "].");
+                    for (const value of recordset) {
+                        try {
+                            var vPerson = {};
+                            vPerson.OID = parseInt(value.OID);
+                            vPerson.ACTIVE = value.ACTIVE;
+                            vPerson.PERSON_NAME = value.PERSON_NAME;
+                            vPerson.DISPLAY_NAME = value.DISPLAY_NAME;
+                            vPerson.EMPLOYEE_ID = value.EMPLOYEE_ID;
+                            vPerson.CLASS_OID = parseInt(value.CLASS_OID);
+                            vPerson.ROLE = value.ROLE;
+                            vPerson.ENTITYGROUPROLE_OID = parseInt(value.ENTITYGROUPROLE_OID);
+                            vULTSPersonMap.set(vPerson.OID, vPerson);
+                        } catch (err) {
+                            console.log("ULTS:loadULTSPersonData:Parsing Error:" + err);
+                        }
+                    };
+                }
+                console.log("ULTS:loadULTSPersonData: TOTAL DATA SIZE[" + vULTSPersonMap.size + "].");
+            }
+        } catch (err) {
+            console.log("ULTS:loadULTSPersonData: SQL-ERROR:" + err);
+        };
+        console.log("ULTS:loadULTSPersonData: FINISHED LOADING ULTS ENTITIES Rows.");
+        //vFMIZones.features=_.cloneDeep(vUpdateFeatures);
+    };
+    vLoadingULTSPersonData = false;
+}
+
+var vLoadingULTSEntityGroupData = false;
+async function loadULTSEntityGroupData() {
+    if (!vLoadingULTSEntityGroupData) {
+        vLoadingULTSEntityGroupData = true;
+        //Load the CMDEvent table.
+        console.log("ULTS:loadULTSEntityGroupData: Getting ULTS Entitiy Groups...");
+        try {
+            var request = dbConn.request();
+            let result = await request.query("SELECT r.OID,r.ACTIVE,r.[ENTITYGROUP_OID],g.[NAME] AS GROUP_NAME,r.[NAME] AS ROLE,r.[ENTITYCLASS_OID] FROM [gbc_mrcapps].[dbo].[ULTSENTITYGROUPROLE] r LEFT JOIN [gbc_mrcapps].[dbo].[ULTSENTITYGROUP] g ON r.[ENTITYGROUP_OID]=g.[OID] WHERE r.ACTIVE=1 ORDER BY r.[OID] ASC;");
+            if (result !== null) {
+                for (const recordset of result.recordsets) {
+                    console.log("ULTS:loadULTSEntityGroupData: NEW DATA SIZE[" + recordset.length + "].");
+                    for (const value of recordset) {
+                        try {
+                            var vEntityGroupRole = {};
+                            vEntityGroupRole.OID = parseInt(value.OID);
+                            //vEntityGroupRole.active = parseInt(value.ACTIVE);
+                            vEntityGroupRole.ENTITYGROUP_OID = parseInt(value.ENTITYGROUP_OID);
+                            vEntityGroupRole.GROUP_NAME = "" + value.GROUP_NAME;
+                            vEntityGroupRole.ROLE = "" + value.ROLE;
+                            vEntityGroupRole.ENTITYCLASS_OID = parseInt(value.ENTITYCLASS_OID);
+                            vULTSEntityGroupMap.set(vEntityGroupRole.OID, vEntityGroupRole);
+                        } catch (err) {
+                            console.log("ULTS:loadULTSEntityGroupData:Parsing Error:" + err);
+                        }
+                    };
+                }
+                console.log("ULTS:loadULTSEntityGroupData: TOTAL DATA SIZE[" + vULTSEntityGroupMap.size + "].");
+            }
+        } catch (err) {
+            console.log("ULTS:loadULTSEntityGroupData: SQL-ERROR:" + err);
+        };
+        console.log("ULTS:loadULTSEntityGroupData: FINISHED LOADING ULTS ENTITY GROUP Rows.");
+        //vFMIZones.features=_.cloneDeep(vUpdateFeatures);
+    };
+    vLoadingULTSEntityGroupData = false;
+}
+
+var vLoadingZoneActivityData = false;
+async function loadZoneActivityData() {
+    if (!vLoadingZoneActivityData) {
+        vLoadingZoneActivityData = true;
+        var vUpdateFeatures = [];
+        //Load the CMDEvent table.
+        console.log("ULTS:loadZoneActivityData: GETTING Zone Activity Rows...");
+        try {
+            var request = dbConn.request();
+            let result = await request.query("SELECT * FROM MSZONE_ACTIVITY ORDER BY START_TIME ASC;");
+            if (result !== null) {
+                for (const recordset of result.recordsets) {
+                    //vDATACMDEvent=[].concat(recordset);
+                    console.log("ULTS:loadZoneActivityData: NEW DATA SIZE[" + recordset.length + "].");
+                    recordset.forEach((value, index) => {
+                        try {
+                            //[ID],[ENTITY_OID] ,[ENTITY_NAME] ,[ENTITY_TYPE] ,[ZONE_OID] ,[ZONE_NAME] ,[ZONE_TYPE] ,[START_TIME] ,[END_TIME] ,[FIRST_POSITION] ,[LAST_POSITION] ,[LAST_UPDATE]
+                            var vZoneActivity = {};
+                            vZoneActivity.MACHINE_OID = parseInt(value.ENTITY_OID);
+                            vZoneActivity.MACHINE_NAME = "" + value.ENTITY_NAME;
+                            vZoneActivity.MACHINE_TYPE = "" + value.ENTITY_TYPE;
+                            vZoneActivity.ZONE_OID = parseInt(value.ZONE_OID);
+                            vZoneActivity.ZONE_NAME = "" + value.ZONE_NAME;
+                            vZoneActivity.ZONE_TYPE = "" + value.ZONE_TYPE;
+                            vZoneActivity.ZONE_SUBTYPE = "" + value.ZONE_SUBTYPE;
+                            vZoneActivity.ACTION = "Entered";
+                            vZoneActivity.START_TIME = new Date(value.START_TIME);
+                            vZoneActivity.POSITION = JSON.parse(value.FIRST_POSITION);
+                            vZoneActivities.push(_.cloneDeep(vZoneActivity));
+                            if (value.END_TIME != "NULL") {
+                                vZoneActivity.ACTION = "Exited";
+                                vZoneActivity.START_TIME = new Date(value.END_TIME);
+                                vZoneActivity.POSITION = JSON.parse(value.LAST_POSITION);
+                                vZoneActivities.push(vZoneActivity);
+                            } else {
+                                if (vZoneActivitiesCurrent.has(vZoneActivity.MACHINE_OID + "-" + vZoneActivity.ZONE_OID)) {
+                                    var vZoneCurrent = vZoneActivitiesCurrent.get(vZoneActivity.MACHINE_OID + "-" + vZoneActivity.ZONE_OID);
+                                    if (vZoneCurrent.START_TIME < vZoneActivity.START_TIME) {
+                                        vZoneActivitiesCurrent.get(vZoneActivity.MACHINE_OID + "-" + vZoneActivity.ZONE_OID, vZoneActivity);
+                                    }
+                                } else {
+                                    vZoneActivitiesCurrent.get(vZoneActivity.MACHINE_OID + "-" + vZoneActivity.ZONE_OID, vZoneActivity);
+                                }
+                            }
+                        } catch (err) {
+                            console.log("ULTS:loadZoneActivityData:Parsing Error:" + err);
+                        }
+                    });
+                }
+                console.log("ULTS:loadZoneActivityData: TOTAL DATA SIZE[" + vUpdateFeatures.length + "].");
+            }
+        } catch (err) {
+            console.log("ULTS:loadZoneActivityData: SQL-ERROR:" + err);
+        };
+        console.log("ULTS:loadZoneActivityData: FINISHED LOADING ALL ZONE Activity Rows.");
+        vLoadingZoneActivityData = false;
+    }
+}
+
+//Creates and listens to the event source for messages.
+function setupAreaEventSource() {
+    vAreaEvtSource = new EventSource('http://' + vFLTServer + ':1100/underground/api/areas/maps/subscribe', {
+        headers: {
+            Authorization: vFLTServerAuth,
+        },
+    });
+    vAreaEvtSource.onopen = function(e) {
+        reconnectFrequencySecondsAreaEventSource = 1;
+    };
+    vAreaEvtSource.onerror = function(e) {
+        vAreaEvtSource.close();
+        reconnectFuncAreaEventSource();
+    };
+    vAreaEvtSource.on('create', function(e) {
+        // status event
+        try {
+            var vAreaData = JSON.parse(e.data);
+            //var vDate= new Date();
+            console.log('ULTS:AREADATA:CREATE Received[' + vAreaData.properties.oid + '].');
+            //storeZone(vData);
+            //
+            vFLTAreas.push(vAreaData);
+            console.log('Updating polygon group...');
+            vAreaLookup = new PolygonLookup(vFLTAreas);
+
+        } catch (err) {
+            console.log('ULTS:AREADATA:CREATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+        }
+    });
+
+    vAreaEvtSource.on('update', function(e) {
+        // status event
+        try {
+            var vAreaData = JSON.parse(e.data);
+            for (var vFeature of vFLTAreas.features) {
+                if (vFeature.properties.oid == vAreaData.properties.oid) {
+                    vFeature = vAreaData;
+                }
+            }
+            console.log('Updating polygon group...');
+            vAreasLookup = new PolygonLookup(vFLTAreas);
+            //var vDate= new Date();
+            console.log('ULTS:AREADATA:UPDATE Received[' + vAreaData.properties.oid + '].');
+            //storeZone(vData);
+        } catch (err) {
+            console.log('ULTS:AREADATA:UPDATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+        }
+    });
+}
+
+//Creates and listens to the event source for messages.
+function setupPanelEventSource() {
+    vPanelEvtSource = new EventSource('http://' + vFLTServer + ':1100/underground/api/panels/subscribe', {
+        headers: {
+            Authorization: vFLTServerAuth,
+        },
+    });
+    vPanelEvtSource.onopen = function(e) {
+        reconnectFrequencySecondsPanelEventSource = 1;
+    };
+    vPanelEvtSource.onerror = function(e) {
+        vPanelEvtSource.close();
+        reconnectFuncPanelEventSource();
+    };
+    vPanelEvtSource.on('create', function(e) {
+        // status event
+        try {
+            var vPanelData = JSON.parse(e.data);
+            //var vDate= new Date();
+            console.log('ULTS:PANELDATA:CREATE Received[' + vZoneData.properties.oid + '].');
+            //storeZone(vData);
+            //
+            vFLTPanels.push(vZoneData);
+            console.log('Updating polygon group...');
+            vPanelLookup = new PolygonLookup(vFLTPanels);
+
+        } catch (err) {
+            console.log('ULTS:PANELDATA:CREATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+        }
+    });
+
+    vPanelEvtSource.on('update', function(e) {
+        // status event
+        try {
+            var vPanelData = JSON.parse(e.data);
+            for (var vFeature of vFLTPanels.features) {
+                if (vFeature.properties.oid == vPanelData.properties.oid) {
+                    vFeature = vPanelData;
+                }
+            }
+            console.log('Updating polygon group...');
+            vPanelLookup = new PolygonLookup(vFLTPanels);
+            //var vDate= new Date();
+            console.log('ULTS:PANELDATA:UPDATE Received[' + vPanelData.properties.oid + '].');
+            //storeZone(vData);
+        } catch (err) {
+            console.log('ULTS:PANELDATA:UPDATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+        }
+    });
+}
+
+//Creates and listens to the event source for messages.
+function setupZoneEventSource() {
+    vZoneEvtSource = new EventSource('http://' + vFLTServer + ':1100/underground/api/zones/subscribe', {
+        headers: {
+            Authorization: vFLTServerAuth,
+        },
+    });
+    vZoneEvtSource.onopen = function(e) {
+        reconnectFrequencySecondsZoneEventSource = 1;
+    };
+    vZoneEvtSource.onerror = function(e) {
+        vZoneEvtSource.close();
+        reconnectFuncZoneEventSource();
+    };
+    vZoneEvtSource.on('create', function(e) {
+        // status event
+        try {
+            var vZoneData = JSON.parse(e.data);
+            //var vDate= new Date();
+            console.log('ULTS:ZONEDATA:CREATE Received[' + vZoneData.properties.oid + '].');
+            //storeZone(vData);
+            //
+            vFLTZones.push(vZoneData);
+            console.log('Updating polygon group...');
+            vZoneLookup = new PolygonLookup(vFLTZones);
+
+        } catch (err) {
+            console.log('ULTS:ZONEDATA:CREATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+        }
+    });
+
+    vZoneEvtSource.on('update', function(e) {
+        // status event
+        try {
+            var vZoneData = JSON.parse(e.data);
+            for (var vFeature of vFLTZones.features) {
+                if (vFeature.properties.oid == vZoneData.properties.oid) {
+                    vFeature = vZoneData;
+                }
+            }
+            console.log('Updating polygon group...');
+            vZoneLookup = new PolygonLookup(vFLTZones);
+            //var vDate= new Date();
+            console.log('ULTS:ZONEDATA:UPDATE Received[' + vZoneData.properties.oid + '].');
+            //storeZone(vData);
+        } catch (err) {
+            console.log('ULTS:ZONEDATA:UPDATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+        }
+    });
+}
+
+//Creates and listens to the event source for messages.
+function setupDelayEventSource() {
+    vDelayEvtSource = new EventSource('http://' + vFLTServer + ':1100/underground/api/delays/subscribe', {
+        headers: {
+            Authorization: vFLTServerAuth,
+        },
+    });
+    vDelayEvtSource.onopen = function(e) {
+        reconnectFrequencySecondsDelayEventSource = 1;
+    };
+    vDelayEvtSource.onerror = function(e) {
+        vDelayEvtSource.close();
+        reconnectFuncDelayEventSource();
+    };
+    vDelayEvtSource.on('create', function(e) {
+        // status event
+        try {
+            var vDelayData = JSON.parse(e.data);
+            vFLTDelayMap.set(vDelayData.machine_oid, vDelayData);
+            //var vDate= new Date();
+            console.log('ULTS:DELAYDATA:CREATE Received MACHINE_OID[' + vDelayData.machine_oid + ']OID[' + vDelayData.oid + '].');
+            //storeZone(vData);
+        } catch (err) {
+            console.log('ULTS:DELAYDATA:CREATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+        }
+    });
+
+    vDelayEvtSource.on('update', function(e) {
+        // status event
+        try {
+            var vDelayData = JSON.parse(e.data);
+            vFLTDelayMap.set(vDelayData.machine_oid, vDelayData);
+            //var vDate= new Date();
+            console.log('ULTS:DELAYDATA:UPDATE Received MACHINE_OID[' + vDelayData.machine_oid + '][' + vDelayData.oid + '].');
+            //storeZone(vData);
+        } catch (err) {
+            console.log('ULTS:DELAYDATA:UPDATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+        }
+    });
+}
+
+//Creates and listens to the event source for messages.
+function setupLocationEventSource() {
+    vWatchDogTimeOutCount = 0;
+    vLocationEvtSource = new EventSource('http://' + vFLTServer + ':1100/underground/api/machines/locations/subscribe', {
+        headers: {
+            Authorization: vFLTServerAuth,
+        },
+    });
+    vLocationEvtSource.onopen = function(e) {
+        reconnectFrequencySecondsLocationEventSource = 1;
+    };
+    vLocationEvtSource.onerror = function(e) {
+        vLocationEvtSource.close();
+        reconnectFuncLocationEventSource();
+    };
+    vLocationEvtSource.on('create', function(e) {
+        // status event
+        try {
+            var vLocationData = JSON.parse(e.data);
+            //var vDate= new Date();
+            console.log('ULTS:LOCATIONDATA:CREATE Received[' + vLocationData.properties.oid + '].');
+            //storeZone(vData);
+        } catch (err) {
+            console.error('ULTS:LOCATIONDATA:CREATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+        }
+    });
+
+    vLocationEvtSource.on('update', function(e) {
+        // status event
+        //try {
+        var vLocationData = JSON.parse(e.data);
+        //vFLTLocationMap.set(vLocationData.properties.oid, vLocationData);
+        vLocationData.sendTime = (new Date()).getTime();
+        vLocationData.properties.position_source = "mstarfleet";
+        delete vLocationData.properties.model_update_version;
+        //HACK Becuase LOcation API in fleet is not giving heading.
+        //if ( vLocationData.properties.steering_angle == 0 ){
+        var vMOHeading = -1;
+        //vMOLocationNameMap.forEach((mopacket) => {
+        if (vMOLocationNameMap.has(vLocationData.properties.name)) {
+            var mopacket = vMOLocationNameMap.get(vLocationData.properties.name);
+            //if (mopacket.properties.name === vLocationData.properties.name) {
+            if (mopacket.properties.heading != 0) {
+                vMOHeading = mopacket.properties.heading;
+                console.log('ULTS:LOCATIONDATA:UPDATE:HACK Replacing Heading with MO Heading.[' + vLocationData.properties.name + '][' + vLocationData.properties.heading + '][' + vMOHeading + '].');
+            }
+            //Lets remove it from MSLocation and FLTLocation
+            if (vMSLocationMap.has(mopacket.properties.oid)) {
+                vMSLocationMap.delete(mopacket.properties.oid);
+            }
+            if (vFLTLocationMap.has(mopacket.properties.oid)) {
+                vFLTLocationMap.delete(mopacket.properties.oid);
+            }
+            //}
+        }
+        //});
+        //				"features": [
+        //    						{
+        //      							"type": "Feature",
+        //      							"id": "203765796",
+        //      							"geometry": {
+        //        						"type": "Point",
+        //        						"coordinates": [
+        //          							737504,
+        //          							9549128,
+        //          							2524.5
+        //        						]
+        //     						},
+        if (vMSLocationMap.has(vLocationData.properties.oid)) {
+            vLastLocationData = _.cloneDeep(vMSLocationMap.get(vLocationData.properties.oid));
+            var vOldPos = vLastLocationData.geometry.coordinates;
+            var vNewPos = vLocationData.geometry.coordinates;
+            var vMSHeading = angleFromCoordinate(vOldPos[0], vOldPos[1], vNewPos[0], vNewPos[1]);
+            if (vMOHeading !== -1) {
+                var vAngleDiff = utils.angleDelta(vMSHeading, vMOHeading);
+                //Let us use the MO to show facing, and MS to show direction.
+                if (Math.abs(vAngleDiff) > 90) {
+                    //It is facing the wrong way.
+                    vMSHeading = vMSHeading + 180;
+                    if (vMSHeading > 360) {
+                        vMSHeading = vMSHeading - 360;
+                    }
+                }
+                vLocationData.properties.heading = vMSHeading;
+            } else {
+                var vOLDMSHeading = vLastLocationData.properties.heading;
+                var vAngleDiff = utils.angleDelta(vMSHeading, vOLDMSHeading);
+                if (Math.abs(vAngleDiff) > 90) {
+                    //It is facing the wrong way.
+                    vMSHeading = vMSHeading + 180;
+                    if (vMSHeading > 360) {
+                        vMSHeading = vMSHeading - 360;
+                    }
+                }
+                vLocationData.properties.heading = vMSHeading;
+            }
+        } else {
+            vLocationData.properties.heading = vMOHeading;
+        }
+        //Lets set the source.
+        if (!vLocationData.properties.steering_angle || vLocationData.properties.steering_angle === 0) {
+            vLocationData.properties.steering_angle = 0;
+            vLocationData.properties.position_source = 'mstarfleet';
+        } else {
+            vLocationData.properties.position_source = 'command';
+        }
+        storeLocation(vLocationData);
+        vMSLocationMap.set(vLocationData.properties.oid, vLocationData);
+        vMSLocationNameMap.set(vLocationData.properties.name, vLocationData);
+        //}
+        vDelayedLocations.unshift(_.cloneDeep(vLocationData));
+        //storeZone(vData);
+        //} catch (err) {
+        //        console.error('ULTS:LOCATIONDATA:UPDATE:PARSE ERROR:' + JSON.stringify(err) + '.');
+        //}
+    });
+    //data::keepalive 1738113767259
+    vLocationEvtSource.on('message', function(e) {
+        // Trying to capture keepalive events
+        try {
+            if (e.data.includes("keepalive")) {
+                console.log("ULTS:LOCATIONDATA:Message[" + e.data + "] received. Timeout Watchdog[" + vWatchDogTimeOutCount + "] reset.");
+                vWatchDogTimeOutCount = 0;
+            }
+        } catch (err) {
+            console.log('ULTS:LOCATIONDATA:Message PARSE ERROR:' + JSON.stringify(err) + '.');
+        }
+    });
+    vWatchDogId = setInterval(doTimeOutWatchDog, vWatchDogTimeOutInterval);
+}
+
+var vWatchDogTimeOutCount = 0;
+var vWatchDogTimeOutInterval = 1000;
+var vWatchDogTimeOutResetValue = 60;
+var vWatchDogId = 0;
+async function doTimeOutWatchDog() {
+    vWatchDogTimeOutCount++;
+    if (vWatchDogTimeOutCount > vWatchDogTimeOutResetValue) {
+		vWatchDogTimeOutCount=0;
+        console.error('ULTS:LOCATIONDATA:CYCLE WATCHDOG RESET!!!');
+        clearInterval(vWatchDogId);
+        vLocationEvtSource.close();
+        reconnectFuncLocationEventSource();
+        //process.exit();
+    }
+}
+
+async function processLocationData(vLocationData) {
+    //console.debug('ULTS:PROCESSLOCATIONDATA:['+JSON.stringify(vLocationData)+'].');
+    //console.debug('ULTS:LOCATIONDATA:UPDATE MACHINE['+vLocationData.properties.name+']X['+vLocationData.geometry.coordinates[0]+']Y['+vLocationData.geometry.coordinates[1]+']ZONES['+JSON.stringify(vZones)+'].');
+    var vLocX = 0 + vLocationData.geometry.coordinates[0];
+    var vLocY = 0 + vLocationData.geometry.coordinates[1];
+    var vLocZ = 0 + vLocationData.geometry.coordinates[2];
+    var vOID = 0 + vLocationData.properties.oid;
+    var vZonePoly = vZoneLookup.search(vLocX, vLocY, -1);
+    try {
+        var vFMIZonePoly = vFMIZoneLookup.search(vLocX, vLocY, -1);
+    } catch (err) {
+        console.error('ULTS:PROCESSLOCATIONDATA:SetupFMIZoneLookup:ERROR:' + JSON.stringify(err) + '.');
+    }
+    var vPanelPoly = vPanelLookup.search(vLocX, vLocY, -1);
+    var vAreaPoly = vAreaLookup.search(vLocX, vLocY, -1);
+    //vFLTZoneMap.set(vLocationData.properties.oid,poly.features[0]);
+    var vZoneName = "Not In Zone";
+    //if ( poly.features[0] != null ) {
+    //	vZonename = ""+poly.features[0].properties.name;
+    //}
+    //var vDate= new Date();
+    //var vDelay = vFLTDelayMap.get(vLocationData.properties.oid);	
+    //console.log('Delay:'+JSON.stringify(vDelay)+'.');
+    //	if ( vDelay != null ){
+    //console.log('ULTS:LOCATIONDATA:UPDATE Received['+vLocationData.properties.oid+']MACHINE['+vLocationData.properties.name+']X['+vLocationData.geometry.coordinates[0]+']Y['+vLocationData.geometry.coordinates[1]+']DELAY['+vDelay.class_description+']MACHINE_OID['+vDelay.machine_oid+']ZONE['+vZoneName+'].');
+    //	}
+    //console.log('IN ZONE='+JSON.stringify(poly)+'.');
+    var vZones = [];
+    try {
+        vAreaPoly.features.forEach((zone) => {
+            var vZone = {};
+            vZone.OID = zone.properties.oid;
+            vZone.NAME = zone.properties.name;
+            vZone.TYPE = 'AREA';
+            vZone.SUBTYPE = 'AREA';
+            vZone.START_TIME = {};
+            vZones.push(vZone);
+        })
+    } catch (err) {
+        console.log('ULTS:LOCATIONDATA:UPDATE:LOAD AREAS ERROR:' + JSON.stringify(err) + '.');
+    }
+    try {
+        vZonePoly.features.forEach((zone) => {
+            var vZone = {};
+            vZone.OID = zone.properties.oid;
+            vZone.NAME = zone.properties.name;
+            vZone.TYPE = 'FLTZONE';
+            vZone.SUBTYPE = zone.properties.type;
+            vZone.START_TIME = {};
+            vZones.push(vZone);
+        })
+    } catch (err) {
+        console.log('ULTS:LOCATIONDATA:UPDATE:LOAD ZONES ERROR:' + JSON.stringify(err) + '.');
+    }
+    try {
+        vFMIZonePoly.features.forEach((zone) => {
+            //if (vLocZ < (zone.properties.avg_z + 10) && vLocZ > (zone.properties.avg_z - 10)) {
+            var vZone = {};
+            vZone.OID = zone.properties.oid;
+            vZone.NAME = zone.properties.name;
+            vZone.TYPE = 'FMIZONE';
+            vZone.SUBTYPE = zone.properties.type;
+            vZone.START_TIME = {};
+            vZones.push(vZone);
+            //}
+        })
+    } catch (err) {
+        console.log('ULTS:LOCATIONDATA:UPDATE:LOAD FMI ZONES ERROR:' + JSON.stringify(err) + '.');
+    }
+    try {
+        vPanelPoly.features.forEach((panel) => {
+            var vZone = {};
+            vZone.OID = panel.properties.oid;
+            vZone.NAME = panel.properties.name;
+            vZone.TYPE = 'PANEL';
+            vZone.SUBTYPE = 'PANEL';
+            vZone.START_TIME = {};
+            vZones.push(vZone);
+        })
+    } catch (err) {
+        console.log('ULTS:LOCATIONDATA:UPDATE:LOAD PANELS ERROR:' + JSON.stringify(err) + '.');
+    }
+    try {
+        //if (vEntityZonesMap.has(vOID)){
+        //	console.log('ULTS:LOCATIONDATA:CREATEZONEACTIVITY:Entity['+vLocationData.properties.name+']IN ZONES['+vZones.length+']OLD['+vEntityZonesMap.get(vOID).length+'].');
+        //}else{
+        //	console.log('ULTS:LOCATIONDATA:CREATEZONEACTIVITY:Entity['+vLocationData.properties.name+']IN ZONES['+vZones.length+']OLD[NONE].');
+        //}
+        if (vEntityZonesMap.has(vOID)) { //&& Array.isArray(vEntityZonesMap.get(vOID))){
+            //console.log('ULTS:LOCATIONDATA:CREATEZONEACTIVITY:LAST['+JSON.stringify(vEntityZonesMap.get(vLocationData.properties.oid))+'].');
+            //console.log('ULTS:LOCATIONDATA:CREATEZONEACTIVITY:CURRENT['+JSON.stringify(vZones)+'].');
+            var vOldZones = _.cloneDeep(vEntityZonesMap.get(vOID));
+            //var vNewZones = _.cloneDeep(vZones);
+            //console.log('ULTS:LOCATIONDATA:CREATEZONEACTIVITY:OldZones['+JSON.stringify(vOldZones)+'].');
+            var vZonesUpdate = createZoneActivity(vLocationData, vZones, vOldZones);
+            vEntityZonesMap.set(vOID, vZonesUpdate);
+            if (vFLTLocationMap.has(vOID)) {
+                var vEntity = vFLTLocationMap.get(vOID);
+                vEntity.ZONES = Array.from(vZonesUpdate);
+                vFLTLocationMap.set(vOID, vEntity);
+            }
+            //console.log('ULTS:LOCATIONDATA:CREATEZONEACTIVITY:CURRENT['+JSON.stringify(vEntityZonesMap.get(vLocationData.properties.oid))+'].');
+        } else {
+            var vNewZones = [];
+            for (const zone of vZones) {
+                if (vZoneActivitiesCurrent.has(vOID + "-" + zone.OID)) {
+                    zone.START_TIME = vZoneActivitiesCurrent.get(vOID + "-" + zone.OID).START_TIME;
+                    zone.UPDATE_TIME = vZoneActivitiesCurrent.get(vOID + "-" + zone.OID).START_TIME;
+                } else {
+                    zone.START_TIME = new Date();
+                    zone.UPDATE_TIME = new Date();
+                }
+                vNewZones.push(_.cloneDeep(zone));
+            };
+            vEntityZonesMap.set(vOID, vNewZones);
+            if (vFLTLocationMap.has(vOID)) {
+                var vEntity = vFLTLocationMap.get(vOID);
+                vEntity.ZONES = Array.from(vNewZones);
+                vFLTLocationMap.set(vOID, vEntity);
+            }
+        }
+    } catch (err) {
+        console.log('ULTS:LOCATIONDATA:CREATEZONEACTIVITY: ERROR:' + JSON.stringify(err) + '.');
+    }
+    //vEntityZonesMap.set(vLocationData.properties.oid,vZones);
+    //storeLog(vZoneActivity);
+    //console.debug('ULTS:LOCATIONDATA:UPDATE MACHINE['+vLocationData.properties.name+']X['+vLocationData.geometry.coordinates[0]+']Y['+vLocationData.geometry.coordinates[1]+']ZONES['+JSON.stringify(vZones)+'].');
+}
+
+function createZoneActivity(vLocationData, vZones, vOldZones) {
+    var vData = {};
+    var vReturnZones = [];
+    vData.ENTITY_OID = 0 + vLocationData.properties.oid;
+    vData.ENTITY_NAME = "" + vLocationData.properties.name;
+    vData.ENTITY_TYPE = 0 + vLocationData.properties.class_oid;
+    vData.POSITION = _.cloneDeep(vLocationData.geometry.coordinates);
+    //Lets check for Entry into new Zones
+    vZones.forEach((zone) => {
+        var vEntry = true;
+        zone.UPDATE_TIME = new Date();
+        vOldZones.forEach((oldzone) => {
+            if (zone.OID == oldzone.OID) {
+                vEntry = false;
+                zone.START_TIME = new Date(oldzone.START_TIME);
+            }
+        })
+        if (vEntry) {
+            zone.START_TIME = new Date();
+            vData.ZONE_OID = 0 + zone.OID;
+            vData.ZONE_NAME = "" + zone.NAME;
+            vData.ZONE_TYPE = "" + zone.TYPE;
+            vData.ZONE_SUBTYPE = "" + zone.SUBTYPE;
+            vData.START_TIME = new Date(); //new Date(vDate.getTime() - ( 9 * 60 * 60 * 1000) ))
+            vData.END_TIME = sql.NULL;
+            //console.debug("STOREZONE-ENTRY-NAME["+vData.ENTITY_OID+"]["+vData.ENTITY_NAME+"]POSITION["+JSON.stringify(vData.POSITION)+"]NEWZONE["+JSON.stringify(zone)+"]OLDZONES["+JSON.stringify(vOldZones)+"].");
+            storeZoneActivity(_.cloneDeep(vData));
+            var vZoneActivity = {};
+            vZoneActivity.MACHINE_OID = 0 + vData.ENTITY_OID;
+            vZoneActivity.MACHINE_NAME = "" + vData.ENTITY_NAME;
+            vZoneActivity.MACHINE_TYPE = "" + vData.ENTITY_TYPE;
+            vZoneActivity.ZONE_OID = 0 + vData.ZONE_OID;
+            vZoneActivity.ZONE_NAME = "" + vData.ZONE_NAME;
+            vZoneActivity.ZONE_TYPE = "" + vData.ZONE_TYPE;
+            vZoneActivity.ZONE_SUBTYPE = "" + vData.ZONE_SUBTYPE;
+            vZoneActivity.ACTION = "Entered";
+            vZoneActivity.START_TIME = new Date(vData.START_TIME);
+            vZoneActivity.POSITION = _.cloneDeep(vData.POSITION);
+            vZoneActivities.push(vZoneActivity);
+        }
+        vReturnZones.push(zone);
+    });
+    vOldZones.forEach((oldzone) => {
+        var vExit = true;
+        vZones.forEach((zone) => {
+            if (zone.OID == oldzone.OID) {
+                vExit = false;
+            }
+        })
+        if (vExit) {
+            vData.ZONE_OID = oldzone.OID;
+            vData.ZONE_NAME = oldzone.NAME;
+            vData.ZONE_TYPE = oldzone.TYPE;
+            vData.ZONE_SUBTYPE = oldzone.SUBTYPE;
+            vData.START_TIME = sql.NULL; //new Date();//new Date(vDate.getTime() - ( 9 * 60 * 60 * 1000) ))
+            vData.END_TIME = new Date(); //new Date(vDate.getTime() - ( 9 * 60 * 60 * 1000) ))
+            //console.debug("STOREZONE-EXIT-NAME["+vData.ENTITY_OID+"]["+vData.ENTITY_NAME+"]POSITION["+JSON.stringify(vData.POSITION)+"]EXITZONE["+JSON.stringify(oldzone)+"]OLDZONES["+JSON.stringify(vOldZones)+"].");
+            storeZoneActivity(_.cloneDeep(vData));
+            var vZoneActivity = {};
+            vZoneActivity.MACHINE_OID = vData.ENTITY_OID;
+            vZoneActivity.MACHINE_NAME = "" + vData.ENTITY_NAME;
+            vZoneActivity.MACHINE_TYPE = "" + vData.ENTITY_TYPE;
+            vZoneActivity.ZONE_OID = vData.ZONE_OID;
+            vZoneActivity.ZONE_NAME = "" + vData.ZONE_NAME;
+            vZoneActivity.ZONE_TYPE = "" + vData.ZONE_TYPE;
+            vZoneActivity.ZONE_SUBTYPE = "" + vData.ZONE_SUBTYPE;
+            vZoneActivity.ACTION = "Exited";
+            vZoneActivity.START_TIME = new Date(vData.END_TIME);
+            vZoneActivity.POSITION = _.cloneDeep(vData.POSITION);
+            vZoneActivities.push(vZoneActivity);
+        }
+    });
+    return vReturnZones;
+}
+
+//Stores the FMI Zone data into the SQL Datbase.
+async function storeZoneActivity(vData) {
+    //vCurrentMachine.set(vData.name,vData);
+    try {
+        //console.log("STOREZONEACTIVITY:["+JSON.stringify(vData)+"].");
+        var request = dbConn.request();
+        let result = await request
+            .input("vENTITY_OID", sql.BigInt, vData.ENTITY_OID)
+            .input("vENTITY_NAME", sql.NVarChar(64), vData.ENTITY_NAME)
+            .input("vENTITY_TYPE", sql.NVarChar(64), vData.ENTITY_TYPE)
+            .input("vZONE_OID", sql.BigInt, vData.ZONE_OID)
+            .input("vZONE_NAME", sql.NVarChar(64), vData.ZONE_NAME)
+            .input("vZONE_TYPE", sql.NVarChar(64), vData.ZONE_TYPE)
+            .input("vZONE_SUBTYPE", sql.NVarChar(64), vData.ZONE_SUBTYPE)
+            .input("vSTART_TIME", sql.DateTimeOffset(3), vData.START_TIME)
+            .input("vEND_TIME", sql.DateTimeOffset(3), vData.END_TIME)
+            .input("vPOSITION", sql.NVarChar(64), JSON.stringify(vData.POSITION))
+            //.input( "vlast_update", sql.NVarChar ( 64 ), JSON.stringify(vData.properties.color) )
+            .query("EXECUTE mrcZONEActivityMerge @vENTITY_OID, @vENTITY_NAME, @vENTITY_TYPE, @vZONE_OID, @vZONE_NAME,@vZONE_TYPE,@vZONE_SUBTYPE,@vSTART_TIME,@vEND_TIME,@vPOSITION");
+        if (result !== null) {
+            console.log('ULTS:STOREZONEACTIVITY: ZONE ACTIVITY[' + vData.ENTITY_NAME + '][' + vData.ZONE_NAME + '][' + vData.START_TIME + '][' + vData.END_TIME + '] SAVED RESULT:' + result.rowsAffected);
+            //vDelayUpdateCount++;
+        }
+    } catch (err) {
+        console.log('ULTS:STOREZONEACTIVITY:SQL ERROR:' + err + ' ZONE ACTIVITY[' + vData.ENTITY_NAME + '][' + vData.ZONE_NAME + '].');
+    }
+}
+
+//Stores the FMI Zone data into the SQL Datbase.
+async function storeZone(vData) {
+    //vCurrentMachine.set(vData.name,vData);
+    try {
+        console.log("STOREZONE:[" + JSON.stringify(vData) + "].");
+        var request = dbConn.request();
+        let result = await request
+            .input("void", sql.BigInt, vData.properties.oid)
+            .input("vactive", sql.Bit, vData.properties.active)
+            .input("vname", sql.NVarChar(64), vData.properties.name)
+            .input("vtype", sql.NVarChar(64), vData.properties.type)
+            .input("vcolor", sql.NVarChar(64), JSON.stringify(vData.properties.color))
+            //.input( "vhas_speed_limit", sql.Bit,  vData.properties.has_speed_limit )
+            //.input( "vhas_gear_limit", sql.Bit,  vData.properties.has_gear_limit )
+            //.input( "vspeed_limit", sql.NVarChar ( 64 ), vData.properties.speed_limit )
+            //.input( "vgear_limit", sql.NVarChar ( 64 ), vData.properties.gear_limit )
+            //.input( "vis_passable", sql.Bit,  vData.properties.is_passable )
+            //.input( "vmachine_class_oids", sql.NVarChar ( 256 ), vData.properties.machine_class_oids )
+            .input("vgeometry", sql.NVarChar(2048), JSON.stringify(vData.geometry))
+            .query("EXECUTE mrcFMIZONEMerge @void, @vactive, @vname, @vtype, @vcolor,@vgeometry");
+        if (result !== null) {
+            console.log('FLTZONE:STOREZONE ZONE[' + vData.properties.oid + '] SAVED RESULT:' + result.rowsAffected);
+            //vDelayUpdateCount++;
+        }
+    } catch (err) {
+        console.log('FLTZONE:SQL ERROR:' + err + ' FMI ZONE[' + vData.id + '].');
+    }
+}
+
+var vDataStoreCount = 0;
+var vDataStoreFailCount = 0;
+//Stores the event source data into the SQL Datbase.
+async function storeLocation(vData) {
+    //Lets store it as the latest data for the current loader api calls.
+    try {
+        var request = dbConn.request();
+        var vStart_Time = new Date(vData.properties.reported_at - (9 * 60 * 60 * 1000));
+        let result = await request
+            .input("vmachine_oid", sql.BigInt, vData.id)
+            .input("vmachine_name", sql.NVarChar(64), vData.properties.name)
+            .input("vstart_time", sql.DateTimeOffset(3), vStart_Time) //Fixing a bug in node-mssql.
+            .input("vactive", sql.Bit, vData.properties.active)
+            .input("vclass_oid", sql.BigInt, vData.properties.class_oid)
+            .input("vfuel_level", sql.Int, vData.properties.fuel_level)
+            .input("voperator_name", sql.NVarChar(64), vData.properties.operator_name)
+            .input("vheading", sql.Float, vData.properties.heading)
+            .input("vsteering_angle", sql.Float, vData.properties.steering_angle)
+            .input("vx", sql.Float, vData.geometry.coordinates[0])
+            .input("vy", sql.Float, vData.geometry.coordinates[1])
+            .input("vz", sql.Float, vData.geometry.coordinates[2])
+            .input("vposition_source", sql.NVarChar(64), vData.properties.position_source)
+            .input("vrole", sql.NVarChar(16), vData.properties.role)
+            .input("vUNIQUE_CONST", sql.NVarChar(128), vStart_Time.getTime() + '-' + vData.properties.name)
+            .query("EXECUTE mrcFLTLOCATIONMerge @vmachine_oid, @vstart_time, @vmachine_name, @vactive, @vclass_oid, @vfuel_level, @voperator_name, @vheading, @vsteering_angle, @vx, @vy, @vz, @vposition_source, @vrole, @vUNIQUE_CONST");
+        if (result !== null) {
+            //console.log('ULTS:STORELOCATION:LOCATION [' + vData.properties.name + '][' + vData.properties.reported_at + '] SAVED RESULT:' + result.rowsAffected);
+            vDataStoreCount++;
+        }
+    } catch (err) {
+        console.log('ULTS:STORELOCATION:SQL ERROR:' + err + '.');
+        vDataStoreFailCount++;
+    }
+}
+
+async function storeULTSEntity(vData) {
+    //Lets store it as the latest data for the current loader api calls.
+    try {
+        var request = dbConn.request();
+        let result = await request
+            .input("void", sql.BigInt, vData.OID)
+            .input("vactive", sql.Bit, vData.ACTIVE)
+            .input("vmachine_name", sql.NVarChar(64), vData.MACHINE_NAME)
+            //.input("vclass_oid", sql.BigInt, vData.properties.class_oid)
+            .input("voperator_name", sql.NVarChar(64), vData.OPERATOR_NAME)
+            //.input("vrole", sql.NVarChar(64), vData.properties.role)
+            .input("vperson_oid", sql.Int, vData.PERSON_OID)
+            .input("vmachine_oid", sql.Int, vData.MACHINE_OID)
+            .input("ventitygrouprole_oid", sql.BigInt, vData.ENTITYGROUPROLE_OID)
+            .input("vwaspid", sql.Int, vData.WASPID)
+            .query("EXECUTE mrcULTSEntityMerge @void, @vactive, @vmachine_name, @voperator_name, @vperson_oid, @vmachine_oid, @ventitygrouprole_oid,@vwaspid");
+        if (result !== null) {
+            console.log('ULTS:STOREULTSENTITY: [' + vData.MACHINE_NAME + '] SAVED RESULT:' + result.rowsAffected);
+            vDataStoreCount++;
+        }
+    } catch (err) {
+        console.log('ULTS:STOREULTSENTITY:SQL ERROR:' + err + '.');
+        vDataStoreFailCount++;
+    }
+}
+
+async function storeULTSPerson(vData) {
+    //Lets store it as the latest data for the current loader api calls.
+    try {
+        var request = dbConn.request();
+        let result = await request
+            .input("void", sql.BigInt, vData.OID)
+            .input("vactive", sql.Bit, vData.ACTIVE)
+            .input("vperson_name", sql.NVarChar(64), vData.PERSON_NAME)
+            //.input("vclass_oid", sql.BigInt, vData.properties.class_oid)
+            .input("vdisplay_name", sql.NVarChar(64), vData.DISPLAY_NAME)
+            //.input("vrole", sql.NVarChar(64), vData.properties.role)
+            .input("vemployee_id", sql.NVarChar(64), vData.EMPLOYEE_ID)
+            .input("ventitygrouprole_oid", sql.BigInt, vData.ENTITYGROUPROLE_OID)
+            .query("EXECUTE mrcULTSPersonMerge @void, @vactive, @vperson_name, @vdisplay_name, @vemployee_id, @ventitygrouprole_oid");
+        if (result !== null) {
+            console.log('ULTS:STOREULTSPERSON: [' + vData.PERSON_NAME + '] SAVED RESULT:' + result.rowsAffected);
+            vDataStoreCount++;
+        }
+    } catch (err) {
+        console.log('ULTS:STOREULTSPERSON:SQL ERROR:' + err + '.');
+        vDataStoreFailCount++;
+    }
+}
+
+function getEntitiesInZone(vEntityToZones, vZoneName) {
+    var vReturnData = [];
+    vZoneNames = vZoneName.split(",");
+    //console.log("ENTITYZONESMAP["+JSON.stringify(vEntityZonesMap)+"].");
+    vEntityToZones.forEach((vZones, vKey) => {
+        var vInclude = false;
+        var vEntity = _.cloneDeep(vFLTLocationMap.get(vKey));
+        if (vEntity) {
+            //console.log("ENTITYINZONE:NAME["+vEntity.properties.name+"]EXISTS");
+            vEntity.ZONES = [];
+            if (Array.isArray(vZones)) {
+                vZones.forEach((zone) => {
+                    //console.log("ENTITYINZONE:NAME["+vEntity.properties.name+"]ZONE["+zone.NAME+"].");
+                    vZoneNames.forEach((name) => {
+                        if (zone.NAME === name || name === "" || !name) {
+                            vInclude = true;
+                            vEntity.ZONES.push(zone);
+                        }
+                        //vEntity.ZONES.push(zone);
+                    });
+                });
+            }
+            if (vInclude) {
+                vReturnData.push(vEntity);
+            }
+        }
+    })
+    console.log("Before ZONENAME Filter(" + vZoneName + ")(" + vEntityZonesMap.size + ")after(" + vReturnData.length + ").");
+    return vReturnData;
+}
+
+function zonenameFilterData(data, vZoneName) {
+    var vReturnData = [];
+    data.forEach((datavalue, index, array) => {
+        if (String(vZoneName).includes(String(datavalue.ZONE_NAME))) { // === String(vType)) {
+            vReturnData.push(datavalue);
+        }
+    });
+    console.log("Before ZONE_NAME Filter(" + vType + ")(" + data.length + ")after(" + vReturnData.length + ").");
+    return vReturnData;
+}
+
+function angleFromCoordinate(sX, sY, eX, eY) {
+    var dY = eY / 10 - sY / 10;
+    var dX = eX / 10 - sX / 10;
+    var angleRad = Math.atan2(dY, dX); // range [-PI,PI]
+    var angleDeg = angleRad * 180 / Math.PI; // radds to degs, range [-180,180]
+    if (angleDeg < 0) angleDeg = angleDeg + 360; // range [0,360)
+    //angleDeg = (angleDeg-110 + 360) % 360;
+    //angleDeg = 360 - angleDeg;// + 20;
+    //if (angleDeg > 360) angleDeg = angleDeg -360;
+    return Math.round(angleDeg, 0);
+}
+
+var vPORT = 5664;
+var vHOST = '172.16.175.60';
+var client = {}; //dgram.createSocket('udp4');
+var vMOLocationCurrentSecondMap = new Map();
+async function setupPositionPacketListener() {
+    client = dgram.createSocket('udp4');
+    client.on('listening', function() {
+        var address = client.address();
+        console.log('ULTS:POSPACKET:UDP Client listening on ' + address.address + ":" + address.port);
+        client.setBroadcast(true);
+        client.setMulticastTTL(64);
+        client.addMembership('239.255.0.5', vHOST); //, vHOST);
+    });
+
+    client.on('message', async function(message, remote) {
+        var vBuffer = Buffer.from(message);
+        //console.log("ULTS:POSPACKET:POSPACKETSRECIEVED["+JSON.stringify(vBuffer)+"].");
+        var vPosPackets = utils.getPosPackets(vBuffer);
+        //console.log("ULTS:POSPACKET:POSPACKETSPASSED["+JSON.stringify(vPosPackets)+"].");
+        //console.log("ULTS:POSPACKET:POSPACKETSRECIEVED["+JSON.stringify(vPosPackets)+"].");
+        //console.log("ULTS:POSPACKET:POSPACKETSRECIEVED["+JSON.stringify(vPosPackets.asset_name)+"].");
+        var vPersonelTracker = {};
+        var vPPackets = [];
+        var vCurrentTime = Math.floor((new Date()).getTime() / 1000) * 1000;
+        for (const vPosPacket of vPosPackets) {
+            //console.log("ULTS:POSPACKET:POSPACKETSRECIEVED["+JSON.stringify(vPosPacket.asset_name)+"].");
+            //vPosPackets.forEach(async (vPosPacket) => {
+            if (vPosPacket.asset_name) {
+                vPosPacket.asset_name = vPosPacket.asset_name.replace(/[^ -~]+/g, "");
+            }
+            if (vPosPacket.is_infrastructure == 0 && vPosPacket.asset_name && vPosPacket.asset_name.length < 16 && vPosPacket.asset_id > 0 && vPosPacket.position && vPosPacket.position[2] && vPosPacket.position[2] < 4000 && vPosPacket.asset_id < 10000) {
+                //console.log("ULTS:POSPACKET:POSPACKETSRECIEVED:MOPACKET["+JSON.stringify(vPosPacket)+"].");
+				//Is this a new MO Device
+                if (vMOLocationNameMap.has(vPosPacket.asset_name)) {
+					//EXISTING NODE
+                    vPersonelTracker = _.cloneDeep(vMOLocationNameMap.get(vPosPacket.asset_name));
+					//DO FORWARD HEADING
+                    if (!vPosPacket.forward_heading) {
+                        if ((vPersonelTracker.geometry.coordinates) && (vPosPacket.position)) {
+                            var vOldPos = vPersonelTracker.geometry.coordinates;
+                            var vNewPos = vPosPacket.position;
+                            vPersonelTracker.properties.heading = angleFromCoordinate(vOldPos[0], vOldPos[1], vNewPos[0], vNewPos[1]);
+                            //console.log("No Forward Heading=["+vPersonelTracker.properties.heading+"]NAME["+vPosPacket.asset_name+"].");
+                        }
+                    } else {
+                        var vHeading = angleFromCoordinate(0, 0, vPosPacket.forward_heading[0], vPosPacket.forward_heading[1]);
+                        //if (vHeading > 360 ) {
+                        //	vHeading = vHeading - 360;
+                        //}
+                        vPersonelTracker.properties.heading = 0 + vHeading;
+                        //console.log("Forward Heading=["+JSON.stringify(vPosPacket.forward_heading)+"]["+vPersonelTracker.properties.heading+"]NAME["+vPosPacket.asset_name+"].");
+                    }
+					//DO POSITION
+                    if (vPosPacket.position) {
+                        vPersonelTracker.geometry = {};
+                        vPersonelTracker.geometry.type = "Point";
+                        vPersonelTracker.geometry.coordinates = _.cloneDeep(Array.from(vPosPacket.position));
+                    }
+					//IF ENTITY EXISTS LETS LOAD THE DATA
+                    if (vULTSEntityMap.has(vPersonelTracker.id)) {
+                        var vEntity = vULTSEntityMap.get(vPersonelTracker.id);
+                        vPersonelTracker.properties.class_oid = vEntity.CLASS_OID;
+                        vPersonelTracker.properties.operator_name = "" + vEntity.OPERATOR_NAME;
+                        vPersonelTracker.properties.role = "" + vEntity.ROLE;
+                        vPersonelTracker.properties.entitygrouprole_oid = parseInt(vEntity.ENTITYGROUPROLE_OID);
+						//HACk To fix wrong ID's
+                    }
+					//LETS STORE THE UPDATED RECORD
+                    vMOLocationNameMap.set(vPosPacket.asset_name, vPersonelTracker);
+                } else {
+					//NEW ENTITY LETS CREATE IT.
+                    vPersonelTracker = {};
+                    vPersonelTracker.type = "Feature";
+                    vPersonelTracker.id = 0 + vPosPacket.asset_id; //#HACK This should be mapped from MO to MStar.
+                    if (vPosPacket.position) {
+                        vPersonelTracker.geometry = {};
+                        vPersonelTracker.geometry.type = "Point";
+                        vPersonelTracker.geometry.coordinates = _.cloneDeep(Array.from(vPosPacket.position));
+                    } else {
+                        vPersonelTracker.geometry = {
+                            type: "Point"
+                        }
+                    }
+                    vPersonelTracker.properties = {};
+                    vPersonelTracker.properties.oid = 0 + vPosPacket.asset_id;
+                    vPersonelTracker.properties.active = true;
+                    //vPersonelTracker.properties.name = "MO-"+vPosPacket.asset_name;
+                    vPersonelTracker.properties.name = "" + vPosPacket.asset_name;
+                    if (vFLTNameToClassMap.has(vPosPacket.asset_name)) {
+                        vPersonelTracker.properties.class_oid = vFLTNameToClassMap.get(vPosPacket.asset_name);
+                    } else {
+                        vPersonelTracker.properties.class_oid = 666666666;
+                    }
+                    //if ( vPersonelTracker.properties.class_oid == 666666666 ){
+                    vPersonelTracker.properties.operator_oid = vPosPacket.asset_id;
+                    if (vULTSEntityMap.has(vPersonelTracker.id)) {
+                        var vEntity = vULTSEntityMap.get(vPersonelTracker.id);
+                        vPersonelTracker.properties.class_oid = vEntity.CLASS_OID;
+                        vPersonelTracker.properties.operator_name = "" + vEntity.OPERATOR_NAME;
+                        vPersonelTracker.properties.role = "" + vEntity.ROLE;
+                        vPersonelTracker.properties.entitygrouprole_oid = parseInt(vEntity.ENTITYGROUPROLE_OID);
+                    } else {
+                        vPersonelTracker.properties.operator_name = "" + vPosPacket.asset_name;
+                        vPersonelTracker.properties.role = "DEFAULT";
+                        vPersonelTracker.properties.entitygrouprole_oid = 1;
+                    }
+                    vPersonelTracker.properties.serial_number = "NA";
+                    vPersonelTracker.properties.capabilities = [];
+                    vPersonelTracker.properties.fuel_level = 0;
+                    vPersonelTracker.properties.steering_angle = 0;
+                    if (vPosPacket.forward_heading) {
+                        vheading = angleFromCoordinate(0, 0, vPosPacket.forward_heading[0], vPosPacket.forward_heading[1]);
+                        //if (vHeading > 360 ) {
+                        //        vHeading = vHeading -360;
+                        //}
+                        vPersonelTracker.properties.heading = vheading;
+                        //console.log("Starting Forward Heading=["+JSON.stringify(vPosPacket.forward_heading)+"]["+vPersonelTracker.properties.heading+"]NAME["+vPosPacket.asset_name+"].");
+                        //console.log("Heading=["+vPersonelTracker.properties.heading+"]NAME["+vPosPacket.asset_name+"].");
+                    } else {
+                        vPersonelTracker.properties.heading = 0;
+                        //console.log("Starting No Forward Heading=["+vPersonelTracker.properties.heading+"]NAME["+vPosPacket.asset_name+"].");
+                    }
+					//Storing the NEW ENTITY
+                    vMOLocationNameMap.set(vPosPacket.asset_name, vPersonelTracker);
+                    //}
+                }
+
+				//PROCESS ENTITY
+                var diff = vCurrentTime - vPosPacket.timestamp;
+                //console.log("TimestampDiff=["+diff+"]NAME["+vPosPacket.asset_name+"].");
+                vPersonelTracker.sendTime = vCurrentTime + 3500;
+                vPersonelTracker.properties.reported_at = vCurrentTime; //vPosPacket.timestamp;
+                vPersonelTracker.properties.position_source = "minetec";
+
+               	if (vPersonelTracker.properties.class_oid >= 666666666) {
+                    var vStore = true;
+                    /*if (vPersonelTracker.properties.name.includes("UNKNOWN")) {
+                        var vWASPID = vPersonelTracker.properties.name.split('_')[1];
+                        if (vMSLocationMap.has(vPersonelTracker.properties.oid)) {
+                            //Lets remove it if there is no matching machine.
+                            vMSLocationMap.delete(vPersonelTracker.properties.oid);
+                        }
+                        if (vFLTLocationMap.has(vPersonelTracker.properties.oid)) {
+                            //Lets remove it if there is no matching machine.
+                            vFLTLocationMap.delete(vPersonelTracker.properties.oid);
+                        }
+                        if (vWASPIDToMachineMap.has(vWASPID)) {
+                            vPersonelTracker.properties.name = vWASPIDToMachineMap.get(vWASPID);
+                            if (vMSLocationNameMap.has(vPersonelTracker.properties.name)) {
+                                //Ok we have the vehicle data lets update it.
+                                var vVehicle = vMSLocationNameMap.get(vPersonelTracker.properties.name);
+                                vPersonelTracker.properties.oid = vVehicle.properties.oid;
+                                vPersonelTracker.properties.class_oid = vVehicle.properties.class_oid;
+                                vPersonelTracker.properties.operator_name = vVehicle.properties.operator_name;
+                                vPersonelTracker.properties.serial_number = vVehicle.properties.serial_number;
+                                vPersonelTracker.properties.capabilities = vVehicle.properties.capabilities;
+                                vPersonelTracker.properties.fuel_level = vVehicle.fuel_level;
+                                console.log("ULTS:POSPACKET: Converting Node to Vehicle[" + vPersonelTracker.properties.name + "].");
+                            } else {
+                                console.log("ULTS:POSPACKET: Converting Node to Vehicle but no MatchingVehicle[" + vPersonelTracker.properties.name + "].");
+                                vStore = false;
+                            }
+                        } else {
+                            //console.log("ULTS:POSPACKET: Unknown WASPID["+vWASPID+"].");
+                            vStore = false;
+                        }
+                    }*/
+                    if (!vPersonelTracker.properties.name.includes("UNKNOWN")) {
+                        if (!vMOLocationCurrentSecondMap.has(vPosPacket.asset_name) || vMOLocationCurrentSecondMap.get(vPosPacket.asset_name) != vCurrentTime) {
+                            //now letes not add it if there is a recent MS entry
+                            if (vMSLocationNameMap.has(vPersonelTracker.properties.name)) {
+                                var vVehicle = vMSLocationNameMap.get(vPersonelTracker.properties.name);
+                                if (vVehicle.properties.reported_at + 10000 > vCurrentTime) {
+                                    vStore = false;
+                                }
+                            }
+                            if (vStore) {
+                                vDelayedLocations.unshift(_.cloneDeep(vPersonelTracker));
+                                vPersonelTracker.properties.reported_at = vCurrentTime + 3500;
+                                storeLocation(vPersonelTracker);
+                            }
+                        }
+                        if (!vULTSEntityMap.has(vPersonelTracker.id)) {
+                            var vEntity = {};
+                            vEntity.OID = parseInt(vPersonelTracker.id);
+                            vEntity.ACTIVE = JSON.parse(vPersonelTracker.properties.active);
+                            vEntity.MACHINE_NAME = "" + vPersonelTracker.properties.name;
+                            vEntity.OPERATOR_NAME = "" + vPersonelTracker.properties.operator_name;
+                            vEntity.CLASS_OID = parseInt(vPersonelTracker.properties.class_oid);
+                            vEntity.ROLE = "" + vPersonelTracker.properties.role;
+							vEntity.PERSON_OID = 0;
+							vEntity.MACHINE_OID = 0;
+                            vEntity.WASPID = parseInt(vPersonelTracker.properties.waspid);
+                            vEntity.ENTITYGROUPROLE_OID = parseInt(vPersonelTracker.properties.entitygrouprole_oid);
+                            vULTSEntityMap.set(vEntity.OID, vEntity);
+                            storeULTSEntity(vEntity);
+                        }
+                    }
+                }
+                vMOLocationCurrentSecondMap.set(vPosPacket.asset_name, vCurrentTime);
+            }
+        };
+        /*	
+
+        		await new Promise(resolve => setTimeout(resolve, 5000));
+        		vPPackets.forEach((packet) => {
+        			vFLTLocationMap.set(packet.properties.oid, packet);
+        			if (packet.geometry.coordinates){
+        				if (packet.geometry.coordinates.length > 1){
+        					processLocationData(packet);
+        				}
+        			}
+        		});*/
+    });
+
+    client.on('error', (err) => {
+        console.error("ULTS:POSPACKET:Error[" + err + "].");
+    });
+
+    client.bind(vPORT); //,vHOST);//, '239.255.0.5');//vHOST);
+}
+
+var vDelayedLocations = [];
+var vProcessingDelayedLocations = false;
+async function sendDelayedLocations() {
+    if (!vProcessingDelayedLocations) {
+        vProcessingDelayedLocations = true;
+        var vUTCSec = (new Date()).getTime();
+        var vSortedDelayedLocations = vDelayedLocations.sort((a, b) => a.sendTime - b.sendTime); //#HACk MRC There is a possibility to miss positions here...
+        vDelayedLocations = [];
+        for (const packet of vSortedDelayedLocations) {
+            //vSortedDelayedLocations.forEach((packet) => {
+            //console.log("COMPARE{"+packet.sendTime+"]["+vUTCSec+"].");
+            if (packet.sendTime < vUTCSec) {
+                vFLTLocationMap.set(packet.properties.oid, packet);
+                if (packet.geometry.coordinates) {
+                    if (packet.geometry.coordinates.length > 1) {
+                        await processLocationData(packet);
+                    }
+                }
+                //vDelayedLocations.splice(i,1);
+            } else {
+                if (packet.sendTime < (vUTCSec + 60000)) {
+                    vDelayedLocations.push(packet);
+                }
+            }
+        };
+        vProcessingDelayedLocations = false;
+    }
+}
+
+function filterMinLastUpdate(data, vInterval) {
+    var vReturnData = [];
+    var vCompareTimeStamp = (new Date()).getTime() - vInterval;
+    data.forEach((datavalue, index, arr) => {
+        //try{
+        var vNamy = new String(datavalue.properties.name).padEnd(16, '_');
+        var vReported = 0 + datavalue.properties.reported_at;
+        var vDiff = vReported - vCompareTimeStamp;
+        //if ( !datavalue.properties || !datavalue.properties.reported_at || datavalue.properties.reported_at > vCompareTimeStamp){
+        if (vReported > vCompareTimeStamp) {
+            //console.log("NAME:["+vNamy+"]NEW["+vReported+"]["+vCompareTimeStamp+"]DIFF["+vDiff+"].");
+            vReturnData.push(datavalue);
+        } //else{
+        //console.log("NAME:["+vNamy+"]OLD["+vReported+"]["+vCompareTimeStamp+"]DIFF["+vDiff+"].");
+        //}
+        /*if (datavalue.properties){
+        if (datavalue.properties.reported_at){
+        	console.log("Compare["+datavalue.properties.reported_at+"]["+vCompareTimeStamp+"].");
+        }else{
+        	console.log("Compare[No reported_at]["+vCompareTimeStamp+"].");
+        }
+        }else{
+        	console.log("Compare[No Properties]["+vCompareTimeStamp+"].");
+        }*/
+        //} catch (e) {
+        //	console.log("Error:["+JSON.stringify(e)+"].");
+        //}
+    });
+    console.log("Before MinLastUpdate Filter(" + vInterval + ")(" + data.length + ")after(" + vReturnData.length + ").");
+    return vReturnData;
+}
+
+function machineClassOIDMatchFilterData(data, vOIDMatch) {
+    var vReturnData = [];
+    var vNewRegExp = new RegExp(vOIDMatch);
+    data.forEach((datavalue, index, array) => {
+        if ((vOIDMatch === "") || vNewRegExp.test("" + datavalue.properties.class_oid)) {
+            vReturnData.push(datavalue);
+        }
+    });
+    console.log("Before MACHINE_CLASS_OID Match Filter(" + vOIDMatch + ")(" + data.length + ")after(" + vReturnData.length + ").");
+    return vReturnData;
+}
+
+//async function getMachineAtTime(vStartDateTime){
+//	var vReturnData = [];
+//Load the Latest FLTMachine table at the time.
+//        console.log("MSDATA:ULTSAtTime GETTING ULTS Rows...");
+//        try {
+//        	var request = dbConn.request();
+//                let result = await request.query("EXECUTE [dbo].[mrcULTSAtTime] '" + vStartDateTime + "';");
+//                if (result !== null) {
+//                	for (const recordset of result.recordsets) {
+//vDATAFLTDelay=[].concat(recordset);
+//                                console.log("MSDATA:ULTSAtTime NEW DATA SIZE["+ recordset.length + "].");
+//                                recordset.forEach((value,index) => {
+//                                	vReturnData.push(value);
+//                                });
+//                        }
+//                        console.log("MSDATA:ULTSAtTime TOTAL DATA SIZE["+ vReturnData.length + "].");
+//                }
+//	} catch(err) {
+//		console.log("MSDATA:ULTSAtTime SQL-ERROR:" + err);
+//	};
+//	return vReturnData;
+//}
+
+//Setup the database connection pool.
+var dbConn = new sql.ConnectionPool(dbConfig);
+//Subscribe to Zones
+//Subscribe to Delays
+//Subscribe to Locations
+startDBConnect();
+//Subscribe to Zones
+//Subscribe to Delays
+//Subscribe to Locations
+//setInterval(loadDataPeriodic,vTimeInterval);
+
+function authentication(req, res, next) {
+    var authheader = req.headers.authorization;
+    //console.log(req.headers);
+
+    if (!authheader) {
+        var err = new Error('You are not authenticated!');
+        res.setHeader('WWW-Authenticate', 'Basic');
+        err.status = 401;
+        return next(err)
+    }
+
+    var auth = new Buffer.from(authheader.split(' ')[1],
+        'base64').toString().split(':');
+    var user = auth[0];
+    var pass = auth[1];
+
+    var vAuthenticated = false;
+    var vLogin = config.get('login');
+    //console.log("LOGIN:"+JSON.stringify(vLogin));
+    for (vUser in vLogin) {
+        //console.log("USER:"+JSON.stringify(vLogin[vUser]));
+        if (user == vLogin[vUser].user && pass == vLogin[vUser].passwd) {
+            console.log("USER:" + user + " Logged in.");
+            // If Authorized user
+            vAuthenticated = true;
+            next();
+        }
+    }
+    if (!vAuthenticated) {
+        var err = new Error('You are not authenticated!');
+        res.setHeader('WWW-Authenticate', 'Basic');
+        err.status = 401;
+        return next(err);
+    }
+}
+
+//Now lets setup the WEB API ENDPOINTS
+var app = express();
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', true);
+    return next();
+});
+
+app.use(authentication);
+app.use(bodyParser.json()); // for parsing application/json
+app.use(bodyParser.urlencoded({
+    extended: true
+}));
+
+var vDataStoreCount = 0;
+var vDataStoreFailCount = 0;
+var vDataInputCount = 0;
+var vDataInputRequestCount = 0;
+var vDataOutputCount = 0;
+var vDataOutputRequestCount = 0;
+
+app.get('/api/getULTSLocationCurrent', (req, res) => {
+    var vReturnData = utils.getArray(vFLTLocationMap);
+    if (req.query.minlastupdate) {
+        vReturnData = filterMinLastUpdate(vReturnData, req.query.minlastupdate);
+    }
+    if (req.query.machine_class_oid_match) {
+        vReturnData = machineClassOIDMatchFilterData(vReturnData, req.query.machine_class_oid_match);
+    };
+    vReturnData = filter.doFilters(vReturnData, req);
+    //      var vLocations = JSON.stringify(Object.fromEntries(vCurrentMachineLocation))
+    //res.header('Cache-Control', 'public, max-age=1000');
+    res.send(vReturnData);
+    //Stats
+    vDataOutputRequestCount++;
+    vDataOutputCount = vDataOutputCount + vReturnData.length;
+});
+
+app.get('/api/getULTSEntity', (req, res) => {
+    var vReturnData = utils.getArray(vULTSEntityMap);
+    vReturnData = filter.doFilters(vReturnData, req);
+    res.send(vReturnData);
+    vDataOutputRequestCount++;
+    vDataOutputCount = vDataOutputCount + vReturnData.length;
+});
+
+app.get('/api/getULTSPerson', (req, res) => {
+    var vReturnData = utils.getArray(vULTSPersonMap);
+    vReturnData = filter.doFilters(vReturnData, req);
+    res.send(vReturnData);
+    vDataOutputRequestCount++;
+    vDataOutputCount = vDataOutputCount + vReturnData.length;
+});
+
+//Lets update a Zone Feature
+app.put('/api/updateULTSEntity', (req, res) => {
+    var vEntity = req.body;
+    vEntity.OID = parseInt(vEntity.OID);
+    vEntity.ACTIVE = JSON.parse(vEntity.ACTIVE);
+    vEntity.ENTITYGROUPROLE_OID = parseInt(vEntity.ENTITYGROUPROLE_OID);
+    vEntity.CLASS_OID = parseInt(vEntity.CLASS_OID);
+    //vNewZone.id=vFMIZones.features.length;
+    console.log("UPDATEULTSENTITY:Entity Updated[" + JSON.stringify(vEntity) + "]");
+    vULTSEntityMap.set(vEntity.OID, vEntity);
+    var vResult = storeULTSEntity(vEntity);
+    //vFMIZones.features.push(vNewZone);
+    res.json(vResult); //{ id: vNewZone.id});
+    console.log("UPDATEULTSENTITY:Result[" + JSON.stringify(vResult) + "]");
+});
+
+//Lets update a Zone Feature
+app.put('/api/updateULTSPerson', (req, res) => {
+    var vPerson = req.body;
+    vPerson.OID = parseInt(vPerson.OID);
+    vPerson.ACTIVE = JSON.parse(vPerson.ACTIVE);
+    vPerson.ENTITYGROUPROLE_OID = parseInt(vPerson.ENTITYGROUPROLE_OID);
+    console.log("UPDATEULTSPERSON:Person Updated[" + JSON.stringify(vPerson) + "]");
+    vULTSPersonMap.set(vPerson.OID, vPerson);
+    var vResult = storeULTSPerson(vPerson);
+    //vFMIZones.features.push(vNewZone);
+    res.json(vResult); //{ id: vNewZone.id});
+    console.log("UPDATEULTSENTITY:Result[" + JSON.stringify(vResult) + "]");
+});
+
+app.get('/api/getULTSEntityGroup', (req, res) => {
+    var vReturnData = utils.getArray(vULTSEntityGroupMap);
+    vReturnData = filter.doFilters(vReturnData, req);
+    res.send(vReturnData);
+    vDataOutputRequestCount++;
+    vDataOutputCount = vDataOutputCount + vReturnData.length;
+});
+
+
+app.get('/api/getUPSEvents', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    res.write('retry: 10000\n\n');
+    const interval = setInterval(() => {
+        var vMessageContent = "" + new Date().toISOString();
+        res.write('data: ' + vMessageContent + '\n\n');
+    }, 1000);
+
+    req.on('close', () => {
+        clearInterval(interval);
+    });
+});
+
+app.get('/api/getFLTAutoZoneEntitiesList', (req, res) => {
+    var vTempMap = new Map(vEntityZonesMap)
+    var vReturnData = getEntitiesInZone(vTempMap, req.query.zone_name);
+    if (req.query.minlastupdate) {
+        vReturnData = filterMinLastUpdate(vReturnData, req.query.minlastupdate);
+    }
+    //var vReturnData=utils.getArray(vEntitiesInZone);
+    vReturnData = filter.doFilters(vReturnData, req);
+    //res.header('Cache-Control', 'public, max-age=1000');
+    res.send(vReturnData);
+    //Stats
+    vDataOutputRequestCount++;
+    vDataOutputCount = vDataOutputCount + vReturnData.length;
+});
+
+app.get('/api/getFLTAutoZoneEntitiesCount', (req, res) => {
+    //console.log("requested data for Zone("+req.query.ZONE_NAME+").");
+    var vTempMap = new Map(vEntityZonesMap)
+    var vReturnData = getEntitiesInZone(vTempMap, req.query.zone_name);
+    if (req.query.minlastupdate) {
+        vReturnData = filterMinLastUpdate(vReturnData, req.query.minlastupdate);
+    }
+    //var vReturnData=utils.getArray(vEntitiesInZone);
+    vReturnData = filter.doFilters(vReturnData, req);
+    var vReturnObject = {};
+    vReturnObject.NAME = req.query.ZONE_NAME;
+    vReturnObject.COUNT = vReturnData.length;
+    //res.header('Cache-Control', 'public, max-age=1000');
+    res.send(vReturnObject);
+    //Stats
+    vDataOutputRequestCount++;
+    vDataOutputCount = vDataOutputCount + 1;
+});
+
+app.get('/api/getFLTAutoZoneActivities', (req, res) => {
+    var vReturnData = vZoneActivities;
+    if (req.query.zone_name) {
+        vReturnData = zonenameFilterData(vZoneActivities, req.query.zone_name);
+    }
+    vReturnData = filter.doFilters(vReturnData, req);
+    //res.header('Cache-Control', 'public, max-age=300000');
+    res.send(vReturnData);
+    //Stats
+    vDataOutputRequestCount++;
+    vDataOutputCount = vDataOutputCount + vReturnData.length;
+});
+
+app.get('/api/getFLTAutoZoneFeatures', (req, res) => {
+    var vReturnData = [];
+    switch (req.query.feature_type) {
+        case "AREA":
+            vReturnData = vFLTAreas;
+            break;
+        case "PANEL":
+            vReturnData = vFLTPanels;
+            break;
+        case "FLTZONE":
+            vReturnData = vFLTZones;
+            break;
+        case "FMIZONE":
+            vReturnData = vFMIZones;
+            break;
+        case "LOCATION":
+            vRetturnData = vFLTLocations;
+            break;
+    }
+    vReturnData = filter.doFilters(vReturnData, req);
+    //res.header('Cache-Control', 'public, max-age=300000');
+    res.send(vReturnData);
+    //Stats
+    vDataOutputRequestCount++;
+    vDataOutputCount = vDataOutputCount + 1;
+});
+
+//Lets update a Zone Feature
+app.put('/api/updateFLTAutoZoneFeature', (req, res) => {
+    var vNewZone = req.body;
+    //vNewZone.id=vFMIZones.features.length;
+    vNewZone.type = "Feature";
+    console.log("CREATE:ZONE:FMI Zone Updated[" + JSON.stringify(vNewZone) + "]");
+    var vResult = storeZone(vNewZone);
+    //vFMIZones.features.push(vNewZone);
+    res.json(vResult); //{ id: vNewZone.id});
+    vFMIZonesNeedUpdate = true;
+});
+
+//Lets create a new Zone Feature.
+app.post('/api/createFLTAutoZoneFeature', (req, res) => {
+    //console.log("CREATE:ZONE:Create Zone Request["+JSON.stringify(req.body)+"]");
+    var vNewZone = req.body;
+    //vNewZone.id=vFMIZones.features.length;
+    vNewZone.type = "Feature";
+    console.log("CREATE:ZONE:New FMI zone created[" + JSON.stringify(vNewZone) + "]");
+    vNewZone.properties.oid = -1;
+    var vResult = storeZone(vNewZone);
+    //vFMIZones.features.push(vNewZone);
+    res.json(vResult); //{ id: vNewZone.id});
+    vFMIZonesNeedUpdate = true;
+});
+
+app.get('/api/getAppStatusULTS', (req, res) => {
+    var vAppStatus = {};
+    vAppStatus.Name = "ULTS";
+    vAppStatus.Version = APP_VERSION;
+    vAppStatus.DataStoreSize = vFLTLocationMap.size;
+    vAppStatus.DataStoreCount = vDataStoreCount;
+    vAppStatus.DataStoreFailCount = vDataStoreFailCount;
+    vAppStatus.DataInputCount = vDataInputCount;
+    vAppStatus.DataInputRequestCount = vDataInputRequestCount;
+    vAppStatus.DataOutputCount = vDataOutputCount;
+    vAppStatus.DataOutputRequestCount = vDataOutputRequestCount;
+    vAppStatus.UsageMemory = process.memoryUsage();
+    vAppStatus.UsageCPU = process.cpuUsage();
+    vAppStatus.CPU = vCPUPercent;
+    res.send(vAppStatus);
+});
+
+console.log("ULTS:Starting API endpoints...");
+var server = http.createServer(app);
+server.listen(PORT, function() {
+    console.log('ULTS:Server running, version ' + APP_VERSION + ', Express is listening... at ' + PORT + " for requests");
+});
+//loadData();
+setInterval(loadFMIZoneData, vLoadDataInterval); // Now it starts the same thing.
+setInterval(sendDelayedLocations, 100); // Now it starts the same thing.
+//setInterval(loadLocationDataHistory,vLoadDataInterval); // Now it starts the same thing.
