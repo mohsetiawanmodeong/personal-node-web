@@ -194,6 +194,7 @@ app.get('/api/getULTSPerson', proxy('http://localhost:'+vULTSPort));
 app.put('/api/updateULTSEntity', proxy('http://localhost:'+vULTSPort));
 app.put('/api/updateULTSPerson', proxy('http://localhost:'+vULTSPort));
 app.get('/api/getULTSEntityGroup', proxy('http://localhost:'+vULTSPort));
+app.get('/api/getULTSEntityGroupRole', proxy('http://localhost:'+vULTSPort));
 app.get('/api/getUPSEvents', proxy('http://localhost:'+vULTSPort));
 app.get('/api/getFLTAutoZoneFeatures', proxy('http://localhost:'+vULTSPort));
 app.get('/api/getFLTAutoZoneEntitiesList', proxy('http://localhost:'+vULTSPort));

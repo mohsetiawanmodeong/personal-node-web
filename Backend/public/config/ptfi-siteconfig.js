@@ -1,0 +1,515 @@
+var vShiftStartTime=5;
+var vShiftEndTime=17;
+var vMineName="GBC";
+var vMapCenter=[-4.0591, 137.115];
+var vMapRotation=55;
+var vShowLabels = true;
+var vShowAllUpdate = false;
+var vShowOnlyLastUpdate = true;
+var vMinLastUpdate = 1800000;
+var vMinLastUpdateLong = 14*24*3600000;
+var vFMIEntityClassToName= new Map();
+vFMIEntityClassToName.set(168786385,"R1700K");
+vFMIEntityClassToName.set(165040008,"R1700G");
+vFMIEntityClassToName.set(165040007,"R1600H");
+vFMIEntityClassToName.set(165040009,"R1600K");
+vFMIEntityClassToName.set(609593848,"R2900XE");
+vFMIEntityClassToName.set(315406192,"MOBILE ROCKBREAKER");
+vFMIEntityClassToName.set(165250004,"FIXED ROCKBREAKER");
+vFMIEntityClassToName.set(418607627,"LH410");
+vFMIEntityClassToName.set(405269589,"SUPPORT");
+vFMIEntityClassToName.set(448073853,"WATER CANNON");
+vFMIEntityClassToName.set(448079058,"SBU");
+vFMIEntityClassToName.set(405269675,"LIGHT VEHICLE");
+vFMIEntityClassToName.set(165551966,"CHUTES");
+vFMIEntityClassToName.set(666666666,"PERSONNEL");
+vFMIEntityClassToName.set(666666667,"PERSONNEL-LEAD");
+vFMIEntityClassToName.set(666666668,"PERSONNEL-SUPER");
+vFMIEntityClassToName.set(666666669,"PERSONNEL-RESCUE");
+vFMIEntityClassToName.set(666666670,"PERSONNEL-SAFETY");
+vFMIEntityClassToName.set(666666671,"SETUPPERSONNEL");
+vFMIEntityClassToName.set(666666672,"SETUPPERSONNEL-LEAD");
+vFMIEntityClassToName.set(666666673,"SETUPPERSONNEL-SUPER");
+
+var vFMIWallMaps= new Map();
+vFMIWallMaps.set(1,{filename:"map/gbc-el.geojson",walllayername:"WALL",wallmenutext:"Extraction Map",centerlinelayername:"CENTERLINE",centerlinemenutext:"EL Center Lines",minzfilter:0, maxzfilter:4000});
+
+var vFMIEntityClassToConfig= new Map();
+vFMIEntityClassToConfig.set(168786385,
+        {
+                "name":"R1700K",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "articulated":true,
+                "sizex":150,
+                "sizey":40,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-lhd-artic.svg"
+        });
+vFMIEntityClassToConfig.set(165040008,
+        {
+                "name":"R1700G",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "articulated":true,
+                "sizex":150,
+                "sizey":40,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-lhd-artic.svg"
+        });
+vFMIEntityClassToConfig.set(165040007,
+        {
+                "name":"R1600H",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "articulated":true,
+                "sizex":130,
+                "sizey":33,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-lhd-artic.svg"
+        });
+vFMIEntityClassToConfig.set(165040009,
+        {
+                "name":"R1600K",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "articulated":true,
+                "sizex":130,
+                "sizey":33,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-lhd-artic.svg"
+        });
+vFMIEntityClassToConfig.set(609593848,
+        {
+                "name":"R2900XE",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "articulated":true,
+                "sizex":180,
+                "sizey":48,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-lhd-artic.svg"
+        });
+vFMIEntityClassToConfig.set(165070000,
+        {
+                "name":"R1600G",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "articulated":true,
+                "sizex":150,
+                "sizey":40,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-lhd-artic.svg"
+        });
+vFMIEntityClassToConfig.set(206628343,
+        {
+                "name":"R2900",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "articulated":false,
+                "sizex":150,
+                "sizey":40,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-lhd-artic.svg"
+        });
+vFMIEntityClassToConfig.set(315406192,
+        {
+                "name":"MOBILE ROCKBREAKER",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":150,
+                "sizey":40,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-rockbreaker-artic.svg"
+        });
+vFMIEntityClassToConfig.set(165250004,
+        {
+                "name":"FIXED ROCKBREAKER",
+                "moving":false,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":false,
+                "sizex":150,
+                "sizey":40,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-lhd-artic.svg"
+        });
+vFMIEntityClassToConfig.set(418607627,
+        {
+                "name":"LH410",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":150,
+                "sizey":40,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-sandvik-lh410-fullb.svg"
+        });
+vFMIEntityClassToConfig.set(405269589,
+        {
+                "name":"SUPPORT",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":false,
+                "calcheading":false,
+                "sizex":70,
+                "sizey":70,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-minecat-round.svg"
+        });
+vFMIEntityClassToConfig.set(336200538,
+        {
+                "name":"TELEHANDLER",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":150,
+                "sizey":40,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-lhd-artic.svg"
+        });
+vFMIEntityClassToConfig.set(448073853,
+        {
+                "name":"WATER CANNON",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":150,
+                "sizey":40,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-getman-a64-full.svg"
+        });
+vFMIEntityClassToConfig.set(448079058,
+        {
+                "name":"SBU",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":150,
+                "sizey":40,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-getman-a64-full.svg"
+        });
+vFMIEntityClassToConfig.set(405269675,
+        {
+                "name":"LIGHT VEHICLE",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":false,
+                "calcheading":false,
+                "sizex":70,
+                "sizey":70,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-lightvehicle-toyota.svg"
+        });
+vFMIEntityClassToConfig.set(165551966,
+        {
+                "name":"CHUTES",
+                "moving":false,
+                "zoom":true,
+                "image":true,
+                "rotate":false,
+                "calcheading":false,
+                "sizex":70,
+                "sizey":70,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/plus.svg"
+        });
+vFMIEntityClassToConfig.set(666666666,
+        {
+                "name":"PERSONNEL",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":40,
+                "sizey":40,
+                "animation":true,
+                "label":true,
+                "zindex":5,
+                "imageurl":"images/svg/underground-worker-1d.svg",
+                "imagecircleurl":"images/svg/underground-worker-circle-1d.svg",
+                "classbase":"worker",
+                "animstepmax":6,
+                "animframespersec":3,
+                "animframespermeter":0.1,
+				"scalefactor":2
+        });
+vFMIEntityClassToConfig.set(666666667,
+        {
+                "name":"PERSONNEL-LEAD",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":40,
+                "sizey":40,
+                "animation":true,
+                "label":true,
+                "zindex":5,
+                "imageurl":"images/svg/underground-lead-1d.svg",
+                "imagecircleurl":"images/svg/underground-lead-circle-1d.svg",
+                "classbase":"lead",
+                "animstepmax":6,
+                "animframespersec":3,
+                "animframespermeter":0.1,
+				"scalefactor":2
+        });
+vFMIEntityClassToConfig.set(666666668,
+        {
+                "name":"PERSONNEL-SUPER",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":40,
+                "sizey":40,
+                "animation":true,
+                "label":true,
+                "zindex":5,
+                "imageurl":"images/svg/underground-super-1d.svg",
+                "imagecircleurl":"images/svg/underground-super-circle-1d.svg",
+                "classbase":"super",
+                "animstepmax":6,
+                "animframespersec":3,
+                "animframespermeter":0.1,
+				"scalefactor":2
+        });
+
+vFMIEntityClassToConfig.set(666666669,
+        {
+                "name":"PERSONNEL-RESCUE",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":40,
+                "sizey":40,
+                "animation":true,
+                "label":true,
+                "zindex":5,
+                "imageurl":"images/svg/underground-rescue-1d.svg",
+                "imagecircleurl":"images/svg/underground-rescue-circle-1d.svg",
+                "classbase":"rescue",
+                "animstepmax":6,
+                "animframespersec":3,
+                "animframespermeter":0.1,
+				"scalefactor":2
+        });
+
+vFMIEntityClassToConfig.set(666666670,
+        {
+                "name":"PERSONNEL-SAFETY",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":40,
+                "sizey":40,
+                "animation":true,
+                "label":true,
+                "zindex":5,
+                "imageurl":"images/svg/underground-safety-1d.svg",
+                "imagecircleurl":"images/svg/underground-safety-circle-1d.svg",
+                "classbase":"safety",
+                "animstepmax":6,
+                "animframespersec":3,
+                "animframespermeter":0.1,
+				"scalefactor":2
+        });
+
+vFMIEntityClassToConfig.set(666666671,
+        {
+                "name":"SETUPPERSONNEL",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":40,
+                "sizey":40,
+                "animation":true,
+                "label":true,
+                "zindex":5,
+                "imageurl":"images/svg/underground-worker-1d.svg",
+                "imagecircleurl":"images/svg/underground-setupworker-circle-1d.svg",
+                "classbase":"worker",
+                "animstepmax":6,
+                "animframespersec":3,
+                "animframespermeter":0.1,
+                "scalefactor":2
+        });
+vFMIEntityClassToConfig.set(666666672,
+        {
+                "name":"SETUPPERSONNEL-LEAD",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":40,
+                "sizey":40,
+                "animation":true,
+                "label":true,
+                "zindex":5,
+                "imageurl":"images/svg/underground-lead-1d.svg",
+                "imagecircleurl":"images/svg/underground-setuplead-circle-1d.svg",
+                "classbase":"lead",
+                "animstepmax":6,
+                "animframespersec":3,
+                "animframespermeter":0.1,
+                "scalefactor":2
+        });
+vFMIEntityClassToConfig.set(666666673,
+        {
+                "name":"SETUPPERSONNEL-SUPER",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":40,
+                "sizey":40,
+                "animation":true,
+                "label":true,
+                "zindex":5,
+                "imageurl":"images/svg/underground-super-1d.svg",
+                "imagecircleurl":"images/svg/underground-setupsuper-circle-1d.svg",
+                "classbase":"super",
+                "animstepmax":6,
+                "animframespersec":3,
+                "animframespermeter":0.1,"scalefactor":2
+        });
+
+vFMIEntityClassToConfig.set(197491263,
+        {
+                "name":"AD60 TRUCK",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":150,
+                "sizey":40,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-truck-ori.svg"
+        });
+vFMIEntityClassToConfig.set(370629477,
+        {
+                "name":"AD55 TRUCK",
+                "moving":true,
+                "zoom":true,
+                "image":true,
+                "rotate":true,
+                "calcheading":true,
+                "sizex":150,
+                "sizey":40,
+                "animation":false,
+                "label":true,
+                "zindex":4,
+                "imageurl":"images/svg/underground-truck-ori.svg"
+        });
+vFMIEntityClassToConfig.set(230170461,
+        {
+                "name":"CRUSHER",
+                "moving":false,
+                "zoom":false,
+                "image":false,
+                "rotate":false,
+                "calcheading":false,
+                "sizex":64,
+                "sizey":16,
+                "animation":false,
+                "label":false,
+                "zindex":3,
+                "imageurl":""
+        });
+vFMIEntityClassToConfig.set(197690376,
+        {
+                "name":"LOADING POINT",
+                "moving":false,
+                "zoom":false,
+                "image":false,
+                "rotate":false,
+                "calcheading":false,
+                "sizex":64,
+                "sizey":16,
+                "animation":false,
+                "label":false,
+                "zindex":3,
+                "imageurl":""
+        });

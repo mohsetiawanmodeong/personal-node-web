@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<title>TRACK - ADMIN - ENTITY</title>
+
+<head>
+    <meta charset="utf-8">
+    <meta content-type="test/html">
+    <!--meta http - equiv = "content-type" content = "text/html; charset=utf-8"-->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <script type="text/javascript" src="js/chart.min.js"></script>
+    <script type="text/javascript" src="js/chartjs-plugin-datalabels.min.js"></script>
+    <script type="text/javascript" src="js/d3.min.js"></script>
+    <link rel="stylesheet" href="css/jquery-ui.css">
+    <script type="text/javascript" src="js/jquery-1.12.4.js"></script>
+    <script type="text/javascript" src="js/jquery-ui-1.12.1.js"></script>
+    <script type="text/javascript" src="js/moment.js"></script>
+    <script type="text/javascript" src="js/ptfi-mrc.js"></script>
+    <script type="text/javascript" src="js/ptfi-mrc-api.js"></script>
+    <script type="text/javascript" src="js/ptfi-mrc-utils.js"></script>
+    <script type="text/javascript" src="config/ptfi-siteconfig.js"></script>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <link rel="stylesheet" href="css/font-awesome.css">
+    <link rel="stylesheet" href="css/wap4.css">
+    <link rel="stylesheet" href="css/mermaid.min.css">
+    <script type="text/javascript" src="js/jquery.multiselect.js"></script>
+    <link rel="stylesheet" href="css/jquery.multiselect.css">
+    <script src="js/lodash.min.js"></script>
+    <link href="css/timeslider.css" rel="stylesheet">
+    <script src="js/timesliderlocal.js"></script>
+    <link rel="stylesheet" href="css/jsgrid.css">
+    <link rel="stylesheet" href="css/jsgrid-theme.css">
+    <script src="js/jsgrid.js"></script>
+    <style>
+table,
+th,
+td {
+    border: 1 px solid black;
+    border-collapse: collapse;
+}
+
+td,
+th {
+    padding: 10 px;
+    vertical-align: top;
+    text-align: center;
+}
+    </style>
+</head>
+
+<body>
+    <div id="MainTitle">PTFI TRACKING ADMIN - ENTITY</div>
+    <!--div id="controlgroup"-->
+    <select id="selectentitygroup" name="selectentitygroup"></select>
+    <!--/div-->
+    <TABLE>
+        <TR>
+            <TD>
+                <div id="containerFLT"></div>
+            </TD>
+        </TR>
+    </TABLE>
+    <div id="timestamp"></div><BR>
+    <strong>
+        NOTES: (CURRENT VERSION: 0.1)
+    </strong>
+    <a target="_blank" href="appstatus-releasenotes.txt">Release Notes</a>
+    <BR>
+    <script>
+document.title = vMineName + '-TRACKING-ADMIN-ENTITY';
+document.getElementById("MainTitle").innerHTML = vMineName + ' PTFI TRACKING ADMIN - ENTITY';
+//$("#controlgroup").controlgroup();
+var vFLTZones = [];
+var vFMIZones = [];
+var vAREAZones = [];
+var vPANELZones = [];
+
+var vCycleFilter = "";
+var vGridFLT;
+var vEntityName = "";
+var vZoneName = "";
+var vStartTime = new Date();
+var vEndTime = new Date();
+
+var vCurrentFilter = {};
+
+function getRowDataFLT(filter) {
+    vCurrentFilter = _.cloneDeep(filter);
+    var vNewRowData = [];
+    //console.log("FILTER["+JSON.stringify(filter)+"].");	
+    vRowDataFLT.forEach((row) => {
+        var value = createRowDataFLT(row);
+        if (value.ENTITY_NAME.includes(filter.ENTITY_NAME) || filter.ENTITY_NAME == "") {
+            if (value.ROLE.includes(filter.ROLE) || filter.ROLE == "") {
+//                if (filter.OPERATOR_NAME == "" || (value.OPERATOR_NAME && value.OPERATOR_NAME.includes(filter.OPERATOR_NAME))) {
+                    //Now lets filter for the Currently selected group.
+                    var vGroup = vULTSEntityGroupMap.get(row.ENTITYGROUPROLE_OID);
+                    if (vGroup) {
+                        if (vGroup.ENTITYGROUP_OID === vSelectedEntityGroup) {
+                            //console.log("ROW DATA["+JSON.stringify(row)+"].");
+                            //console.log("VALUE DATA["+JSON.stringify(value)+"].");
+                            vNewRowData.push(value);
+                        }
+                    }
+//                }
+            }
+       }
+    });
+    return vNewRowData;
+}
+
+function updateRowData(item) {
+    var vEntity = vULTSEntityMap.get(item.OID);
+    console.log("Updating Row[" + JSON.stringify(item) + "].");
+	var vOperatorID = parseInt(item.OPERATOR);
+	if ( vULTSPersonMap.has(vOperatorID) || vOperatorID==0){
+		var vPerson={};
+		if ( vOperatorID==0 ){
+			vEntity.OPERATOR_NAME = "" + vEntity.MACHINE_NAME;
+		}else{		
+			vPerson = vULTSPersonMap.get(vOperatorID);
+    		vEntity.OPERATOR_NAME = "" + vPerson.DISPLAY_NAME;
+    		vEntity.ENTITYGROUPROLE_OID = vPerson.ENTITYGROUPROLE_OID;
+    		vEntity.ROLE = "" + vPerson.ROLE;
+    		vEntity.CLASS_OID = parseInt(vPerson.CLASS_OID);
+    		console.log("Person Selected [" + JSON.stringify(vPerson) + "].");
+		}
+		//vEntity.DISPLAY_NAME = "" + vPerson.DISPLAY_NAME;
+		vEntity.PERSON_OID = vOperatorID;
+		//console.log("Updating Entity [" + JSON.stringify(vEntity) + "].");
+    	var vPromise = new Promise((resolve, reject) => {
+        	updateULTSEntityData(
+            	vEntity,
+            	function(data) {
+                	resolve();
+            	},
+            	function(data) {
+                	reject(data);
+            	}
+        	);
+			resolve();
+    	});
+    	console.log("Updating Entity[" + JSON.stringify(vEntity) + "].");
+    	Promise.allSettled([vPromise])
+        	.then((values) => updateChartsLock(values));
+	}
+}
+
+var vZoneType1 = "";
+var vZoneType2 = "";
+var vZoneType3 = "";
+
+function createRowDataFLT(row) {
+    var vRow = {};
+    if (row) {
+        vRow.OID = parseInt(row.OID);
+        vRow.ENTITY_NAME = "" + row.MACHINE_NAME;
+		var vOperatorID = parseInt(row.PERSON_OID);
+		if ( vOperatorID == 0){
+			console.log("No linked Entity[" + vRow.ENTITY_NAME + "] Trying to AutoLink...");
+			vULTSPersonMap.forEach((person) => {
+				if ( person.DISPLAY_NAME === row.OPERATOR_NAME ){
+					vOperatorID = person.OID;
+					console.log("Found Entity To Link["+person.OID+"].");
+				}
+			});
+		}
+		/*var vPerson = {};
+    	if ( vULTSPersonMap.has(vOperatorID)){
+        	vPerson = vULTSPersonMap.get(vOperatorID);
+		}else{
+			vPerson.ROLE = ""+row.ROLE;
+			vPerson.DISPLAY_NAME = ""+row.OPERATOR_NAME;
+		}*/	
+        //vEntity.PERSON_OID = vOperatorID;
+        //var vClassName = "" + row.properties.class_oid;
+        //if (vFMIEntityClassToName.has(row.properties.class_oid)) {
+        //    vClassName = vFMIEntityClassToName.get(row.properties.class_oid);
+        //}
+        vRow.ROLE = "" + row.ROLE;
+        vRow.OPERATOR = vOperatorID;//""+vPerson.PERSON_NAME+"("+vPerson.EMPLOYEE_ID+")"+vPerson.DISPLAY_NAME;
+        vRow.ENTITYGROUPROLE_OID = parseInt(row.ENTITYGROUPROLE_OID);
+    }
+    return vRow;
+}
+
+var vEntityRoleFilter = "";
+var vTableGrid = {};
+var vRoles = [];
+var vOperators = [];
+var vEditing = false;
+
+function makeTableFLT() {
+    vRowDataFLT = [];
+    var vRoleMap = new Map();
+    vRoles = [];
+    vOperators = [];
+	vOperators.push({ OID: 0, NAME: ""});
+    vULTSEntityGroupMap.forEach((group) => {
+        if (vSelectedEntityGroup === group.ENTITYGROUP_OID) {
+            var vRole = {};
+            vRole.ROLE = "" + group.ROLE;
+            vRole.CLASS_OID = parseInt(group.ENTITYCLASS_OID);
+            vRoles.push(vRole);
+        };
+    });
+	vULTSPersonMap.forEach((person) => {
+		if ( vULTSEntityGroupMap.has(person.ENTITYGROUPROLE_OID)){
+       		person.ENTITYGROUP_OID = vULTSEntityGroupMap.get(person.ENTITYGROUPROLE_OID).ENTITYGROUP_OID;
+			person.CLASS_OID = vULTSEntityGroupMap.get(person.ENTITYGROUPROLE_OID).ENTITYCLASS_OID;
+            //vULTSPersonMap.set(person.OID, person);
+        }
+        if (vSelectedEntityGroup === person.ENTITYGROUP_OID) {
+            //var vPerson = {};
+            //vPerson.ROLE = "" + group.ROLE;
+            //vRole.CLASS_OID = parseInt(group.ENTITYCLASS_OID);
+			//Lets go through all Entities in this group and oly show those that are not assigned.
+			//var vNotAssigned=true;
+			//vULTSEntityMap.forEach((entity)=>{
+			//	if ( entity.PERSON_OID === person.OID){	
+			//		vNotAssigned=false;
+			//	}
+			//});
+			//if ( vNotAssigned ) {
+            	var vOperator = {};
+            	vOperator.OID = person.OID;
+            	vOperator.NAME = ""+person.PERSON_NAME+"("+person.EMPLOYEE_ID+")"+person.DISPLAY_NAME;
+            	vOperators.push(vOperator);
+			//}
+        };
+    });
+	console.log("makeTableFLT: Create operators list["+vOperators.length+"] Data.");
+
+    $('#selectentityrolefilter').append(vHTML).selectmenu({
+        change: function(event, data) {
+            vEntityRoleFilter = "" + data.item.value
+        }
+    });
+
+    vTableGrid = new jsGrid.Grid($("#containerFLT"), {
+        width: "100%",
+        height: "80vh",
+        filtering: true,
+        inserting: false,
+        deleting: false,
+        editing: true,
+        sorting: true,
+        paging: false,
+        autoload: true,
+        selecting: true,
+
+        onItemUpdated: function(args) {
+            console.log("EDITED ROW[" + JSON.stringify(args.item) + "].");
+            vEditing = false;
+			/*vOperators = [];
+            vULTSPersonMap.forEach((person) => {
+                if (vSelectedEntityGroup === person.ENTITYGROUP_OID) {
+                    var vNotAssigned=true;
+                    vULTSEntityMap.forEach((entity)=>{
+                        if ( entity.PERSON_OID === person.OID){
+                            vNotAssigned=false;
+            				console.log("ITEMEDITED:Person ["+person.DISPLAY_NAME+"] Already Assigned to TAG ID[" + entity.MACHINE_NAME + "].");
+                        }
+                    });
+                    if ( vNotAssigned ) {
+                        var vOperator = {};
+                        vOperator.OID = person.OID;
+                        vOperator.NAME = ""+person.PERSON_NAME+"("+person.EMPLOYEE_ID+")"+person.DISPLAY_NAME;
+                        vOperators.push(vOperator);
+                    }
+                };
+            });
+            $("#containerFLT").jsGrid("fieldOption", "OPERATOR", "items", vOperators);*/
+        },
+
+        onItemEditing: function(args) { //grid,row,item,itemindex) {
+            console.log("EDITING ROW[" + JSON.stringify(args.item) + "].");
+        },
+
+        rowClick: function(item, itemindex, event) {
+            console.log("ROW[" + itemindex + "]Clicked.ITEM[" + JSON.stringify(item.item) + "].");
+        },
+
+        controller: {
+            loadData: function(filter) {
+                return getRowDataFLT(filter);
+            },
+            updateItem: function(item) {
+                return updateRowData(item);
+            }
+        },
+        //data: getRowDataFLT,
+
+        fields: [{
+                name: "ENTITY_NAME",
+                type: "text",
+                width: 150,
+                readOnly: true,
+                validate: "required",
+                filtering: true,
+                filterTemplate: function() {
+                    return "<input type='text' id='namesearch' name='namesearch'/>";
+                },
+                filterValue: function() {
+                    return document.getElementById('namesearch').value;
+                },
+                //headerTemplate: function(){
+                //      return "NAME("+vTableRowCount+")";
+                //},
+            }, {
+                name: "OPERATOR",
+                type: "select",
+				items: vOperators,
+                //readOnly: false,
+                valueField: "OID",
+                textField: "NAME",
+				valueType: "integer",
+                width: 150,
+                filtering: true,
+                filterTemplate: function() {
+                    return "<input type='text' id='operatornamesearch' name='operatornamesearch'/>";
+                },
+                filterValue: function() {
+                    return document.getElementById('operatornamesearch').value;
+                },
+				//itemTemplate: function(value, item){
+				//	return value;
+				//},
+				/*editTemplate: function(value, item){
+					var vReturnString = "<select>";
+					var vItems
+					vULTSPersonMap.forEach((person)=>{
+						if (vSelectedEntityGroup === person.ENTITYGROUP_OID) {
+							vNotAssigned=true;
+                    		vULTSEntityMap.forEach((entity)=>{
+                      			if ( entity.PERSON_OID === person.OID && entity.PERSON_OID != item.OPERATOR){
+									vNotAssigned=false;
+								}
+							});
+							if ( vNotAssigned ){
+								vReturnString+="<option value="+person.OID+">"+person.PERSON_NAME+"("+person.EMPLOYEE_ID+")"+person.DISPLAY_NAME+"</option>";
+							}
+						}
+                    });
+					vReturnString+="</select>";
+					return this.editControl = $("<input>").attr("type","select").items(vItems);//.vReturnString;
+				}*/	
+                //editTemplate: function(value) {
+                //    return this.editControl = $("<input>").attr("type", "text").attr("maxlength", 8).val(value);
+                //}
+            }, {
+                name: "ROLE",
+                type: "text",
+                //items: vRoles,
+				readOnly: true,
+                //valueField: "ROLE",
+                //textField: "ROLE",
+                //valueType: "string",
+                width: 150,
+                filtering: true,
+                filterTemplate: function() {
+                    return "<select id='selectentityrolefilter' name='selectentityrolefilter'></select>";
+                },
+                filterValue: function() {
+                    return vEntityRoleFilter; //document.getElementById('selectentitytypefilter').value;
+                } //,
+                //editTemplate: function(value, item) {
+                //	var $select = jsGrid.field.select.prototype.editTemplate.apply(this,arguments);
+                //	return $select;
+                //}
+            },
+            {
+                type: "control",
+                deleteButton: false,
+                clearFilterButton: false
+            }
+        ]
+    });
+
+    //ROLES FILTER
+    var vRolesMap = new Map();
+    vULTSEntityGroupMap.forEach((entity) => {
+        vRolesMap.set(entity.ROLE, entity.ROLE);
+    });
+    console.log("Making Role Filter[" + vRoles.size + "].");
+    var vHTML = "<option value='' selected></option>";
+    vRolesMap.forEach((vRole) => {
+        vHTML += "<option value='" + vRole + "'>" + vRole + "</option>";
+    });
+    $('#selectentityrolefilter').append(vHTML).selectmenu({
+        change: function(event, data) {
+            vEntityRoleFilter = "" + data.item.value
+        }
+    });
+    //ENTITY GROUP FILTER
+    var vGroups = new Map();
+    vULTSEntityGroupMap.forEach((group) => {
+        vGroups.set(group.ENTITYGROUP_OID, group.GROUP_NAME);
+    });
+    var vHTML = ""; //<option value='' selected></option>";
+    vGroups.forEach((vGroup, vKey) => {
+        if (vSelectedEntityGroup === vKey) {
+            vHTML += "<option value='" + vKey + "' selected>" + vGroup + "</option>";
+        } else {
+            vHTML += "<option value='" + vKey + "'>" + vGroup + "</option>";
+        }
+    });
+    console.log("Making Group select list[" + vGroups.size + "][" + JSON.stringify(Array.from(vGroups.entries())) + "][" + vHTML + "].");
+    $('#selectentitygroup').append(vHTML).selectmenu({
+        change: function(event, data) {
+            vSelectedEntityGroup = parseInt(data.item.value);
+            vRoles = [];
+            vULTSEntityGroupMap.forEach((group) => {
+                if (vSelectedEntityGroup === group.ENTITYGROUP_OID) {
+                    var vRole = {};
+                    vRole.ROLE = "" + group.ROLE;
+                    vRole.CLASS_OID = parseInt(group.ENTITYCLASS_OID);
+                    vRoles.push(vRole);
+                };
+            });
+			vOperators = [];
+			vOperators.push({ OID: 0, NAME: ""});
+			vULTSPersonMap.forEach((person) => {
+				if (vSelectedEntityGroup === person.ENTITYGROUP_OID) {
+ 					//var vNotAssigned=true;
+            		//vULTSEntityMap.forEach((entity)=>{
+                	//	if ( entity.PERSON_OID === person.OID){
+                    //		vNotAssigned=false;
+                	//	}
+            		//});
+            		//if ( vNotAssigned ) {
+                    	var vOperator = {};
+                    	vOperator.OID = person.OID;
+            			vOperator.NAME = ""+person.PERSON_NAME+"("+person.EMPLOYEE_ID+")"+person.DISPLAY_NAME;
+                    	vOperators.push(vOperator);
+					//}
+                };
+            });
+            $("#containerFLT").jsGrid("fieldOption", "ROLE", "items", vRoles);
+            $("#containerFLT").jsGrid("fieldOption", "OPERATOR", "items", vOperators);
+            updateTableFLTLock();
+        }
+    });
+}
+
+function myTimer() {
+    var d = new Date();
+    var t = d.toLocaleTimeString();
+    document.getElementById("timestamp").innerHTML = t;
+}
+
+//var myUpdate = setInterval(myUpdater, 5000);
+
+var vCurrentFilteredData = [];
+
+//function myUpdater() {
+//    console.log("myUpdater: Forcing Update to refresh data...(" + (new Date()) + ").");
+//    updateTableFLTLock();
+//}
+
+var vTagZoneData = [];
+var vUpdatingTableFLT = false;
+var vLastTime = 0;
+var vLastCPUUser = 0;
+var vLastCPUSystem = 0;
+
+function updateTableFLTLock() {
+    vUpdatingDataFLT = false;
+    if (!vUpdatingTableFLT) {
+        vUpdatingTableFLT = true;
+        //Lets make a promise for all apps.
+        var vPromises = [];
+        vTagZoneData = [];
+        var vPromiseEntity = new Promise((resolve, reject) => {
+            getULTSEntityData(
+                function(data) {
+                    data.forEach((entity) => {
+						entity.OPERATOR = parseInt(entity.PERSON_OID);
+                        vULTSEntityMap.set(entity.OID, entity);
+                    });
+					console.log("updateTableFLTlock:EntityData: Loaded["+vULTSEntityMap.size+"] Data.");
+                    resolve();
+                },
+                function(data) {
+                    reject(data);
+                }
+            );
+        });
+		var vPromisePerson = new Promise((resolve, reject) => {
+            getULTSPersonData(
+                function(data) {
+                    data.forEach((person) => {
+						if ( vULTSEntityGroupMap.has(person.ENTITYGROUPROLE_OID)){
+                            person.ENTITYGROUP_OID = vULTSEntityGroupMap.get(person.ENTITYGROUPROLE_OID).ENTITYGROUP_OID;
+            				person.CLASS_OID = vULTSEntityGroupMap.get(person.ENTITYGROUPROLE_OID).ENTITYCLASS_OID;
+                            vULTSPersonMap.set(person.OID, person);
+                        }
+                    });
+					console.log("updateTableFLTlock:PersonData: Loaded["+vULTSPersonMap.size+"] Data.");
+                    resolve();
+                },
+                function(data) {
+                    reject(data);
+                }
+            );
+        });
+
+        vPromises.push(vPromiseEntity);
+        vPromises.push(vPromisePerson);
+        Promise.allSettled(vPromises)
+            .then((values) => updateChartsLock(values));
+    }
+}
+
+function updateChartsLock(values) {
+    console.log("updateChartsLock:[" + JSON.stringify(values) + "][" + vTagZoneData.length + "].");
+    vRowDataFLT = Array.from(vULTSEntityMap.values());
+    $("#containerFLT").jsGrid("loadData").done(function() {
+        var sorting = $("#containerFLT").jsGrid("getSorting");
+        $("#containerFLT").jsGrid("sort", sorting);
+    });
+    vUpdatingTableFLT = false;
+}
+
+async function loadData() {
+    //SETUP THE ENTITY DATA
+	var vPromiseULTSPerson = new Promise((resolve, reject) => {
+        console.log("loadULTSEntityData: Loading all person data...");
+        getULTSPersonData(
+            //vULTSEntityMap=new Map();
+            async function(data) {
+                    data.forEach((person) => {
+                    	vULTSPersonMap.set(person.OID, person);
+                    });
+					console.log("loadULTSPersonData: Loaded["+vULTSPersonMap.size+"] Data.");
+                    resolve();
+                },
+                function(data) {
+                    reject(data);
+                }
+        );
+    });
+
+    var vPromiseULTSEntity = new Promise((resolve, reject) => {
+        console.log("loadULTSEntityData: Loading all entities data...");
+        getULTSEntityData(
+            //vULTSEntityMap=new Map();
+            async function(data) {
+                    data.forEach((entity) => {
+                       	vULTSEntityMap.set(entity.OID, entity);
+                    });
+					console.log("loadULTSEntityData: Loaded["+vULTSEntityMap.size+"] Data.");
+                    resolve();
+                },
+                function(data) {
+                    reject(data);
+                }
+        );
+    });
+    //SETUP THE ENTITY GROUP DATA
+    var vPromiseULTSEntityGroup = new Promise((resolve, reject) => {
+        console.log("loadULTSEntityGroupData: Loading all entitiy groups data...");
+        getULTSEntityGroupData(
+            async function(data) {
+                    data.forEach((entitygroup) => {
+                        vULTSEntityGroupMap.set(entitygroup.OID, entitygroup);
+                    });
+                    resolve();
+                },
+                function(data) {
+                    reject(data);
+                }
+        );
+    });
+    await Promise.allSettled([vPromiseULTSPerson, vPromiseULTSEntity, vPromiseULTSEntityGroup]).then((values) => updateData(values));
+}
+
+var vULTSEntityMap = new Map();
+var vULTSPersonMap = new Map();
+var vULTSEntityGroupMap = new Map();
+var vSelectedEntityGroup = 1;
+var vSelectedEntityRole = 1;
+async function updateData(values) {
+    console.log("RESULT:[" + JSON.stringify(values) + "].");
+    //await updateRoles(vSelectedEntityGroup);	
+    console.log("ENTITYROLEGROUPS[" + vULTSEntityGroupMap.size + "]ENTITIES[" + vULTSEntityMap.size + "].");
+}
+
+var myClock = setInterval(myTimer, 1000);
+$(document).ready(function() {
+    (async function() {
+        await loadData();
+        await makeTableFLT();
+        await updateTableFLTLock();
+    })();
+});
+    </script>
+</body>
+
+</html>
