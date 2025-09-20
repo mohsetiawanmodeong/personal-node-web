@@ -16,6 +16,10 @@
             <div class="status-indicator">
                 <div class="status-dot" id="statusDot"></div>
                 <span id="statusText">Ready to Scan</span>
+                <button class="btn btn-primary header-scan-btn" onclick="scanAgain()">
+                    <div class="icon-redo"></div>
+                    Scan Again
+                </button>
             </div>
         </header>
 
@@ -25,7 +29,7 @@
                 <!-- Left Column: Auto Zone Entities -->
                 <div class="column-left">
                 <div class="column-header">
-                    <h3>Auto Zone Entities</h3>
+                    <h3>Personal Node Detected <span id="totalCount">(Total: 0)</span></h3>
                     <div class="realtime-indicator">
                         <div class="pulse-dot"></div>
                         <span>Live</span>
@@ -38,15 +42,15 @@
 
                 <!-- Right Column: Scanned Employee -->
                 <div class="column-right">
-                    <div class="column-header">
-                        <h3>Scanned Employee</h3>
-                        <button class="btn btn-primary" onclick="scanAgain()">
-                            <div class="icon-redo"></div>
-                            Scan Again
-                        </button>
-                    </div>
                     <!-- Right panel shows scan panel by default -->
                     <div class="scan-area" id="scanArea">
+                        <div class="scan-header">
+                            <h2>Ready to Scan</h2>
+                            <button class="btn btn-primary" onclick="scanAgain()">
+                                <div class="icon-redo"></div>
+                                Scan Again
+                            </button>
+                        </div>
                         <div class="scan-icon">
                             <div class="icon-wifi"></div>
                         </div>

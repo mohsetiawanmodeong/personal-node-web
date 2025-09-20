@@ -1,6 +1,7 @@
 class RFIDReader {
     constructor() {
         this.apiBaseUrl = 'http://172.16.175.60:4990/api';
+        // this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=160&minlastupdate=1800000'; //OB4 2 Flr -> 30 Menit
         this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=112&minlastupdate=1800000'; //GBC Full Area -> 30 Menit
         // this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=130&minlastupdate=1800000'; //GBC RTA Office Only -> 30 Menit
         this.currentInput = '';
@@ -103,8 +104,17 @@ class RFIDReader {
             const response = await this.makeAjaxRequest(url, credentials);
             
             if (response && response.EMPLOYEE_ID) {
-                this.displayEmployeeData(response);
+                console.log('📊 Employee data found:', response);
+                
+                // Check registration status in admin-person
+                const employeeIdWithoutZeros = response.EMPLOYEE_ID.replace(/^0+/, ''); // Remove leading zeros
+                console.log('🔍 Checking registration for ID:', employeeIdWithoutZeros);
+                const registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, credentials);
+                console.log('📊 Registration data result:', registrationData);
+                
+                this.displayEmployeeData(response, registrationData);
                 this.updateStatus('Employee found', 'ready');
+                console.log('✅ Employee details loaded successfully');
             } else {
                 this.showError('PTFI employee not found in the system');
                 this.updateStatus('PTFI ID Card not found', 'error');
@@ -195,7 +205,7 @@ class RFIDReader {
         });
     }
 
-    displayEmployeeData(employee) {
+    displayEmployeeData(employee, registrationData = null) {
         // Hide scan area and error message; show employee card
         const scanArea = document.getElementById('scanArea');
         const errorMessage = document.getElementById('errorMessage');
@@ -216,6 +226,9 @@ class RFIDReader {
         document.getElementById('employeeEmail').textContent = employee.EMAIL || '-';
         document.getElementById('employeeSite').textContent = employee.SITE_ADDRESS || '-';
 
+        // Update registration status
+        this.updateRegistrationStatus(registrationData);
+
         // Update employee photo
         const photoElement = document.getElementById('employeePhoto');
         if (employee.PHOTO) {
@@ -229,6 +242,142 @@ class RFIDReader {
 
         // Add success animation
         employeeCard.style.animation = 'slideIn 0.5s ease-out';
+    }
+
+    getGroupFromNode(nodeName) {
+        if (!nodeName || nodeName === 'N/A') {
+            return 'N/A';
+        }
+        
+        // Mapping NODE prefix to GROUP name based on provided list
+        const nodeToGroupMapping = {
+            'OC1-': 'OFF/ON BOARD CREW 1',
+            'OC2-': 'OFF/ON BOARD CREW 2', 
+            'SC1-': 'SETUP CREW 1',
+            'SC2-': 'SETUP CREW 2',
+            'SC3-': 'SETUP CREW 3',
+            'OC3-': 'OFF/ON BOARD CREW 3',
+            'DPC-': 'DEPLOYMENT CREW',
+            'OSD-': 'OFF/ON SET DAY CREW',
+            'INS-': 'INSTRUMENTATION',
+            'CS-': 'CENTRAL SERVICES',
+            'ERT-': 'EMERGENCY RESPONSE TEAM',
+            'OMT-': 'OPERATIONS MAINTENANCE',
+            'MIS-': 'MIS',
+            'UGT-': 'UG TECHNOLOGY',
+            'UGM-': 'UG MINE'
+        };
+        
+        // Find matching prefix
+        for (const [prefix, groupName] of Object.entries(nodeToGroupMapping)) {
+            if (nodeName.startsWith(prefix)) {
+                return groupName;
+            }
+        }
+        
+        // If no prefix matches, return N/A
+        return 'N/A';
+    }
+
+    // Update registration status display
+    updateRegistrationStatus(registrationData) {
+        // Find or create registration status element
+        let statusElement = document.getElementById('registrationStatus');
+        if (!statusElement) {
+            // Create registration status element above department/job title
+            const cardBody = document.querySelector('.card-body');
+            statusElement = document.createElement('div');
+            statusElement.id = 'registrationStatus';
+            statusElement.className = 'registration-status';
+            cardBody.insertBefore(statusElement, cardBody.firstChild);
+        }
+
+        if (registrationData && registrationData.isRegistered) {
+            // Condition 2: Registered in admin-person (may or may not be assigned to admin-entity)
+            if (registrationData.entityName && registrationData.entityName !== 'N/A') {
+                // Fully registered and assigned to entity
+                statusElement.innerHTML = `
+                    <div class="status-registered">
+                        <div class="status-header">
+                            <span class="status-icon">✅</span><span class="status-text">ALREADY REGISTERED AND ASSIGNED</span>
+                        </div>
+                        <div class="registration-details-grid">
+                            <div class="detail-item">
+                                <div>
+                                    <span class="label">NAME:</span>
+                                    <span class="value">${registrationData.displayName}</span>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <div>
+                                    <span class="label">NODE:</span>
+                                    <span class="value">${registrationData.entityName}</span>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <div>
+                                    <span class="label">GROUP:</span>
+                                    <span class="value">${this.getGroupFromNode(registrationData.entityName)}</span>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <div>
+                                    <span class="label">ROLE:</span>
+                                    <span class="value">${registrationData.role}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                statusElement.className = 'registration-status registered';
+            } else {
+                // Registered in admin-person but not assigned to admin-entity
+                statusElement.innerHTML = `
+                    <div class="status-registered-partial">
+                        <div class="status-header">
+                            <span class="status-icon">⚠️</span><span class="status-text">REGISTERED BUT NOT ASSIGNED</span>
+                        </div>
+                        <div class="registration-details-grid">
+                            <div class="detail-item">
+                                <div>
+                                    <span class="label">NAME:</span>
+                                    <span class="value">${registrationData.displayName}</span>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <div>
+                                    <span class="label">NODE:</span>
+                                    <span class="value">N/A</span>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <div>
+                                    <span class="label">GROUP:</span>
+                                    <span class="value">N/A</span>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <div>
+                                    <span class="label">ROLE:</span>
+                                    <span class="value">${registrationData.role}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                statusElement.className = 'registration-status registered-partial';
+            }
+        } else {
+            // Condition 1: Not registered in admin-person OR error occurred
+            statusElement.innerHTML = `
+                <div class="status-not-registered">
+                    <div class="status-header">
+                        <span class="status-icon">❌</span><span class="status-text">NOT REGISTERED</span>
+                    </div>
+                </div>
+            `;
+            statusElement.className = 'registration-status not-registered';
+        }
     }
 
     showError(message) {
@@ -357,12 +506,26 @@ class RFIDReader {
 
         if (filteredEntities.length === 0) {
             entitiesList.innerHTML = '<div class="entity-item"><p>No personal nodes found (class_oid 666666XXX)</p></div>';
+            // Update total count
+            const totalCountElement = document.getElementById('totalCount');
+            if (totalCountElement) {
+                totalCountElement.textContent = '(Total: 0)';
+            }
             return;
+        }
+
+        // Update total count
+        const totalCountElement = document.getElementById('totalCount');
+        if (totalCountElement) {
+            totalCountElement.textContent = `(Total: ${filteredEntities.length})`;
         }
 
         entitiesList.innerHTML = '';
 
-        filteredEntities.forEach(entity => {
+        // Limit to 6 items for display
+        const displayEntities = filteredEntities.slice(0, 6);
+
+        displayEntities.forEach(entity => {
             const entityItem = document.createElement('div');
             
             // Get entity properties first
@@ -474,7 +637,14 @@ class RFIDReader {
             
             if (data && data.EMPLOYEE_ID) {
                 console.log('📊 Employee data found:', data);
-                this.displayEmployeeData(data);
+                
+                // Check registration status in admin-person
+                const employeeIdWithoutZeros = employeeId.replace(/^0+/, ''); // Remove leading zeros
+                console.log('🔍 Checking registration for ID:', employeeIdWithoutZeros);
+                const registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, credentials);
+                console.log('📊 Registration data result:', registrationData);
+                
+                this.displayEmployeeData(data, registrationData);
                 console.log('✅ Employee details loaded successfully');
             } else {
                 this.showError(`No employee data found for ID: ${employeeId}`);
@@ -486,6 +656,245 @@ class RFIDReader {
             this.showError(`Failed to load employee details: ${error.message}`);
         } finally {
             this.hideLoading();
+        }
+    }
+
+    // Check person registration in admin-person and admin-entity system
+    async checkPersonRegistration(employeeId, credentials) {
+        try {
+            // First check if person exists in admin-person
+            const personApiUrl = `${this.apiBaseUrl}/getULTSPerson`;
+            console.log('🔍 Checking person registration:', personApiUrl);
+            
+            const personData = await this.makeAjaxRequest(personApiUrl, credentials);
+            console.log('📋 Person registration data:', personData);
+            console.log('📋 Person data type:', typeof personData);
+            console.log('📋 Person data length:', personData ? personData.length : 'null/undefined');
+            
+            // Debug: Check if we got any data at all
+            if (!personData) {
+                console.log('❌ personData is null/undefined');
+                return {
+                    isRegistered: false,
+                    entityGroup: null,
+                    role: null,
+                    personName: null,
+                    displayName: null,
+                    entityName: null
+                };
+            }
+            
+            if (!Array.isArray(personData)) {
+                console.log('❌ personData is not an array:', personData);
+                return {
+                    isRegistered: false,
+                    entityGroup: null,
+                    role: null,
+                    personName: null,
+                    displayName: null,
+                    entityName: null
+                };
+            }
+            
+            if (personData && Array.isArray(personData)) {
+                // Remove leading zeros from employeeId for comparison
+                const cleanEmployeeId = employeeId.replace(/^0+/, '');
+                console.log('📋 Searching for employee_id:', employeeId, 'clean:', cleanEmployeeId, 'type:', typeof employeeId);
+                console.log('📋 Available employee_ids:', personData.map(p => ({id: p.EMPLOYEE_ID, type: typeof p.EMPLOYEE_ID})));
+                
+                // Find person by employee_id (try both string and number comparison)
+                const person = personData.find(p => 
+                    p.EMPLOYEE_ID === employeeId || 
+                    p.EMPLOYEE_ID === employeeId.toString() ||
+                    p.EMPLOYEE_ID === parseInt(employeeId) ||
+                    p.EMPLOYEE_ID.toString() === employeeId.toString() ||
+                    // Try with cleaned employee_id (without leading zeros)
+                    p.EMPLOYEE_ID === cleanEmployeeId ||
+                    p.EMPLOYEE_ID === cleanEmployeeId.toString() ||
+                    p.EMPLOYEE_ID === parseInt(cleanEmployeeId) ||
+                    p.EMPLOYEE_ID.toString() === cleanEmployeeId.toString()
+                );
+                
+                console.log('📋 Person search result:', person);
+                
+                if (person) {
+                    console.log('✅ Person found in registration:', person);
+                    
+                    // Now check entity assignment in admin-entity
+                    const entityApiUrl = `${this.apiBaseUrl}/getULTSEntity`;
+                    console.log('🔍 Checking entity assignment:', entityApiUrl);
+                    
+                    const entityData = await this.makeAjaxRequest(entityApiUrl, credentials);
+                    console.log('📋 Entity assignment data:', entityData);
+                    console.log('📋 Entity data type:', typeof entityData);
+                    console.log('📋 Entity data length:', entityData ? entityData.length : 'null/undefined');
+                    
+                    // Find entity assignment for this person
+                    let entityAssignment = null;
+                    let entityGroup = 'N/A';
+                    
+                    if (entityData && Array.isArray(entityData)) {
+                        console.log('📋 Searching for entity assignment with person OID:', person.OID, 'employee_id:', employeeId);
+                        console.log('📋 Available PERSON_OIDs:', entityData.map(e => e.PERSON_OID));
+                        console.log('📋 Available OPERATOR_NAMEs:', entityData.map(e => e.OPERATOR_NAME));
+                        
+                        // Look for entity where PERSON_OID matches the person's OID
+                        entityAssignment = entityData.find(e => 
+                            e.PERSON_OID && e.PERSON_OID === person.OID
+                        );
+                        
+                        // If not found by PERSON_OID, try OPERATOR_NAME as fallback
+                        if (!entityAssignment) {
+                            entityAssignment = entityData.find(e => 
+                                e.OPERATOR_NAME && (
+                                    e.OPERATOR_NAME.includes(person.DISPLAY_NAME) || 
+                                    e.OPERATOR_NAME.includes(employeeId) ||
+                                    e.OPERATOR_NAME.includes(cleanEmployeeId)
+                                )
+                            );
+                        }
+                        
+                        console.log('📋 Entity assignment search result:', entityAssignment);
+                        
+                        if (entityAssignment) {
+                            console.log('✅ Entity assignment found:', entityAssignment);
+                            
+                            // Get entity group name directly from getULTSEntityGroup
+                            const entityGroupApiUrl = `${this.apiBaseUrl}/getULTSEntityGroup`;
+                            const entityGroupData = await this.makeAjaxRequest(entityGroupApiUrl, credentials);
+                            
+                            if (entityGroupData && Array.isArray(entityGroupData)) {
+                                // Based on database structure from admin-entity.html:
+                                // ENTITYGROUPROLE_OID in ULTSEntity maps to OID in ULTSEntityGroupRole
+                                // ULTSEntityGroupRole has ENTITYGROUP_OID that maps to ULTSEntityGroup
+                                
+                                // From the database structure you provided:
+                                // ENTITYGROUPROLE_OID 2 = WORKER with ENTITYGROUP_OID 1 = OFF/ON BOARD CREW 1
+                                // ENTITYGROUPROLE_OID 46 = WORKER with ENTITYGROUP_OID 16 = UG MINE
+                                // etc.
+                                
+                                // Try to find entity group by ENTITYGROUPROLE_OID
+                                // Based on admin-entity.html logic, we need to map ENTITYGROUPROLE_OID to ENTITYGROUP_OID
+                                const entityGroupRoleOid = entityAssignment.ENTITYGROUPROLE_OID;
+                                console.log('📋 Entity assignment ENTITYGROUPROLE_OID:', entityGroupRoleOid);
+                                console.log('📋 Available entity groups:', entityGroupData.map(g => ({oid: g.OID, name: g.NAME})));
+                                
+                                // Map ENTITYGROUPROLE_OID to ENTITYGROUP_OID based on provided ULTSEntityGroupRole database
+                                const entityGroupRoleMapping = {
+                                    1: 8,   // DEFAULT -> Group OID 8
+                                    2: 1,   // WORKER -> Group OID 1 (OFF/ON BOARD CREW 1)
+                                    3: 1,   // LEAD -> Group OID 1 (OFF/ON BOARD CREW 1)
+                                    4: 1,   // SUPER -> Group OID 1 (OFF/ON BOARD CREW 1)
+                                    5: 2,   // WORKER -> Group OID 2 (OFF/ON BOARD CREW 2)
+                                    6: 2,   // LEAD -> Group OID 2 (OFF/ON BOARD CREW 2)
+                                    7: 2,   // SUPER -> Group OID 2 (OFF/ON BOARD CREW 2)
+                                    8: 3,   // WORKER -> Group OID 3 (SETUP CREW 1)
+                                    9: 3,   // LEAD -> Group OID 3 (SETUP CREW 1)
+                                    10: 3,  // SUPER -> Group OID 3 (SETUP CREW 1)
+                                    11: 4,  // WORKER -> Group OID 4 (SETUP CREW 2)
+                                    12: 4,  // LEAD -> Group OID 4 (SETUP CREW 2)
+                                    13: 4,  // SUPER -> Group OID 4 (SETUP CREW 2)
+                                    14: 5,  // WORKER -> Group OID 5 (SETUP CREW 3)
+                                    15: 5,  // LEAD -> Group OID 5 (SETUP CREW 3)
+                                    16: 5,  // SUPER -> Group OID 5 (SETUP CREW 3)
+                                    17: 6,  // WORKER -> Group OID 6 (OFF/ON BOARD CREW 3)
+                                    18: 6,  // LEAD -> Group OID 6 (OFF/ON BOARD CREW 3)
+                                    19: 6,  // SUPER -> Group OID 6 (OFF/ON BOARD CREW 3)
+                                    20: 7,  // WORKER -> Group OID 7 (DEPLOYMENT CREW)
+                                    21: 7,  // LEAD -> Group OID 7 (DEPLOYMENT CREW)
+                                    22: 7,  // SUPER -> Group OID 7 (DEPLOYMENT CREW)
+                                    23: 7,  // RESCUE -> Group OID 7 (DEPLOYMENT CREW)
+                                    24: 7,  // SAFETY -> Group OID 7 (DEPLOYMENT CREW)
+                                    26: 9,  // WORKER -> Group OID 9 (OFF/ON SET DAY CREW)
+                                    27: 9,  // LEAD -> Group OID 9 (OFF/ON SET DAY CREW)
+                                    28: 9,  // SUPER -> Group OID 9 (OFF/ON SET DAY CREW)
+                                    29: 10, // WORKER -> Group OID 10 (INSTRUMENTATION)
+                                    30: 10, // LEAD -> Group OID 10 (INSTRUMENTATION)
+                                    31: 10, // SUPER -> Group OID 10 (INSTRUMENTATION)
+                                    32: 11, // WORKER -> Group OID 11 (CENTRAL SERVICES)
+                                    33: 11, // LEAD -> Group OID 11 (CENTRAL SERVICES)
+                                    34: 11, // SUPER -> Group OID 11 (CENTRAL SERVICES)
+                                    35: 12, // RESCUE -> Group OID 12 (EMERGENCY RESPONSE TEAM)
+                                    36: 13, // WORKER -> Group OID 13 (OPERATIONS MAINTENANCE)
+                                    37: 13, // LEAD -> Group OID 13 (OPERATIONS MAINTENANCE)
+                                    38: 13, // SUPER -> Group OID 13 (OPERATIONS MAINTENANCE)
+                                    39: 14, // WORKER -> Group OID 14 (MIS)
+                                    40: 14, // LEAD -> Group OID 14 (MIS)
+                                    41: 14, // SUPER -> Group OID 14 (MIS)
+                                    42: 15, // WORKER -> Group OID 15 (UG TECHNOLOGY)
+                                    43: 15, // LEAD -> Group OID 15 (UG TECHNOLOGY)
+                                    45: 15, // SUPER -> Group OID 15 (UG TECHNOLOGY)
+                                    46: 16, // WORKER -> Group OID 16 (UG MINE)
+                                    47: 16, // LEAD -> Group OID 16 (UG MINE)
+                                    48: 16  // SUPER -> Group OID 16 (UG MINE)
+                                };
+                                
+                                const mappedEntityGroupOid = entityGroupRoleMapping[entityGroupRoleOid];
+                                if (!mappedEntityGroupOid) {
+                                    console.log('⚠️ Unknown ENTITYGROUPROLE_OID:', entityGroupRoleOid);
+                                }
+                                
+                                if (mappedEntityGroupOid) {
+                                    const group = entityGroupData.find(g => g.OID === mappedEntityGroupOid);
+                                    if (group) {
+                                        entityGroup = group.NAME || 'N/A';
+                                        console.log('✅ Entity group found by mapping:', entityGroup);
+                                    } else {
+                                        entityGroup = person.ENTITY_GROUP || 'N/A';
+                                        console.log('⚠️ Entity group not found, using person data:', entityGroup);
+                                    }
+                                } else {
+                                    entityGroup = person.ENTITY_GROUP || 'N/A';
+                                    console.log('⚠️ No mapping found, using person data:', entityGroup);
+                                }
+                            }
+                        }
+                    }
+                    
+                    const result = {
+                        isRegistered: true,
+                        entityGroup: entityGroup !== 'N/A' ? entityGroup : (person.ENTITY_GROUP || 'N/A'), // Use entity assignment group if found, otherwise person group
+                        role: person.ROLE || 'N/A',
+                        personName: person.PERSON_NAME || 'N/A',
+                        displayName: person.DISPLAY_NAME || 'N/A',
+                        entityName: entityAssignment ? entityAssignment.MACHINE_NAME : 'N/A' // Use MACHINE_NAME as entity name
+                    };
+                    
+                    console.log('📊 Final registration result:', result);
+                    return result;
+                } else {
+                    console.log('❌ Person not found in registration');
+                    return {
+                        isRegistered: false,
+                        entityGroup: null,
+                        role: null,
+                        personName: null,
+                        displayName: null,
+                        entityName: null
+                    };
+                }
+            } else {
+                console.log('❌ Invalid person registration data format');
+                return {
+                    isRegistered: false,
+                    entityGroup: null,
+                    role: null,
+                    personName: null,
+                    displayName: null,
+                    entityName: null
+                };
+            }
+        } catch (error) {
+            console.error('❌ Error checking person registration:', error);
+            console.log('📊 Returning error state - isRegistered: false');
+            return {
+                isRegistered: false,
+                entityGroup: null,
+                role: null,
+                personName: null,
+                displayName: null,
+                entityName: null
+            };
         }
     }
 
@@ -514,7 +923,7 @@ class RFIDReader {
             <div class="entity-item">
                 <div class="entity-header">
                     <div class="entity-name">Error Loading Data</div>
-                    <div class="entity-role">ERROR</div>
+                    <div class="entity-role error">ERROR</div>
                 </div>
                 <div class="entity-info">
                     <div class="entity-info-item">
