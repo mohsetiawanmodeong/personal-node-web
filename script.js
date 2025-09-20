@@ -522,10 +522,7 @@ class RFIDReader {
 
         entitiesList.innerHTML = '';
 
-        // Limit to 6 items for display
-        const displayEntities = filteredEntities.slice(0, 6);
-
-        displayEntities.forEach(entity => {
+        filteredEntities.forEach(entity => {
             const entityItem = document.createElement('div');
             
             // Get entity properties first
