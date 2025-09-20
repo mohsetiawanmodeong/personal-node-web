@@ -365,44 +365,128 @@ class RFIDReader {
         filteredEntities.forEach(entity => {
             const entityItem = document.createElement('div');
             
-            // Determine role and color class
-            const role = entity.properties.role || 'UNKNOWN';
-            const roleClass = this.getRoleClass(role);
-            
-            entityItem.className = `entity-item ${roleClass}`;
-            
+            // Get entity properties first
             const name = entity.properties.name || 'Unknown';
             const operatorName = entity.properties.operator_name || 'N/A';
             const employeeId = entity.properties.employee_id || 'N/A';
+            const role = entity.properties.role || 'UNKNOWN';
+            
+            // Determine role and color class
+            const roleClass = this.getRoleClass(role);
+            const isUnassigned = (operatorName && name && operatorName.trim() === name.trim());
+            
+            entityItem.className = `entity-item ${isUnassigned ? 'safety' : roleClass}`;
             const coordinates = entity.geometry.coordinates;
             const zone = entity.ZONES && entity.ZONES.length > 0 ? entity.ZONES[0].NAME : 'Unknown Zone';
             
             entityItem.innerHTML = `
-                <div class="entity-header">
-                    <div class="entity-name">${name}</div>
-                    <div class="entity-role ${roleClass}">${role}</div>
+                <div class=\"entity-main-line\">
+                    <span class=\"entity-main-name\">${name}</span>
+                    <span class=\"entity-main-operator\">${operatorName}</span>
+                    <span class=\"entity-main-employee\">${employeeId}</span>
+                    <span class=\"entity-role-badge ${roleClass}\">${role}</span>
                 </div>
-                <div class="entity-info">
-                    <div class="entity-info-item">
-                        <span class="label">Operator:</span>
-                        <span class="value">${operatorName}</span>
-                    </div>
-                    <div class="entity-info-item">
-                        <span class="label">Employee ID:</span>
-                        <span class="value">${employeeId}</span>
-                    </div>
-                    
-                </div>
-                <div class="entity-location">
-                    <div class="zone">Zone: ${zone}</div>
-                    <div class="coordinates">Coordinates: ${coordinates[0]}, ${coordinates[1]}, ${coordinates[2]}</div>
+                <div class=\"entity-location compact\">
+                    <span class=\"zone\">Zone:${zone}</span>
+                    <span class=\"coordinates\"> ${coordinates[0]},${coordinates[1]},${coordinates[2]}</span>
                 </div>
             `;
             
+            // Clickable: show in employee card (if worker and has identification)
+            entityItem.style.cursor = 'pointer';
+            entityItem.addEventListener('click', () => {
+                console.log('🖱️ Entity clicked:', entity.properties.name);
+                // Add visual feedback
+                entityItem.style.backgroundColor = '#e0f2fe';
+                setTimeout(() => {
+                    entityItem.style.backgroundColor = '';
+                }, 200);
+                
+                // Get employee_id and format it with leading zeros
+                const employeeId = entity.properties.employee_id;
+                if (employeeId) {
+                    // Format employee_id with leading zeros (10 digits total)
+                    const formattedEmployeeId = employeeId.toString().padStart(10, '0');
+                    console.log('🔍 Fetching employee details for ID:', formattedEmployeeId);
+                    this.fetchEmployeeDetails(formattedEmployeeId);
+                } else {
+                    console.error('❌ No employee_id found for entity:', entity.properties.name);
+                }
+            });
+
             entitiesList.appendChild(entityItem);
         });
 
         console.log(`✅ Displayed ${filteredEntities.length} personal nodes (filtered from ${entities.length} total entities)`);
+    }
+
+    // Populate employee card from entity data
+    populateEmployeeCardFromEntity(entity) {
+        console.log('📋 Populating employee card for:', entity.properties.name);
+        
+        // Hide scan area and error message
+        document.getElementById('scanArea').style.display = 'none';
+        document.getElementById('errorMessage').style.display = 'none';
+        
+        // Show two column layout (already visible, but ensure)
+        document.getElementById('twoColumnLayout').style.display = 'grid';
+
+        // Show employee card
+        const employeeCard = document.getElementById('employeeCard');
+        employeeCard.style.display = 'block';
+        console.log('👤 Employee card displayed:', employeeCard.style.display);
+
+        // Update employee information
+        document.getElementById('employeeName').textContent = entity.properties.name || '-';
+        document.getElementById('employeeId').textContent = `ID: ${entity.properties.employee_id || '-'}`;
+        document.getElementById('employeeCompany').textContent = entity.properties.role || '-'; // Using role as placeholder for company
+        document.getElementById('employeeDepartment').textContent = 'N/A'; // Placeholder
+        document.getElementById('employeeJobTitle').textContent = entity.properties.role || 'N/A'; // Placeholder
+        document.getElementById('employeeEmail').textContent = 'N/A'; // Placeholder
+        document.getElementById('employeeSite').textContent = entity.ZONES && entity.ZONES.length > 0 ? entity.ZONES[0].NAME : 'N/A'; // Using zone as site address
+
+        // Update employee photo (using a generic placeholder for now as API doesn't provide photo URL)
+        const photoElement = document.getElementById('employeePhoto');
+        photoElement.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjOUNBM0FGIi8+CjxwYXRoIGQ9Ik0yMCA4MEMyMCA2NS42NDA2IDMyLjY0MDYgNTMgNDcgNTNINjNDNzcuMzU5NCA1MyA5MCA2NS42NDA2IDkwIDgwVjEwMEgyMFY4MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'; // Default placeholder
+        
+        // Add success animation
+        employeeCard.style.animation = 'slideIn 0.5s ease-out';
+        console.log('✅ Employee card population completed for:', entity.properties.name);
+    }
+
+    // Fetch employee details from API
+    async fetchEmployeeDetails(employeeId) {
+        try {
+            this.showLoading();
+            
+            const username = 'fmiacp';
+            const password = 'track1nd0';
+            const credentials = btoa(username + ':' + password);
+            
+            const apiUrl = `${this.apiBaseUrl}/getPTFIDetailsEmployee?employee_id=${employeeId}`;
+            console.log('🌐 Calling API:', apiUrl);
+            
+            const data = await this.makeAjaxRequest(apiUrl, credentials);
+            
+            console.log('📊 Raw API response:', data);
+            console.log('📊 Data type:', typeof data);
+            console.log('📊 Data length:', data ? data.length : 'null/undefined');
+            
+            if (data && data.EMPLOYEE_ID) {
+                console.log('📊 Employee data found:', data);
+                this.displayEmployeeData(data);
+                console.log('✅ Employee details loaded successfully');
+            } else {
+                this.showError(`No employee data found for ID: ${employeeId}`);
+                console.log('❌ No employee data found - data:', data);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error fetching employee details:', error);
+            this.showError(`Failed to load employee details: ${error.message}`);
+        } finally {
+            this.hideLoading();
+        }
     }
 
     // Get role class for styling
