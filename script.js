@@ -442,7 +442,7 @@ class RFIDReader {
                 
                 // Wait for database update
                 console.log('⏳ Waiting for database update...');
-                await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds for DB update
+                await new Promise(resolve => setTimeout(resolve, 1500)); // Reduced from 3 to 1.5 seconds
                 
                 // Refresh entities list
                 console.log('🔄 Refreshing personal nodes list...');
@@ -1208,28 +1208,20 @@ class RFIDReader {
                     
                     // Wait a moment for database to update, then refresh entities list
                     console.log('⏳ Waiting for database update...');
-                    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds for DB update
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Reduced from 5 to 2 seconds
                     
                     // Force refresh entities list to show updated operator_name
                     console.log('🔄 Force refreshing personal nodes list...');
                     await this.loadAutoZoneData();
                     
-                    // Also refresh employee data to show latest assignment
-                    console.log('🔄 Refreshing employee data to show latest assignment...');
-                    const updatedRegistrationData = await this.checkPersonRegistration(employeeId, credentials);
-                    console.log('📊 Updated registration data:', updatedRegistrationData);
-                    
-                    // Update the display with latest assignment
-                    this.displayEmployeeData(employeeData, updatedRegistrationData);
-                    
                     // Show success message and auto-reset countdown
-                    this.updateStatus('✅ Assignment Successful! Returning to scan mode in 2 seconds...', 'ready');
+                    this.updateStatus('✅ Assignment Successful! Returning to scan mode in 1 second...', 'ready');
                     
                     // Auto-reset to scan mode after successful assignment
                     console.log('🔄 Auto-assignment completed - resetting to scan mode to prevent double assignment');
                     
                     // Visual countdown for user feedback
-                    let countdown = 2;
+                    let countdown = 1;
                     const countdownInterval = setInterval(() => {
                         countdown--;
                         if (countdown > 0) {
@@ -1259,7 +1251,7 @@ class RFIDReader {
                         this.loadAutoZoneData();
                         
                         console.log('✅ Auto-assignment completed successfully - back to scan mode');
-                    }, 2000); // Give user 2 seconds to see the assignment result
+                    }, 1000); // Reduced from 2 to 1 second
             } else {
                     throw new Error('Failed to assign employee to personal node');
             }
