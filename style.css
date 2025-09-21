@@ -1180,6 +1180,46 @@ body {
     background: currentColor;
 }
 
+/* Unassign Button Styles */
+.unassign-btn {
+    width: 100%;
+    margin: 12px 0;
+    padding: 12px 16px;
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+}
+
+.unassign-btn:hover {
+    background: #b91c1c;
+    box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
+    transform: translateY(-1px);
+}
+
+.unassign-btn:active {
+    background: #991b1b;
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+}
+
+.unassign-btn .icon-user-minus {
+    width: 16px;
+    height: 16px;
+    background: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cline x1='22' y1='11' x2='16' y2='11'/%3E%3C/svg%3E") no-repeat center;
+    mask-size: contain;
+}
+
 /* Responsive Design for Registration Grid */
 @media (max-width: 768px) {
     .registration-details-grid {

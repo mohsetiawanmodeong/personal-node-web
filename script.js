@@ -14,7 +14,7 @@ class RFIDReader {
         this.isScanning = false;
         this.scanTimeout = null;
         this.autoZoneInterval = null;
-        this.autoZoneIntervalTime = 5000;
+        this.autoZoneIntervalTime = 3000; //3 seconds
         this.selectedEntity = null; // Store clicked entity for auto-assignment
         // ===== PLAN SWITCHER =====
         // Change this variable to switch between plans:
@@ -317,6 +317,9 @@ class RFIDReader {
         // Update registration status
         this.updateRegistrationStatus(registrationData);
 
+        // Add unassign button if personal node is selected and assigned
+        this.addUnassignButton();
+
         // Update employee photo
         const photoElement = document.getElementById('employeePhoto');
         if (employee.PHOTO) {
@@ -330,6 +333,155 @@ class RFIDReader {
 
         // Add success animation
         employeeCard.style.animation = 'slideIn 0.5s ease-out';
+    }
+
+    // Add unassign button for assigned personal nodes
+    addUnassignButton() {
+        // Only show unassign button if personal node is selected and assigned
+        if (!this.selectedEntity || !this.selectedEntity.properties) {
+            return;
+        }
+
+        const isEmpty = this.isPersonalNodeEmpty(
+            this.selectedEntity.properties.operator_name,
+            this.selectedEntity.properties.employee_id,
+            this.selectedEntity.properties.name
+        );
+
+        if (isEmpty) {
+            // Remove any existing unassign button
+            this.removeUnassignButton();
+            return;
+        }
+
+        // Check if unassign button already exists
+        let unassignButton = document.getElementById('unassignButton');
+        if (unassignButton) {
+            return; // Button already exists
+        }
+
+        // Create unassign button
+        unassignButton = document.createElement('button');
+        unassignButton.id = 'unassignButton';
+        unassignButton.className = 'btn btn-danger unassign-btn';
+        unassignButton.innerHTML = `
+            <div class="icon-user-minus"></div>
+            Unassign from ${this.selectedEntity.properties.name}
+        `;
+        unassignButton.onclick = () => this.handleUnassign();
+
+        // Add button to employee card
+        const employeeCard = document.getElementById('employeeCard');
+        const cardBody = employeeCard.querySelector('.card-body');
+        
+        // Insert button after registration status
+        const registrationStatus = document.getElementById('registrationStatus');
+        if (registrationStatus) {
+            registrationStatus.insertAdjacentElement('afterend', unassignButton);
+        } else {
+            cardBody.appendChild(unassignButton);
+        }
+    }
+
+    // Remove unassign button
+    removeUnassignButton() {
+        const unassignButton = document.getElementById('unassignButton');
+        if (unassignButton) {
+            unassignButton.remove();
+        }
+    }
+
+    // Handle unassign action
+    async handleUnassign() {
+        if (!this.selectedEntity || !this.selectedEntity.properties) {
+            alert('No personal node selected for unassignment');
+            return;
+        }
+
+        const entityName = this.selectedEntity.properties.name;
+        const employeeName = this.selectedEntity.properties.operator_name;
+        
+        // Confirm unassignment
+        const confirmed = confirm(`Are you sure you want to unassign "${employeeName}" from personal node "${entityName}"?`);
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            this.showLoading();
+            this.updateStatus('Unassigning employee...', 'scanning');
+
+            // Call unassign API (set employee_id to 0)
+            const credentials = btoa('fmiacp:track1nd0');
+            const unassignResult = await this.updateEntityAssignmentByMachineName(entityName, 0, credentials);
+
+            if (unassignResult) {
+                alert(`Employee "${employeeName}" has been unassigned from personal node "${entityName}" successfully!`);
+                
+                // Clear selected entity
+                this.selectedEntity = null;
+                
+                // Wait for database update
+                console.log('⏳ Waiting for database update...');
+                await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds for DB update
+                
+                // Refresh entities list
+                console.log('🔄 Refreshing personal nodes list...');
+                await this.loadAutoZoneData();
+                
+                // Hide employee card and show scan area
+                const scanArea = document.getElementById('scanArea');
+                const employeeCard = document.getElementById('employeeCard');
+                const errorMsg = document.getElementById('errorMessage');
+                
+                if (employeeCard) employeeCard.style.display = 'none';
+                if (errorMsg) errorMsg.style.display = 'none';
+                if (scanArea) scanArea.style.display = 'block';
+                
+                // Reset status
+                this.updateStatus('Employee unassigned - Ready to Scan', 'ready');
+                
+                // Clear all selections
+                this.clearAllSelections();
+                
+                console.log('✅ Unassignment completed successfully');
+            } else {
+                throw new Error('Failed to unassign employee from personal node');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error unassigning employee:', error);
+            alert('Error unassigning employee: ' + error.message);
+            this.updateStatus('Unassignment failed', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    // Check if personal node is empty/unassigned
+    isPersonalNodeEmpty(operatorName, employeeId, nodeName) {
+        // Case 1: operator_name is undefined/null
+        if (!operatorName || operatorName === 'undefined' || operatorName === 'null') {
+            return true;
+        }
+        
+        // Case 2: employee_id is undefined/null/0
+        if (!employeeId || employeeId === 'undefined' || employeeId === 'null' || employeeId === '0') {
+            return true;
+        }
+        
+        // Case 3: operator_name equals node_name (unassigned state)
+        if (operatorName && nodeName && operatorName.trim() === nodeName.trim()) {
+            return true;
+        }
+        
+        // Case 4: operator_name is empty string
+        if (operatorName === '') {
+            return true;
+        }
+        
+        // If none of the above, it's assigned
+        return false;
     }
 
     getGroupFromNode(nodeName) {
@@ -848,26 +1000,42 @@ class RFIDReader {
             console.log(`📱 Entity: ${name}, Operator: ${operatorName}, Employee: ${employeeId}, Role: ${role}`);
             console.log(entity.properties.name);
             
-            // Determine role and color class
-            const roleClass = this.getRoleClass(role);
-            const isUnassigned = (operatorName && name && operatorName.trim() === name.trim());
+            // Determine if personal node is empty/unassigned or assigned
+            const isUnassigned = this.isPersonalNodeEmpty(operatorName, employeeId, name);
+            const roleClass = isUnassigned ? 'safety' : this.getRoleClass(role);
             
-            entityItem.className = `entity-item ${isUnassigned ? 'safety' : roleClass}`;
+            entityItem.className = `entity-item ${roleClass}`;
             const coordinates = entity.geometry.coordinates;
             const zone = entity.ZONES && entity.ZONES.length > 0 ? entity.ZONES[0].NAME : 'Unknown Zone';
             
-            entityItem.innerHTML = `
-                <div class="entity-main-line">
-                    <span class="entity-main-name">${name}</span>
-                    <span class="entity-main-operator">${operatorName}</span>
-                    <span class="entity-main-employee">${employeeId}</span>
-                    <span class="entity-role-badge ${roleClass}">${role}</span>
-                </div>
-                <div class="entity-location compact">
-                    <span class="zone">Zone:${zone}</span>
-                    <span class="coordinates"> ${coordinates[0]},${coordinates[1]},${coordinates[2]}</span>
-                </div>
-            `;
+            // Display different content based on assignment status
+            if (isUnassigned) {
+                entityItem.innerHTML = `
+                    <div class="entity-main-line">
+                        <span class="entity-main-name">${name}</span>
+                        <span class="entity-main-operator">Available</span>
+                        <span class="entity-main-employee">-</span>
+                        <span class="entity-role-badge ${roleClass}">READY</span>
+                    </div>
+                    <div class="entity-location compact">
+                        <span class="zone">Zone:${zone}</span>
+                        <span class="coordinates"> ${coordinates[0]},${coordinates[1]},${coordinates[2]}</span>
+                    </div>
+                `;
+            } else {
+                entityItem.innerHTML = `
+                    <div class="entity-main-line">
+                        <span class="entity-main-name">${name}</span>
+                        <span class="entity-main-operator">${operatorName}</span>
+                        <span class="entity-main-employee">${employeeId}</span>
+                        <span class="entity-role-badge ${roleClass}">${role}</span>
+                    </div>
+                    <div class="entity-location compact">
+                        <span class="zone">Zone:${zone}</span>
+                        <span class="coordinates"> ${coordinates[0]},${coordinates[1]},${coordinates[2]}</span>
+                    </div>
+                `;
+            }
             
             // Check if this entity is currently selected
             if (this.selectedEntity && this.selectedEntity.properties && 
@@ -897,11 +1065,10 @@ class RFIDReader {
                 entityItem.style.boxShadow = '0 0 10px rgba(0, 123, 255, 0.5)';
                 entityItem.style.border = '2px solid #007bff';
                 
-                // Check if this personal node has an assigned employee
-                const hasOperatorName = entity.properties.operator_name && entity.properties.operator_name !== 'undefined';
-                const hasEmployeeId = entity.properties.employee_id && entity.properties.employee_id !== 'undefined';
+                // Check if this personal node is empty or assigned
+                const isEmpty = this.isPersonalNodeEmpty(entity.properties.operator_name, entity.properties.employee_id, entity.properties.name);
                 
-                if (hasOperatorName && hasEmployeeId) {
+                if (!isEmpty) {
                     // Personal node has assignment - show assigned employee details immediately
                     console.log('📋 Personal node has assignment:', entity.properties.operator_name, entity.properties.employee_id);
                     
@@ -933,6 +1100,7 @@ class RFIDReader {
                     }
                 } else {
                     // Personal node is empty - show ready for assignment message
+                    console.log('📋 Personal node is empty - ready for assignment:', entity.properties.name);
                     this.showReadyForAssignment(entity.properties.name);
                 }
             });
@@ -1052,6 +1220,9 @@ class RFIDReader {
         // Clear selected entity and reset button to green
         this.selectedEntity = null;
         this.updateScanButtonText('Scan Again');
+        
+        // Remove unassign button
+        this.removeUnassignButton();
         
         console.log('✅ All visual selections cleared and button reset to green');
     }
@@ -1180,7 +1351,6 @@ class RFIDReader {
                     
                     // Also refresh employee data to show latest assignment
                     console.log('🔄 Refreshing employee data to show latest assignment...');
-                    const credentials = btoa('admin:track1nd0');
                     const updatedRegistrationData = await this.checkPersonRegistration(employeeId, credentials);
                     console.log('📊 Updated registration data:', updatedRegistrationData);
                     
@@ -1376,26 +1546,26 @@ class RFIDReader {
                                 console.log('✅ Assignment successful with correct OID:', assignResult);
                                 console.log('📊 Assignment result details:', JSON.stringify(assignResult, null, 2));
                                 resolve(assignResult);
-                        } catch (e) {
-                            console.log('❌ Assignment response parse error:', e);
+                            } catch (e) {
+                                console.log('❌ Assignment response parse error:', e);
                                 console.log('📡 Raw response:', xhr.responseText);
                                 reject(new Error('Invalid JSON response from assignment'));
-                        }
-                    } else {
-                        console.log('❌ Assignment failed:', xhr.status, xhr.statusText);
+                            }
+                        } else {
+                            console.log('❌ Assignment failed:', xhr.status, xhr.statusText);
                             console.log('📡 Error response:', xhr.responseText);
-                        reject(new Error(`HTTP Error ${xhr.status}: ${xhr.statusText}`));
+                            reject(new Error(`HTTP Error ${xhr.status}: ${xhr.statusText}`));
+                        }
                     }
-                }
-            };
-            
-            xhr.onerror = function() {
-                console.log('❌ Assignment network error');
-                reject(new Error('Network Error: Cannot connect to API server'));
-            };
-            
-            xhr.send();
-        });
+                };
+                
+                xhr.onerror = function() {
+                    console.log('❌ Assignment network error');
+                    reject(new Error('Network Error: Cannot connect to API server'));
+                };
+                
+                xhr.send();
+            });
             
         } catch (error) {
             console.log('❌ Error getting correct entity by MACHINE_NAME:', error);
