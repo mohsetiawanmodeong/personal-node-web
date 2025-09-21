@@ -2151,6 +2151,7 @@ async function doAssignment(vEntityID,vEmployeeID){
 			}
 			console.log("UPDATEULTSENTITYASSIGNMENT:Assigning EntityID["+vEntityID+"]NAME["+vEntity.MACHINE_NAME+"] to PERSONOID["+vPersonOID+"].");
             vEntity.PERSON_OID=vPersonOID;
+			//vEntity.EMPLOYEE_ID=vEmployeeID;
 			vEntity = await clearEntityAssignments(vEntity);
 			/*if ( vEntity.PERSON_OID === 0){
 				vEntity.OPERATOR_NAME=vEntity.MACHINE_NAME;
@@ -2184,9 +2185,11 @@ async function clearEntityAssignments(vEntity){
         vEntity.OPERATOR_NAME=vEntity.MACHINE_NAME;
     }else{
         //First let go through all Entities and remove this user.
-        for ( const entity in vULTSEntityMap){
-            if (entity.PERSON_OID===vEntity.PERSON_OID){
+        for ( let [vEntityOID,entity] of vULTSEntityMap){
+            if (entity.PERSON_OID===vEntity.PERSON_OID && entity.OID!=vEntity.OID){
+				console.log("ULTS:CLEARENTITYASSIGNMENT: Found another entity["+entity.MACHINE_NAME+"] with a matching Person["+entity.PERSON_OID+"] Clearing Them.");
                 entity.PERSON_OID=0;
+				entity.EMPLOYEE_ID=0;
                 entity.OPERATOR_NAME=entity.MACHINE_NAME;
                 vULTSEntityMap.set(entity.MACHINE_NAME, entity);
                 vULTSEntityMapByOID.set(entity.OID, entity);
@@ -2194,12 +2197,40 @@ async function clearEntityAssignments(vEntity){
             }
         };
         if ( vULTSPersonMap.has(vEntity.PERSON_OID)){
-            vEntity.OPERATOR_NAME=vULTSPersonMap.get(vEntity.PERSON_OID).DISPLAY_NAME;
+			var vPerson = vULTSPersonMap.get(vEntity.PERSON_OID); 
+            vEntity.OPERATOR_NAME=""+vPerson.DISPLAY_NAME;
+			vEntity.EMPLOYEE_ID = vPerson.EMPLOYEE_ID;
+			if ( vEntity.GROUP_NAME != vPerson.GROUP_NAME){
+				//vEntity.ENTITYGROUPROLE_OID = parseInt(vPerson.ENTITYGROUPROLE_OID);
+				//vEntity.GROUP_NAME = vPerson.GROUP_NAME;
+				//vPerson.ROLE="WORKER";//#HACK this shoule be a Group lookup of old role.
+				//var vPersonResult= await storeULTSPerson(vPerson);
+			}
         }else{
             vEntity.OPERATOR_NAME=vEntity.MACHINE_NAME;
         }
     }
 	return vEntity;
+}
+
+async function doULTSEntityUpdate(vEntity){
+	var vResult={};
+ 	if ( vULTSEntityMap.has(vEntity.MACHINE_NAME)){
+    //var vCurrentEntity = vULTSEntityMap.get(vEntity.OID);
+    vEntity.OID = 0 + parseInt(vEntity.OID);//parseInt(vCurrentEntity.OID);
+    vEntity.ACTIVE = JSON.parse(vEntity.ACTIVE);
+    vEntity.ENTITYGROUPROLE_OID = parseInt(vEntity.ENTITYGROUPROLE_OID);
+    vEntity.CLASS_OID = parseInt(vEntity.CLASS_OID);
+	vEntity.PERSON_OID = parseInt(vEntity.PERSON_OID);
+    vEntity = await clearEntityAssignments(vEntity);
+    console.log("ULTS:UPDATEULTSENTITY:Entity Updated[" + JSON.stringify(vEntity) + "]");
+    vULTSEntityMap.set(vEntity.MACHINE_NAME, vEntity);
+    vULTSEntityMapByOID.set(vEntity.OID, vEntity);
+    vResult = await storeULTSEntity(vEntity);
+    }else{
+        vResult="No Entity with that Name[" + vEntity.MACHINE_NAME+"].";
+    }
+	return vResult;
 }
 //async function getMachineAtTime(vStartDateTime){
 //	var vReturnData = [];
@@ -2341,8 +2372,10 @@ app.get('/api/updateULTSEntityAssignment', (req, res) => {
 //Lets update a Zone Feature
 app.put('/api/updateULTSEntity', (req, res) => {
     var vEntity = req.body;
+	console.log("ULTS:UPDATEULTSENTITY:entity PUT["+JSON.stringify(vEntity)+"].");
 	var vResult={};
-	if ( vULTSEntityMap.has(vEntity.MACHINE_NAME)){
+	vResult = doULTSEntityUpdate(vEntity);
+	/*if ( vULTSEntityMap.has(vEntity.MACHINE_NAME)){
 	//var vCurrentEntity = vULTSEntityMap.get(vEntity.OID);
     vEntity.OID = 0 + parseInt(vEntity.OID);//parseInt(vCurrentEntity.OID);
     vEntity.ACTIVE = JSON.parse(vEntity.ACTIVE);
@@ -2368,15 +2401,15 @@ app.put('/api/updateULTSEntity', (req, res) => {
 			vEntity.OPERATOR_NAME=vEntity.MACHINE_NAME;
 		}
     }*/
-    console.log("UPDATEULTSENTITY:Entity Updated[" + JSON.stringify(vEntity) + "]");
+    /*console.log("ULTS:UPDATEULTSENTITY:Entity Updated[" + JSON.stringify(vEntity) + "]");
     vULTSEntityMap.set(vEntity.MACHINE_NAME, vEntity);
     vULTSEntityMapByOID.set(vEntity.OID, vEntity);
     vResult = storeULTSEntity(vEntity);
 	}else{
 		vResult="No Entity with that Name[" + vEntity.MACHINE_NAME+"].";
-	}
+	}*/
     res.json(vResult); //{ id: vNewZone.id});
-    console.log("UPDATEULTSENTITY:Result[" + JSON.stringify(vResult) + "]");
+    console.log("ULTS:UPDATEULTSENTITY:Result[" + JSON.stringify(vResult) + "]");
 });
 
 //Lets update a Zone Feature
@@ -2386,14 +2419,14 @@ app.put('/api/updateULTSPerson', (req, res) => {
     vPerson.ACTIVE = JSON.parse(vPerson.ACTIVE);
     vPerson.ENTITYGROUPROLE_OID = parseInt(vPerson.ENTITYGROUPROLE_OID);
 	vPerson.OID = parseInt(vPerson.OID);
-    console.log("UPDATEULTSPERSON:Person Updated[" + JSON.stringify(vPerson) + "]");
+    console.log("ULTS:UPDATEULTSPERSON:Person Updated[" + JSON.stringify(vPerson) + "]");
     var vResult = storeULTSPerson(vPerson);
 	//if (vResult>0){
 	//	vPerson.OID=vResult;
     //	vULTSPersonMap.set(vPerson.OID, vPerson);
 	//}
     res.json(vResult); //{ id: vNewZone.id});
-    console.log("UPDATEULTSENTITY:Result[" + JSON.stringify(vResult) + "]");
+    console.log("ULTS:UPDATEULTSPERSON:Result[" + JSON.stringify(vResult) + "]");
 });
 
 app.get('/api/getULTSEntityGroup', (req, res) => {

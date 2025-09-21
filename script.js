@@ -16,6 +16,10 @@ class RFIDReader {
         this.autoZoneInterval = null;
         this.autoZoneIntervalTime = 3000; //3 seconds
         this.selectedEntity = null; // Store clicked entity for auto-assignment
+        
+        // Protection against double execution
+        this.isProcessing = false;
+        this.isAssigning = false;
         // ===== PLAN SWITCHER =====
         // Change this variable to switch between plans:
         // true = PLAN B (closest_nodes API)
@@ -134,6 +138,14 @@ class RFIDReader {
     }
 
     async fetchEmployeeData(smartcardId) {
+        // Protection against double execution
+        if (this.isProcessing) {
+            console.log('⚠️ Already processing, ignoring duplicate request');
+            return;
+        }
+        
+        this.isProcessing = true;
+        
         try {
             this.showLoading();
             this.updateStatus('Loading PTFI employee data...', 'scanning');
@@ -154,51 +166,49 @@ class RFIDReader {
                 
                 // Check registration status in admin-person
                 const employeeIdWithoutZeros = response.EMPLOYEE_ID.replace(/^0+/, ''); // Remove leading zeros
-            const employeeIdOriginal = response.EMPLOYEE_ID; // Keep original with leading zeros
-            console.log('🔍 Checking registration for ID:', employeeIdWithoutZeros, 'Original:', employeeIdOriginal);
-            
-            // getULTSPerson API doesn't require credentials (same as admin-person.html)
-            console.log('🔍 Checking person registration without credentials...');
-            let registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, null);
-            
+                const employeeIdOriginal = response.EMPLOYEE_ID; // Keep original with leading zeros
+                console.log('🔍 Checking registration for ID:', employeeIdWithoutZeros, 'Original:', employeeIdOriginal);
+                
+                // getULTSPerson API doesn't require credentials (same as admin-person.html)
+                console.log('🔍 Checking person registration without credentials...');
+                let registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, null);
+                
                 console.log('📊 Registration data result:', registrationData);
                 
-                console.log('🎯 About to call displayEmployeeData with:', response, registrationData);
-                this.displayEmployeeData(response, registrationData);
-                this.updateStatus('Employee found', 'ready');
-                console.log('✅ Employee details loaded successfully');
-            
-            // Handle assignment flow based on personal node selection
-            console.log('🔗 Processing employee data...');
-            
-            if (this.selectedEntity && this.selectedEntity.properties) {
-                // Assignment Mode: Personal node is selected
-                const entityProps = this.selectedEntity.properties;
-                const hasOperatorName = entityProps.operator_name && entityProps.operator_name !== 'undefined';
-                const hasEmployeeId = entityProps.employee_id && entityProps.employee_id !== 'undefined';
+                // Handle assignment flow based on personal node selection
+                console.log('🔗 Processing employee data...');
                 
-                console.log('📱 Personal node selected:', entityProps.name);
-                console.log('📱 Has operator_name:', hasOperatorName, '(', entityProps.operator_name, ')');
-                console.log('📱 Has employee_id:', hasEmployeeId, '(', entityProps.employee_id, ')');
-                
-                if (!hasOperatorName || !hasEmployeeId) {
-                    // Case A: Empty personal node - auto-assign
-                    console.log('🔗 Personal node is empty - proceeding with auto-assignment');
-                    await this.handleAutoAssignment(response, employeeIdWithoutZeros, credentials);
-                } else {
-                    // Case B: Personal node has assignment - scanned employee will overwrite the assignment
-                    console.log('📋 Personal node already assigned, but scanned employee will overwrite assignment');
-                    console.log('📋 Current assignment:', entityProps.operator_name, entityProps.employee_id);
-                    console.log('📋 New employee to assign:', response.NAME, response.EMPLOYEE_ID);
+                if (this.selectedEntity && this.selectedEntity.properties) {
+                    // Assignment Mode: Personal node is selected
+                    const entityProps = this.selectedEntity.properties;
+                    const hasOperatorName = entityProps.operator_name && entityProps.operator_name !== 'undefined';
+                    const hasEmployeeId = entityProps.employee_id && entityProps.employee_id !== 'undefined';
                     
-                    // Proceed with assignment (this will overwrite the existing assignment)
-                    await this.handleAutoAssignment(response, employeeIdWithoutZeros, credentials);
+                    console.log('📱 Personal node selected:', entityProps.name);
+                    console.log('📱 Has operator_name:', hasOperatorName, '(', entityProps.operator_name, ')');
+                    console.log('📱 Has employee_id:', hasEmployeeId, '(', entityProps.employee_id, ')');
+                    
+                    if (!hasOperatorName || !hasEmployeeId) {
+                        // Case A: Empty personal node - auto-assign
+                        console.log('🔗 Personal node is empty - proceeding with auto-assignment');
+                        await this.handleAutoAssignment(response, employeeIdWithoutZeros, credentials);
+                    } else {
+                        // Case B: Personal node has assignment - scanned employee will overwrite the assignment
+                        console.log('📋 Personal node already assigned, but scanned employee will overwrite assignment');
+                        console.log('📋 Current assignment:', entityProps.operator_name, entityProps.employee_id);
+                        console.log('📋 New employee to assign:', response.NAME, response.EMPLOYEE_ID);
+                        
+                        // Proceed with assignment (this will overwrite the existing assignment)
+                        await this.handleAutoAssignment(response, employeeIdWithoutZeros, credentials);
+                    }
+                } else {
+                    // Scan Mode: No personal node selected - just show employee details
+                    console.log('📋 No personal node selected - showing employee details only');
+                    console.log('🎯 About to call displayEmployeeData with:', response, registrationData);
+                    this.displayEmployeeData(response, registrationData);
+                    this.updateStatus('Employee found', 'ready');
+                    console.log('✅ Employee details loaded successfully');
                 }
-            } else {
-                // Scan Mode: No personal node selected - just show employee details
-                console.log('📋 No personal node selected - showing employee details only');
-                // Employee details already displayed by displayEmployeeData above
-            }
             } else {
                 this.showError('PTFI employee not found in the system');
                 this.updateStatus('PTFI ID Card not found', 'error');
@@ -228,6 +238,7 @@ class RFIDReader {
         } finally {
             this.hideLoading();
             this.resetScan();
+            this.isProcessing = false; // Reset processing flag
         }
     }
 
@@ -393,6 +404,12 @@ class RFIDReader {
 
     // Handle unassign action
     async handleUnassign() {
+        // Protection against double execution
+        if (this.isAssigning) {
+            console.log('⚠️ Already processing assignment/unassignment, ignoring duplicate request');
+            return;
+        }
+        
         if (!this.selectedEntity || !this.selectedEntity.properties) {
             alert('No personal node selected for unassignment');
             return;
@@ -407,6 +424,8 @@ class RFIDReader {
             return;
         }
 
+        this.isAssigning = true;
+        
         try {
             this.showLoading();
             this.updateStatus('Unassigning employee...', 'scanning');
@@ -455,6 +474,7 @@ class RFIDReader {
             this.updateStatus('Unassignment failed', 'error');
         } finally {
             this.hideLoading();
+            this.isAssigning = false; // Reset assigning flag
         }
     }
 
@@ -654,189 +674,24 @@ class RFIDReader {
             }
         } else {
             // Condition 1: Not registered in admin-person OR error occurred
+            // Only show NOT REGISTERED status - no form, auto assignment will handle registration
             statusElement.innerHTML = `
                 <div class="status-not-registered">
                     <div class="status-header">
                         <span class="status-icon">❌</span><span class="status-text">NOT REGISTERED</span>
                     </div>
-                    <div class="registration-form">
-                        <h4>Register Employee</h4>
-                        <div class="form-grid">
-                            <div class="form-item">
-                                <label>Person Name:</label>
-                                <input type="text" id="personName" placeholder="Full name" readonly />
-                            </div>
-                            <div class="form-item">
-                                <label>Display Name:</label>
-                                <input type="text" id="displayName" placeholder="First initial + Last name" maxlength="8" readonly />
-                            </div>
-                            <div class="form-item">
-                                <label>Employee ID:</label>
-                                <input type="text" id="employeeIdInput" placeholder="Employee ID" readonly />
-                            </div>
-                            <div class="form-item">
-                                <label>Entity Group:</label>
-                                <input type="text" id="entityGroupDisplay" value="UG MINE" readonly />
-                            </div>
-                            <div class="form-item">
-                                <label>Role:</label>
-                                <input type="text" id="roleDisplay" value="WORKER" readonly />
-                            </div>
-                            <div class="form-item">
-                                <button class="btn btn-primary" onclick="insertEmployeeDefault()">
-                                    <div class="icon-plus"></div>
-                                    Insert Employee
-                                </button>
-                            </div>
-                        </div>
+                    <div class="registration-info">
+                        <p>Employee is not registered in the system.</p>
+                        <p><strong>To register:</strong> Select a personal node and scan the ID card again for auto-assignment.</p>
                     </div>
                 </div>
             `;
             statusElement.className = 'registration-status not-registered';
-            
-            // Populate form with employee data
-            this.populateRegistrationFormDefault();
         }
     }
 
-    // Populate registration form with employee data (default version)
-    populateRegistrationFormDefault() {
-        // Get current employee data
-        const employeeName = document.getElementById('employeeName').textContent;
-        const employeeId = document.getElementById('employeeId').textContent.replace('ID: ', '');
-        
-        // Populate person name with full name
-        document.getElementById('personName').value = employeeName;
-        
-        // Generate display name: First initial + space + 6 chars from last name
-        const nameParts = employeeName.split(' ');
-        if (nameParts.length >= 2) {
-            const firstName = nameParts[0];
-            const lastName = nameParts[nameParts.length - 1];
-            const displayName = firstName.charAt(0) + ' ' + lastName.substring(0, 6);
-            document.getElementById('displayName').value = displayName;
-        }
-        
-        // Populate employee ID (remove leading zeros)
-        const cleanEmployeeId = employeeId.replace(/^0+/, '');
-        document.getElementById('employeeIdInput').value = cleanEmployeeId;
-    }
 
-    // Insert employee with default values (UG MINE, WORKER)
-    async insertEmployeeDefault() {
-        try {
-            const personName = document.getElementById('personName').value.trim();
-            const displayName = document.getElementById('displayName').value.trim();
-            const employeeId = document.getElementById('employeeIdInput').value.trim();
-            
-            // Validation
-            if (!personName || !displayName || !employeeId) {
-                alert('Please fill in all fields');
-                return;
-            }
-            
-            // Default values
-            const entityGroupOid = 16; // UG MINE
-            const role = 'WORKER';
-            const entityGroupRoleOid = 46; // UG MINE + WORKER combination
-            
-            console.log('🔍 Inserting with default values:');
-            console.log('  - Person Name:', personName);
-            console.log('  - Display Name:', displayName);
-            console.log('  - Employee ID:', employeeId);
-            console.log('  - Entity Group OID:', entityGroupOid);
-            console.log('  - Role:', role);
-            console.log('  - Entity Group Role OID:', entityGroupRoleOid);
-            
-            // Prepare data for insertion
-            const personData = {
-                ACTIVE: true,
-                PERSON_NAME: personName,
-                DISPLAY_NAME: displayName,
-                EMPLOYEE_ID: employeeId,
-                ENTITYGROUPROLE_OID: entityGroupRoleOid,
-                ROLE: role
-            };
-            
-            const username = 'fmiacp';
-            const password = 'track1nd0';
-            const credentials = btoa(username + ':' + password);
-            
-            console.log('🔍 Inserting person data:', personData);
-            const insertResult = await this.insertPersonData(personData, credentials);
-            
-            if (insertResult) {
-                console.log('✅ Employee registered successfully!');
-                
-                // If there's a selected entity (clicked personal node), auto-assign
-                if (this.selectedEntity && this.selectedEntity.properties) {
-                    console.log('🔗 Auto-assigning employee to selected entity:', this.selectedEntity.properties.name);
-                    
-                    // Create mock employee data for the assignment flow
-                    const mockEmployeeData = {
-                        NAME: personName,
-                        EMPLOYEE_ID: employeeId
-                    };
-                    
-                    await this.handleAutoAssignment(mockEmployeeData, employeeId, credentials);
-                } else {
-                // Refresh registration status
-                const employeeIdWithoutZeros = employeeId.replace(/^0+/, '');
-                const registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, credentials);
-                this.updateRegistrationStatus(registrationData);
-                }
-            } else {
-                alert('Failed to register employee');
-            }
-            
-        } catch (error) {
-            console.error('Error inserting employee with default values:', error);
-            alert('Error registering employee: ' + error.message);
-        }
-    }
 
-    // Insert person data via API
-    async insertPersonData(personData, credentials) {
-        return new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            
-            xhr.open('PUT', `${this.apiBaseUrl}/updateULTSPerson`, true);
-            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-            xhr.setRequestHeader('Authorization', 'Basic ' + credentials);
-            
-            // Convert object to URL-encoded format (like jQuery.param)
-            const formData = Object.keys(personData)
-                .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(personData[key]))
-                .join('&');
-            
-            console.log('🔍 Sending form data:', formData);
-            
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        try {
-                            const data = JSON.parse(xhr.responseText);
-                            console.log('✅ Person inserted successfully:', data);
-                            resolve(data);
-                        } catch (e) {
-                            console.log('❌ Insert response parse error:', e);
-                            reject(new Error('Invalid JSON response'));
-                        }
-                    } else {
-                        console.log('❌ Insert failed:', xhr.status, xhr.statusText);
-                        reject(new Error(`HTTP Error ${xhr.status}: ${xhr.statusText}`));
-                    }
-                }
-            };
-            
-            xhr.onerror = function() {
-                console.log('❌ Insert network error');
-                reject(new Error('Network Error: Cannot connect to API server'));
-            };
-            
-            xhr.send(formData);
-        });
-    }
 
     showError(message) {
         // Hide scan area and employee card
@@ -1090,6 +945,9 @@ class RFIDReader {
                             
                             // Update status to show this is the assigned employee
                             this.updateStatus(`Showing assigned employee: ${assignedEmployeeData.NAME}`, 'ready');
+                            
+                            // Update button text to "Reset Selection"
+                            this.updateScanButtonText('Reset Selection');
                 } else {
                             console.log('❌ Could not fetch assigned employee details');
                             this.showError('Could not load assigned employee details');
@@ -1301,6 +1159,14 @@ class RFIDReader {
 
     // Handle complete auto-assignment flow
     async handleAutoAssignment(employeeData, employeeId, credentials) {
+        // Protection against double assignment
+        if (this.isAssigning) {
+            console.log('⚠️ Already assigning, ignoring duplicate assignment request');
+            return;
+        }
+        
+        this.isAssigning = true;
+        
         try {
             console.log('🔄 Starting auto-assignment flow for employee:', employeeData.NAME);
             
@@ -1326,9 +1192,8 @@ class RFIDReader {
                 console.log('🔄 Employee already registered, updating group...');
                 await this.updatePersonGroupByEmployeeId(employeeId, entityName, credentials);
             } else {
-                // Employee not registered - auto-register with correct group
-                console.log('📝 Employee not registered, auto-registering...');
-                await this.autoRegisterEmployee(employeeData, employeeId, credentials);
+                // Employee not registered - backend will handle auto-registration during assignment
+                console.log('📝 Employee not registered - backend will auto-register during assignment');
             }
             
             // Perform assignment using MACHINE_NAME
@@ -1402,48 +1267,11 @@ class RFIDReader {
         } catch (error) {
             console.error('❌ Error in auto-assignment flow:', error);
             alert('Error in auto-assignment: ' + error.message);
+        } finally {
+            this.isAssigning = false; // Reset assigning flag
         }
     }
 
-    // Auto-register employee with default values
-    async autoRegisterEmployee(employeeData, employeeId, credentials) {
-        try {
-            // Generate display name: First initial + space + 6 chars from last name
-            const nameParts = employeeData.NAME.split(' ');
-            let displayName = 'Unknown';
-            if (nameParts.length >= 2) {
-                const firstName = nameParts[0];
-                const lastName = nameParts[nameParts.length - 1];
-                displayName = firstName.charAt(0) + ' ' + lastName.substring(0, 6);
-            }
-            
-            // Auto-detect role and group from personal node name
-            const entityName = this.selectedEntity.properties.name;
-            const role = 'WORKER'; // Always WORKER (default)
-            const entityGroupRoleOid = this.getEntityGroupRoleOid(entityName, role);
-            const groupName = this.getGroupFromNode(entityName);
-            
-            const personData = {
-                ACTIVE: true,
-                PERSON_NAME: employeeData.NAME,
-                DISPLAY_NAME: displayName,
-                EMPLOYEE_ID: employeeId,
-                ENTITYGROUPROLE_OID: entityGroupRoleOid,
-                ROLE: role
-            };
-            
-            console.log('🔍 Auto-registering person data:', personData);
-            console.log('📱 Personal node:', entityName, 'Role:', role, 'Group:', groupName, 'ENTITYGROUPROLE_OID:', entityGroupRoleOid);
-            
-            const insertResult = await this.insertPersonData(personData, credentials);
-            
-            return insertResult;
-            
-        } catch (error) {
-            console.error('❌ Error auto-registering employee:', error);
-            throw error;
-        }
-    }
 
     // Get entity by MACHINE_NAME to avoid duplicate OID issues
     async getEntityByMachineName(machineName, credentials) {

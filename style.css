@@ -1021,6 +1021,24 @@ body {
     color: #991b1b;
 }
 
+.registration-info {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 6px;
+    border-left: 4px solid #dc2626;
+}
+
+.registration-info p {
+    margin: 4px 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.registration-info p:first-child {
+    font-weight: 600;
+}
+
 .registration-status.registered-partial {
     background-color: #fef3c7;
     border: 2px solid #d97706;

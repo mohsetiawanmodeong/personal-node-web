@@ -113,7 +113,7 @@ function getRowDataFLT(filter) {
 }
 
 function updateRowData(item) {
-    var vEntity = vULTSEntityMap.get(item.OID);
+    var vEntity = vULTSEntityMap.get(parseInt(item.OID));
     console.log("Updating Row[" + JSON.stringify(item) + "].");
 	var vOperatorID = parseInt(item.OPERATOR);
 	if ( vULTSPersonMap.has(vOperatorID) || vOperatorID==0){
@@ -123,7 +123,7 @@ function updateRowData(item) {
 		}else{		
 			vPerson = vULTSPersonMap.get(vOperatorID);
     		vEntity.OPERATOR_NAME = "" + vPerson.DISPLAY_NAME;
-    		vEntity.ENTITYGROUPROLE_OID = vPerson.ENTITYGROUPROLE_OID;
+    		//vEntity.ENTITYGROUPROLE_OID = vPerson.ENTITYGROUPROLE_OID;
     		vEntity.ROLE = "" + vPerson.ROLE;
     		vEntity.CLASS_OID = parseInt(vPerson.CLASS_OID);
     		console.log("Person Selected [" + JSON.stringify(vPerson) + "].");
@@ -145,7 +145,7 @@ function updateRowData(item) {
     	});
     	console.log("Updating Entity[" + JSON.stringify(vEntity) + "].");
     	Promise.allSettled([vPromise])
-        	.then((values) => updateChartsLock(values));
+        	.then((values) => updateTableFLTLock());//updateChartsLock(values));
 	}
 }
 
@@ -160,7 +160,7 @@ function createRowDataFLT(row) {
         vRow.ENTITY_NAME = "" + row.MACHINE_NAME;
 		var vOperatorID = parseInt(row.PERSON_OID);
 		if ( vOperatorID == 0){
-			console.log("No linked Entity[" + vRow.ENTITY_NAME + "] Trying to AutoLink...");
+			//console.log("No linked Entity[" + vRow.ENTITY_NAME + "] Trying to AutoLink...");
 			vULTSPersonMap.forEach((person) => {
 				if ( person.DISPLAY_NAME === row.OPERATOR_NAME ){
 					vOperatorID = person.OID;
@@ -213,7 +213,13 @@ function makeTableFLT() {
 			person.CLASS_OID = vULTSEntityGroupMap.get(person.ENTITYGROUPROLE_OID).ENTITYCLASS_OID;
             //vULTSPersonMap.set(person.OID, person);
         }
-        if (vSelectedEntityGroup === person.ENTITYGROUP_OID) {
+		var vInclude=false;
+		vULTSEntityMap.forEach((entity) => {
+			if ( entity.ENTITYGROUP_OID === vSelectedEntityGroup && entity.PERSON_OID === person.OID ){
+				vInclude=true;
+			}
+		});
+        if (vSelectedEntityGroup === person.ENTITYGROUP_OID || vInclude) {
             //var vPerson = {};
             //vPerson.ROLE = "" + group.ROLE;
             //vRole.CLASS_OID = parseInt(group.ENTITYCLASS_OID);
@@ -424,7 +430,14 @@ function makeTableFLT() {
 			vOperators = [];
 			vOperators.push({ OID: 0, NAME: ""});
 			vULTSPersonMap.forEach((person) => {
-				if (vSelectedEntityGroup === person.ENTITYGROUP_OID) {
+				var vInclude=false;
+        		vULTSEntityMap.forEach((entity) => {
+            		if ( entity.ENTITYGROUP_OID === vSelectedEntityGroup && entity.PERSON_OID === person.OID ){
+                		vInclude=true;
+            		}
+        		});
+
+				if (vSelectedEntityGroup === person.ENTITYGROUP_OID || vInclude) {
  					//var vNotAssigned=true;
             		//vULTSEntityMap.forEach((entity)=>{
                 	//	if ( entity.PERSON_OID === person.OID){
@@ -479,7 +492,7 @@ function updateTableFLTLock() {
                 function(data) {
                     data.forEach((entity) => {
 						entity.OPERATOR = parseInt(entity.PERSON_OID);
-                        vULTSEntityMap.set(entity.OID, entity);
+                        vULTSEntityMap.set(parseInt(entity.OID), entity);
                     });
 					console.log("updateTableFLTlock:EntityData: Loaded["+vULTSEntityMap.size+"] Data.");
                     resolve();
@@ -495,6 +508,7 @@ function updateTableFLTLock() {
                     data.forEach((person) => {
 						if ( vULTSEntityGroupMap.has(person.ENTITYGROUPROLE_OID)){
                             person.ENTITYGROUP_OID = vULTSEntityGroupMap.get(person.ENTITYGROUPROLE_OID).ENTITYGROUP_OID;
+							person.GROUP_NAME = vULTSEntityGroupMap.get(person.ENTITYGROUPROLE_OID).GROUP_NAME;
             				person.CLASS_OID = vULTSEntityGroupMap.get(person.ENTITYGROUPROLE_OID).ENTITYCLASS_OID;
                             vULTSPersonMap.set(person.OID, person);
                         }
@@ -550,7 +564,7 @@ async function loadData() {
             //vULTSEntityMap=new Map();
             async function(data) {
                     data.forEach((entity) => {
-                       	vULTSEntityMap.set(entity.OID, entity);
+                       	vULTSEntityMap.set(parseInt(entity.OID), entity);
                     });
 					console.log("loadULTSEntityData: Loaded["+vULTSEntityMap.size+"] Data.");
                     resolve();
