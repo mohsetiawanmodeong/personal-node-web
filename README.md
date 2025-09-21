@@ -48,7 +48,26 @@ Aplikasi web untuk manajemen RFID employee dengan sistem Personal Node yang teri
 2. **Jalankan server** dengan salah satu cara:
    - **Windows**: Double-click `start-server.bat`
    - **Linux/Mac**: Jalankan `chmod +x start-server.sh && ./start-server.sh`
-   - **Manual**: `npm install && npm start`
+
+### 🌐 **Dynamic URL Configuration**
+
+Aplikasi ini secara otomatis mendeteksi environment dan menggunakan URL yang sesuai:
+
+#### **🟢 Development Environment** (Proxy Server)
+- **Host**: `localhost`, `127.0.0.1`, `192.168.x.x`, `10.x.x.x`
+- **API Mode**: Proxy Server (`http://localhost:3000/api`)
+- **Keuntungan**: CORS handling, authentication proxy
+
+#### **🔴 Production Environment** (Direct Backend)
+- **Host**: Semua host lain (termasuk `172.16.175.60`)
+- **API Mode**: Direct Backend (`http://172.16.175.60:4990/api`)
+- **Keuntungan**: Direct connection ke backend server
+
+#### **💡 Tips Deployment**
+- **Untuk komputer lain**: Copy folder aplikasi, jalankan server, aplikasi otomatis detect environment
+- **Development**: Akses via `http://localhost:3000` atau `http://192.168.x.x:3000`
+- **Production**: Akses via `http://172.16.175.60:3000` atau IP server lainnya
+- **Manual**: `npm install && npm start`
 3. **Buka browser** dan akses: `http://localhost:3000`
 
 ### 🎮 **Operational Guide**

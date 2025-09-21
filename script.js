@@ -1,10 +1,10 @@
 class RFIDReader {
     constructor() {
-        // Direct backend calls (proxy server not running in current setup)
-        this.apiBaseUrl = 'http://172.16.175.60:4990/api';
-        this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=160&minlastupdate=1800000'; //OB4 2 Flr -> 30 Menit
-        // this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=112&minlastupdate=1800000'; //GBC Full Area -> 30 Menit
-        // this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=130&minlastupdate=1800000'; //GBC RTA Office Only -> 30 Menit
+        // Dynamic URL detection - automatically adapts to current host
+        this.apiBaseUrl = this.detectApiBaseUrl();
+        this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=160&minlastupdate=30000`; //OB4 2 Flr -> 30 Menit
+        // this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=112&minlastupdate=1800000`; //GBC Full Area -> 30 Menit
+        // this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=130&minlastupdate=1800000`; //GBC RTA Office Only -> 30 Menit
         this.currentInput = '';
         this.isScanning = false;
         this.scanTimeout = null;
@@ -16,6 +16,39 @@ class RFIDReader {
         this.updateStatus('Ready to Scan', 'ready');
         this.startAutoZoneRealtime();
     }
+
+    // Dynamic URL detection - automatically adapts to current host
+    detectApiBaseUrl() {
+        const currentHost = window.location.hostname;
+        const currentPort = window.location.port;
+        const currentProtocol = window.location.protocol;
+        
+        console.log('🔍 Detecting API Base URL...');
+        console.log('📊 Current hostname:', currentHost);
+        console.log('📊 Current port:', currentPort);
+        console.log('📊 Current protocol:', currentProtocol);
+        
+        // Check if running on localhost/development
+        if (currentHost === 'localhost' || 
+            currentHost === '127.0.0.1' || 
+            currentHost.startsWith('192.168.') || 
+            currentHost.startsWith('10.') ||
+            currentHost.includes('local') ||
+            currentHost.includes('dev')) {
+            
+            // Development environment - use local proxy server
+            const apiUrl = `${currentProtocol}//${currentHost}${currentPort ? ':' + currentPort : ''}/api`;
+            console.log('🟢 Development environment detected - using proxy:', apiUrl);
+            return apiUrl;
+        } else {
+            // Production environment - use direct backend server
+            const apiUrl = 'http://172.16.175.60:4990/api';
+            console.log('🔴 Production environment detected - using direct backend:', apiUrl);
+            console.log('💡 To use proxy server, run on localhost or 192.168.x.x');
+            return apiUrl;
+        }
+    }
+
 
     initializeEventListeners() {
         // Listen for keyboard input (PTFI ID card reader typically sends input as keyboard events)
@@ -108,8 +141,8 @@ class RFIDReader {
             if (response && response.EMPLOYEE_ID) {
                 console.log('📊 Employee data found:', response);
                 
-            // Check registration status in admin-person
-            const employeeIdWithoutZeros = response.EMPLOYEE_ID.replace(/^0+/, ''); // Remove leading zeros
+                // Check registration status in admin-person
+                const employeeIdWithoutZeros = response.EMPLOYEE_ID.replace(/^0+/, ''); // Remove leading zeros
             const employeeIdOriginal = response.EMPLOYEE_ID; // Keep original with leading zeros
             console.log('🔍 Checking registration for ID:', employeeIdWithoutZeros, 'Original:', employeeIdOriginal);
             
@@ -117,7 +150,7 @@ class RFIDReader {
             console.log('🔍 Checking person registration without credentials...');
             let registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, null);
             
-            console.log('📊 Registration data result:', registrationData);
+                console.log('📊 Registration data result:', registrationData);
                 
                 console.log('🎯 About to call displayEmployeeData with:', response, registrationData);
                 this.displayEmployeeData(response, registrationData);
@@ -849,7 +882,7 @@ class RFIDReader {
                             
                             // Update status to show this is the assigned employee
                             this.updateStatus(`Showing assigned employee: ${assignedEmployeeData.NAME}`, 'ready');
-                        } else {
+                } else {
                             console.log('❌ Could not fetch assigned employee details');
                             this.showError('Could not load assigned employee details');
                         }
@@ -1341,18 +1374,18 @@ class RFIDReader {
     // Check person registration in admin-person and admin-entity system
     async checkPersonRegistration(employeeId, inputCredentials) {
         try {
-        // First check if person exists in admin-person
-        const personApiUrl = `${this.apiBaseUrl}/getULTSPerson`;
-        console.log('🔍 Checking person registration:', personApiUrl);
+            // First check if person exists in admin-person
+            const personApiUrl = `${this.apiBaseUrl}/getULTSPerson`;
+            console.log('🔍 Checking person registration:', personApiUrl);
         console.log('🔍 Using credentials for admin API:', inputCredentials ? 'credentials provided' : 'no credentials');
-        
+            
         // ULTS backend requires authentication, using fmiacp credentials
         const credentials = btoa('fmiacp:track1nd0');
-        const personData = await this.makeAjaxRequest(personApiUrl, credentials);
+            const personData = await this.makeAjaxRequest(personApiUrl, credentials);
         
-        console.log('📋 Person registration data:', personData);
-        console.log('📋 Person data type:', typeof personData);
-        console.log('📋 Person data length:', personData ? personData.length : 'null/undefined');
+            console.log('📋 Person registration data:', personData);
+            console.log('📋 Person data type:', typeof personData);
+            console.log('📋 Person data length:', personData ? personData.length : 'null/undefined');
         
         if (personData && Array.isArray(personData) && personData.length > 0) {
             console.log('📋 Sample person record:', personData[0]);
@@ -1435,10 +1468,10 @@ class RFIDReader {
                 if (person) {
                     console.log('✅ Person found in registration:', person);
                     
-                            // Now check entity assignment in admin-entity
-                            const entityApiUrl = `${this.apiBaseUrl}/getULTSEntity`;
-                            console.log('🔍 Checking entity assignment:', entityApiUrl);
-                            
+                    // Now check entity assignment in admin-entity
+                    const entityApiUrl = `${this.apiBaseUrl}/getULTSEntity`;
+                    console.log('🔍 Checking entity assignment:', entityApiUrl);
+                    
                             // ULTS backend requires authentication, using fmiacp credentials
                             const entityCredentials = btoa('fmiacp:track1nd0');
                             const entityData = await this.makeAjaxRequest(entityApiUrl, entityCredentials);
@@ -1450,8 +1483,8 @@ class RFIDReader {
                     let entityAssignment = null;
                     let entityGroup = 'N/A';
                     
-                        if (entityData && Array.isArray(entityData)) {
-                            console.log('📋 Searching for entity assignment with person OID:', person.OID, 'employee_id:', employeeId);
+                    if (entityData && Array.isArray(entityData)) {
+                        console.log('📋 Searching for entity assignment with person OID:', person.OID, 'employee_id:', employeeId);
                             console.log('📋 Person DISPLAY_NAME:', person.DISPLAY_NAME);
                             console.log('📋 Available PERSON_OIDs sample:', entityData.slice(0,5).map(e => e.PERSON_OID));
                             console.log('📋 Available OPERATOR_NAMEs sample:', entityData.slice(0,5).map(e => e.OPERATOR_NAME));
@@ -1633,10 +1666,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.rfidReader = new RFIDReader();
     
     // Add some helpful console messages
-    console.log('PTFI Personal Node initialized');
-    console.log('API Base URL:', window.rfidReader.apiBaseUrl);
-    console.log('Auto Zone API URL:', window.rfidReader.autoZoneApiUrl);
-    console.log('Ready to scan PTFI ID cards...');
+    console.log('🚀 PTFI Personal Node initialized');
+    console.log('🔗 API Base URL:', window.rfidReader.apiBaseUrl);
+    console.log('📡 Auto Zone API URL:', window.rfidReader.autoZoneApiUrl);
+    console.log('✅ Ready to scan PTFI ID cards...');
 });
 
 // Cleanup when page unloads
