@@ -39,6 +39,7 @@ Aplikasi web untuk manajemen RFID employee dengan sistem Personal Node yang teri
 - ✅ Latest assignment detection via OID sorting
 - ✅ Dynamic group/role assignment berdasarkan Personal Node prefix
 - ✅ Error handling dan logging yang comprehensive
+- ✅ **PLAN B**: Alternative API support (`closest_nodes`) sebagai backup
 
 ## 📋 Cara Penggunaan
 
@@ -69,6 +70,40 @@ Aplikasi ini secara otomatis mendeteksi environment dan menggunakan URL yang ses
 - **Production**: Akses via `http://172.16.175.60:3000` atau IP server lainnya
 - **Manual**: `npm install && npm start`
 3. **Buka browser** dan akses: `http://localhost:3000`
+
+### 🔄 **PLAN B: Alternative API Support**
+
+Aplikasi mendukung dua mode untuk menampilkan Personal Node:
+
+#### **🟢 PLAN A: Original API (Default)**
+- **API**: `getFLTAutoZoneEntitiesList`
+- **Data**: Full entity data dengan operator_name, employee_id, role
+- **Authentication**: Required (fmiacp:track1nd0)
+- **Features**: Complete assignment tracking
+
+#### **🔵 PLAN B: Closest Nodes API (Backup)**
+- **API**: `http://ugm-kiosk-01:3333/closest_nodes`
+- **Data**: Real-time closest nodes dengan range, WASP ID, timestamp
+- **Authentication**: None required
+- **Features**: Live proximity data, range-based coloring
+
+#### **🔄 Switching Between Plans**
+```javascript
+// Di browser console:
+switchPlan(); // Toggle antara PLAN A dan PLAN B
+```
+
+#### **📊 PLAN B Data Format**
+```json
+[
+  {
+    "avgRangeMetres": 1.47,
+    "pdsName": "UGM-03",
+    "rangingTimestamp": "1758436462758",
+    "waspID": "58931"
+  }
+]
+```
 
 ### 🎮 **Operational Guide**
 

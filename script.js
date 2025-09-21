@@ -2,15 +2,26 @@ class RFIDReader {
     constructor() {
         // Dynamic URL detection - automatically adapts to current host
         this.apiBaseUrl = this.detectApiBaseUrl();
+        
+        // ===== PLAN A: Original API =====
         this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=160&minlastupdate=30000`; //OB4 2 Flr -> 30 Menit
         // this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=112&minlastupdate=1800000`; //GBC Full Area -> 30 Menit
         // this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=130&minlastupdate=1800000`; //GBC RTA Office Only -> 30 Menit
+        
+        // ===== PLAN B: Alternative API =====
+        this.closestNodesApiUrl = 'http://172.16.175.201:3333/closest_nodes'; // Alternative API for personal nodes
         this.currentInput = '';
         this.isScanning = false;
         this.scanTimeout = null;
         this.autoZoneInterval = null;
         this.autoZoneIntervalTime = 5000;
         this.selectedEntity = null; // Store clicked entity for auto-assignment
+        // ===== PLAN SWITCHER =====
+        // Change this variable to switch between plans:
+        // true = PLAN B (closest_nodes API)
+        // false = PLAN A (original autoZone API)
+        this.usePlanB = true; //change to false to use PLAN A and true to use PLAN B
+        // =========================
         
         this.initializeEventListeners();
         this.updateStatus('Ready to Scan', 'ready');
@@ -228,7 +239,11 @@ class RFIDReader {
             
             xhr.open('GET', url, true);
             xhr.setRequestHeader('Accept', 'application/json; charset=utf-8; odata=verbose');
+            
+            // Only add Authorization header if credentials are provided
+            if (credentials) {
             xhr.setRequestHeader('Authorization', 'Basic ' + credentials);
+            }
             
             // Add timeout
             xhr.timeout = 10000; // 10 seconds
@@ -722,16 +737,27 @@ class RFIDReader {
 
     // Start Real-time Auto Zone Data
     startAutoZoneRealtime() {
-        // Load initial data
-        this.loadAutoZoneData();
+        // Load initial data based on current plan
+        this.loadCurrentPlanData();
         
         // Set up interval for real-time updates
         this.autoZoneInterval = setInterval(() => {
-            this.loadAutoZoneData();
+            this.loadCurrentPlanData();
         }, this.autoZoneIntervalTime);
         
-        console.log(`🔄 Auto Zone real-time updates started (every ${this.autoZoneIntervalTime/1000}s)`);
+        const planName = this.usePlanB ? 'Closest Nodes (PLAN B)' : 'Auto Zone (PLAN A)';
+        console.log(`🔄 ${planName} real-time updates started (every ${this.autoZoneIntervalTime/1000}s)`);
     }
+
+    // Load data based on current plan
+    loadCurrentPlanData() {
+        if (this.usePlanB) {
+            this.loadClosestNodesData();
+        } else {
+            this.loadAutoZoneData();
+        }
+    }
+
 
     // Stop Real-time Auto Zone Data
     stopAutoZoneRealtime() {
@@ -742,7 +768,7 @@ class RFIDReader {
         }
     }
 
-    // Load Auto Zone Data
+    // Load Auto Zone Data (PLAN A - Original API)
     async loadAutoZoneData() {
         try {
             // Basic Authentication credentials (same as PTFI API)
@@ -755,6 +781,21 @@ class RFIDReader {
             
         } catch (error) {
             console.error('❌ Error loading Auto Zone data:', error);
+            this.displayAutoZoneError(error.message);
+        }
+    }
+
+    // Load Closest Nodes Data (PLAN B - Alternative API)
+    async loadClosestNodesData() {
+        try {
+            console.log('🔄 Loading closest nodes data from:', this.closestNodesApiUrl);
+            
+            // No authentication needed for closest_nodes API
+            const data = await this.makeAjaxRequest(this.closestNodesApiUrl, null);
+            this.displayClosestNodesEntities(data);
+            
+        } catch (error) {
+            console.error('❌ Error loading Closest Nodes data:', error);
             this.displayAutoZoneError(error.message);
         }
     }
@@ -900,6 +941,92 @@ class RFIDReader {
         });
 
         console.log(`✅ Displayed ${filteredEntities.length} personal nodes (filtered from ${entities.length} total entities)`);
+    }
+
+    // Display Closest Nodes Entities (PLAN B - Alternative API)
+    displayClosestNodesEntities(closestNodes) {
+        const entitiesList = document.getElementById('entitiesList');
+        
+        console.log('📊 Raw closest nodes data from API:', JSON.stringify(closestNodes, null, 2));
+        
+        if (!closestNodes || closestNodes.length === 0) {
+            entitiesList.innerHTML = '<div class="entity-item"><p>No closest nodes found</p></div>';
+            return;
+        }
+
+        // Update total count
+        const totalCountElement = document.getElementById('totalCount');
+        if (totalCountElement) {
+            totalCountElement.textContent = `(Total: ${closestNodes.length})`;
+        }
+
+        entitiesList.innerHTML = '';
+
+        closestNodes.forEach(node => {
+            const entityItem = document.createElement('div');
+            
+            // Extract data from closest_nodes API format
+            const nodeName = node.pdsName || 'Unknown';
+            const avgRange = node.avgRangeMetres || 0;
+            const waspId = node.waspID || 'N/A';
+            const timestamp = node.rangingTimestamp || 'N/A';
+            
+            // Log each node for debugging
+            console.log(`📱 Closest Node: ${nodeName}, Range: ${avgRange}m, WASP: ${waspId}`);
+            
+            // Determine role and color class based on range
+            const roleClass = this.getRoleClassFromRange(avgRange);
+            
+            entityItem.className = `entity-item ${roleClass}`;
+            
+            entityItem.innerHTML = `
+                <div class="entity-main-line">
+                    <span class="entity-main-name">${nodeName}</span>
+                    <span class="entity-main-operator">Range: ${avgRange}m</span>
+                    <span class="entity-main-employee">WASP: ${waspId}</span>
+                    <span class="entity-role-badge ${roleClass}">CLOSEST</span>
+                </div>
+                <div class="entity-location compact">
+                    <span class="zone">Timestamp: ${timestamp}</span>
+                    <span class="coordinates"> Range: ${avgRange} metres</span>
+                </div>
+            `;
+            
+            // Check if this node is currently selected
+            if (this.selectedEntity && this.selectedEntity.pdsName === node.pdsName) {
+                // Restore visual feedback for previously selected node
+                entityItem.classList.add('selected-node');
+                entityItem.style.backgroundColor = '#e0f2fe';
+                entityItem.style.boxShadow = '0 0 10px rgba(0, 123, 255, 0.5)';
+                entityItem.style.border = '2px solid #007bff';
+            }
+            
+            // Clickable: select personal node for assignment
+            entityItem.style.cursor = 'pointer';
+            entityItem.addEventListener('click', async () => {
+                console.log('🖱️ Closest node clicked:', node.pdsName);
+                console.log('📋 Full node data:', JSON.stringify(node, null, 2));
+                
+                // Clear previous selection visual feedback
+                this.clearAllSelections();
+                
+                // Store the clicked node for auto-assignment
+                this.selectedEntity = node;
+                
+                // Add visual feedback for selected node
+                entityItem.classList.add('selected-node');
+                entityItem.style.backgroundColor = '#e0f2fe';
+                entityItem.style.boxShadow = '0 0 10px rgba(0, 123, 255, 0.5)';
+                entityItem.style.border = '2px solid #007bff';
+                
+                // Show ready for assignment message
+                this.showReadyForAssignment(node.pdsName);
+            });
+
+            entitiesList.appendChild(entityItem);
+        });
+
+        console.log(`✅ Displayed ${closestNodes.length} closest nodes from alternative API`);
     }
 
     // Clear all visual selections from personal nodes
@@ -1604,6 +1731,19 @@ class RFIDReader {
         }
     }
 
+    // Get role class based on range for closest nodes (PLAN B)
+    getRoleClassFromRange(range) {
+        if (range <= 1.5) {
+            return 'safety'; // Very close - green
+        } else if (range <= 2.0) {
+            return 'rescue'; // Close - blue
+        } else if (range <= 3.0) {
+            return 'super'; // Medium - yellow
+        } else {
+            return 'worker'; // Far - default
+        }
+    }
+
     // Display Auto Zone Error
     displayAutoZoneError(errorMessage) {
         const entitiesList = document.getElementById('entitiesList');
@@ -1630,6 +1770,7 @@ function insertEmployeeDefault() {
         window.rfidReader.insertEmployeeDefault();
     }
 }
+
 
 // Global function to handle scan again or reset selection (refresh page)
 function scanAgain() {
@@ -1668,8 +1809,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add some helpful console messages
     console.log('🚀 PTFI Personal Node initialized');
     console.log('🔗 API Base URL:', window.rfidReader.apiBaseUrl);
-    console.log('📡 Auto Zone API URL:', window.rfidReader.autoZoneApiUrl);
+    console.log('📡 Auto Zone API URL (PLAN A):', window.rfidReader.autoZoneApiUrl);
+    console.log('📡 Closest Nodes API URL (PLAN B):', window.rfidReader.closestNodesApiUrl);
     console.log('✅ Ready to scan PTFI ID cards...');
+    
+    // Show current plan
+    const currentPlan = window.rfidReader.usePlanB ? 'PLAN B (closest_nodes)' : 'PLAN A (autoZone)';
+    console.log('🎯 Current Plan:', currentPlan);
 });
 
 // Cleanup when page unloads
