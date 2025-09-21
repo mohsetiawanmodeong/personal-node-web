@@ -166,49 +166,49 @@ class RFIDReader {
                 
                 // Check registration status in admin-person
                 const employeeIdWithoutZeros = response.EMPLOYEE_ID.replace(/^0+/, ''); // Remove leading zeros
-                const employeeIdOriginal = response.EMPLOYEE_ID; // Keep original with leading zeros
-                console.log('🔍 Checking registration for ID:', employeeIdWithoutZeros, 'Original:', employeeIdOriginal);
-                
-                // getULTSPerson API doesn't require credentials (same as admin-person.html)
-                console.log('🔍 Checking person registration without credentials...');
-                let registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, null);
-                
+            const employeeIdOriginal = response.EMPLOYEE_ID; // Keep original with leading zeros
+            console.log('🔍 Checking registration for ID:', employeeIdWithoutZeros, 'Original:', employeeIdOriginal);
+            
+                // Optimize: Start registration check immediately (parallel processing)
+            console.log('🔍 Checking person registration without credentials...');
+            let registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, null);
+            
                 console.log('📊 Registration data result:', registrationData);
+            
+            // Handle assignment flow based on personal node selection
+            console.log('🔗 Processing employee data...');
+            
+            if (this.selectedEntity && this.selectedEntity.properties) {
+                // Assignment Mode: Personal node is selected
+                const entityProps = this.selectedEntity.properties;
+                const hasOperatorName = entityProps.operator_name && entityProps.operator_name !== 'undefined';
+                const hasEmployeeId = entityProps.employee_id && entityProps.employee_id !== 'undefined';
                 
-                // Handle assignment flow based on personal node selection
-                console.log('🔗 Processing employee data...');
+                console.log('📱 Personal node selected:', entityProps.name);
+                console.log('📱 Has operator_name:', hasOperatorName, '(', entityProps.operator_name, ')');
+                console.log('📱 Has employee_id:', hasEmployeeId, '(', entityProps.employee_id, ')');
                 
-                if (this.selectedEntity && this.selectedEntity.properties) {
-                    // Assignment Mode: Personal node is selected
-                    const entityProps = this.selectedEntity.properties;
-                    const hasOperatorName = entityProps.operator_name && entityProps.operator_name !== 'undefined';
-                    const hasEmployeeId = entityProps.employee_id && entityProps.employee_id !== 'undefined';
-                    
-                    console.log('📱 Personal node selected:', entityProps.name);
-                    console.log('📱 Has operator_name:', hasOperatorName, '(', entityProps.operator_name, ')');
-                    console.log('📱 Has employee_id:', hasEmployeeId, '(', entityProps.employee_id, ')');
-                    
-                    if (!hasOperatorName || !hasEmployeeId) {
-                        // Case A: Empty personal node - auto-assign
-                        console.log('🔗 Personal node is empty - proceeding with auto-assignment');
-                        await this.handleAutoAssignment(response, employeeIdWithoutZeros, credentials);
-                    } else {
-                        // Case B: Personal node has assignment - scanned employee will overwrite the assignment
-                        console.log('📋 Personal node already assigned, but scanned employee will overwrite assignment');
-                        console.log('📋 Current assignment:', entityProps.operator_name, entityProps.employee_id);
-                        console.log('📋 New employee to assign:', response.NAME, response.EMPLOYEE_ID);
-                        
-                        // Proceed with assignment (this will overwrite the existing assignment)
-                        await this.handleAutoAssignment(response, employeeIdWithoutZeros, credentials);
-                    }
+                if (!hasOperatorName || !hasEmployeeId) {
+                    // Case A: Empty personal node - auto-assign
+                    console.log('🔗 Personal node is empty - proceeding with auto-assignment');
+                    await this.handleAutoAssignment(response, employeeIdWithoutZeros, credentials);
                 } else {
-                    // Scan Mode: No personal node selected - just show employee details
-                    console.log('📋 No personal node selected - showing employee details only');
+                    // Case B: Personal node has assignment - scanned employee will overwrite the assignment
+                    console.log('📋 Personal node already assigned, but scanned employee will overwrite assignment');
+                    console.log('📋 Current assignment:', entityProps.operator_name, entityProps.employee_id);
+                    console.log('📋 New employee to assign:', response.NAME, response.EMPLOYEE_ID);
+                    
+                    // Proceed with assignment (this will overwrite the existing assignment)
+                    await this.handleAutoAssignment(response, employeeIdWithoutZeros, credentials);
+                }
+            } else {
+                // Scan Mode: No personal node selected - just show employee details
+                console.log('📋 No personal node selected - showing employee details only');
                     console.log('🎯 About to call displayEmployeeData with:', response, registrationData);
                     this.displayEmployeeData(response, registrationData);
                     this.updateStatus('Employee found', 'ready');
                     console.log('✅ Employee details loaded successfully');
-                }
+            }
             } else {
                 this.showError('PTFI employee not found in the system');
                 this.updateStatus('PTFI ID Card not found', 'error');
@@ -257,7 +257,7 @@ class RFIDReader {
             }
             
             // Add timeout
-            xhr.timeout = 10000; // 10 seconds
+            xhr.timeout = 5000; // Reduced from 10 to 5 seconds
             
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
@@ -878,18 +878,18 @@ class RFIDReader {
                     </div>
                 `;
             } else {
-                entityItem.innerHTML = `
-                    <div class="entity-main-line">
-                        <span class="entity-main-name">${name}</span>
-                        <span class="entity-main-operator">${operatorName}</span>
-                        <span class="entity-main-employee">${employeeId}</span>
-                        <span class="entity-role-badge ${roleClass}">${role}</span>
-                    </div>
-                    <div class="entity-location compact">
-                        <span class="zone">Zone:${zone}</span>
-                        <span class="coordinates"> ${coordinates[0]},${coordinates[1]},${coordinates[2]}</span>
-                    </div>
-                `;
+            entityItem.innerHTML = `
+                <div class="entity-main-line">
+                    <span class="entity-main-name">${name}</span>
+                    <span class="entity-main-operator">${operatorName}</span>
+                    <span class="entity-main-employee">${employeeId}</span>
+                    <span class="entity-role-badge ${roleClass}">${role}</span>
+                </div>
+                <div class="entity-location compact">
+                    <span class="zone">Zone:${zone}</span>
+                    <span class="coordinates"> ${coordinates[0]},${coordinates[1]},${coordinates[2]}</span>
+                </div>
+            `;
             }
             
             // Check if this entity is currently selected
@@ -927,6 +927,9 @@ class RFIDReader {
                     // Personal node has assignment - show assigned employee details immediately
                     console.log('📋 Personal node has assignment:', entity.properties.operator_name, entity.properties.employee_id);
                     
+                    // Update button text to "Reset Selection" immediately (before API call)
+                    this.updateScanButtonText('Reset Selection');
+                    
                     try {
                         console.log('🔍 Fetching assigned employee details for ID:', entity.properties.employee_id);
                         const assignedEmployeeUrl = `${this.apiBaseUrl}/getPTFIDetailsEmployee?employee_id=${entity.properties.employee_id}`;
@@ -945,9 +948,6 @@ class RFIDReader {
                             
                             // Update status to show this is the assigned employee
                             this.updateStatus(`Showing assigned employee: ${assignedEmployeeData.NAME}`, 'ready');
-                            
-                            // Update button text to "Reset Selection"
-                            this.updateScanButtonText('Reset Selection');
                 } else {
                             console.log('❌ Could not fetch assigned employee details');
                             this.showError('Could not load assigned employee details');
@@ -1366,26 +1366,26 @@ class RFIDReader {
                                 console.log('✅ Assignment successful with correct OID:', assignResult);
                                 console.log('📊 Assignment result details:', JSON.stringify(assignResult, null, 2));
                                 resolve(assignResult);
-                            } catch (e) {
-                                console.log('❌ Assignment response parse error:', e);
+                        } catch (e) {
+                            console.log('❌ Assignment response parse error:', e);
                                 console.log('📡 Raw response:', xhr.responseText);
                                 reject(new Error('Invalid JSON response from assignment'));
-                            }
-                        } else {
-                            console.log('❌ Assignment failed:', xhr.status, xhr.statusText);
-                            console.log('📡 Error response:', xhr.responseText);
-                            reject(new Error(`HTTP Error ${xhr.status}: ${xhr.statusText}`));
                         }
+                    } else {
+                        console.log('❌ Assignment failed:', xhr.status, xhr.statusText);
+                            console.log('📡 Error response:', xhr.responseText);
+                        reject(new Error(`HTTP Error ${xhr.status}: ${xhr.statusText}`));
                     }
-                };
-                
-                xhr.onerror = function() {
-                    console.log('❌ Assignment network error');
-                    reject(new Error('Network Error: Cannot connect to API server'));
-                };
-                
-                xhr.send();
-            });
+                }
+            };
+            
+            xhr.onerror = function() {
+                console.log('❌ Assignment network error');
+                reject(new Error('Network Error: Cannot connect to API server'));
+            };
+            
+            xhr.send();
+        });
             
         } catch (error) {
             console.log('❌ Error getting correct entity by MACHINE_NAME:', error);
@@ -1505,14 +1505,7 @@ class RFIDReader {
         const credentials = btoa('fmiacp:track1nd0');
             const personData = await this.makeAjaxRequest(personApiUrl, credentials);
         
-            console.log('📋 Person registration data:', personData);
-            console.log('📋 Person data type:', typeof personData);
-            console.log('📋 Person data length:', personData ? personData.length : 'null/undefined');
-        
-        if (personData && Array.isArray(personData) && personData.length > 0) {
-            console.log('📋 Sample person record:', personData[0]);
-            console.log('📋 All person names:', personData.map(p => p.PERSON_NAME));
-        }
+            console.log('📋 Person registration data loaded:', personData ? personData.length : 0, 'records');
             
             // Debug: Check if we got any data at all
             if (!personData) {
@@ -1597,9 +1590,7 @@ class RFIDReader {
                             // ULTS backend requires authentication, using fmiacp credentials
                             const entityCredentials = btoa('fmiacp:track1nd0');
                             const entityData = await this.makeAjaxRequest(entityApiUrl, entityCredentials);
-                    console.log('📋 Entity assignment data:', entityData);
-                    console.log('📋 Entity data type:', typeof entityData);
-                    console.log('📋 Entity data length:', entityData ? entityData.length : 'null/undefined');
+                    console.log('📋 Entity assignment data loaded:', entityData ? entityData.length : 0, 'records');
                     
                     // Find entity assignment for this person
                     let entityAssignment = null;
@@ -1607,10 +1598,6 @@ class RFIDReader {
                     
                     if (entityData && Array.isArray(entityData)) {
                         console.log('📋 Searching for entity assignment with person OID:', person.OID, 'employee_id:', employeeId);
-                            console.log('📋 Person DISPLAY_NAME:', person.DISPLAY_NAME);
-                            console.log('📋 Available PERSON_OIDs sample:', entityData.slice(0,5).map(e => e.PERSON_OID));
-                            console.log('📋 Available OPERATOR_NAMEs sample:', entityData.slice(0,5).map(e => e.OPERATOR_NAME));
-                            console.log('📋 Total entity data count:', entityData.length);
                         
                             // Look for ALL entities where PERSON_OID matches the person's OID
                             const allAssignments = entityData.filter(e => 
