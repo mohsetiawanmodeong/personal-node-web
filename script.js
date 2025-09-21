@@ -1,14 +1,16 @@
 class RFIDReader {
     constructor() {
+        // Direct backend calls (proxy server not running in current setup)
         this.apiBaseUrl = 'http://172.16.175.60:4990/api';
-        // this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=160&minlastupdate=1800000'; //OB4 2 Flr -> 30 Menit
-        this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=112&minlastupdate=1800000'; //GBC Full Area -> 30 Menit
+        this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=160&minlastupdate=1800000'; //OB4 2 Flr -> 30 Menit
+        // this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=112&minlastupdate=1800000'; //GBC Full Area -> 30 Menit
         // this.autoZoneApiUrl = 'http://172.16.175.60:4990/api/getFLTAutoZoneEntitiesList?zone_oid=130&minlastupdate=1800000'; //GBC RTA Office Only -> 30 Menit
         this.currentInput = '';
         this.isScanning = false;
         this.scanTimeout = null;
         this.autoZoneInterval = null;
-        this.autoZoneIntervalTime = 5000; // 5 seconds
+        this.autoZoneIntervalTime = 5000;
+        this.selectedEntity = null; // Store clicked entity for auto-assignment
         
         this.initializeEventListeners();
         this.updateStatus('Ready to Scan', 'ready');
@@ -106,15 +108,53 @@ class RFIDReader {
             if (response && response.EMPLOYEE_ID) {
                 console.log('📊 Employee data found:', response);
                 
-                // Check registration status in admin-person
-                const employeeIdWithoutZeros = response.EMPLOYEE_ID.replace(/^0+/, ''); // Remove leading zeros
-                console.log('🔍 Checking registration for ID:', employeeIdWithoutZeros);
-                const registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, credentials);
-                console.log('📊 Registration data result:', registrationData);
+            // Check registration status in admin-person
+            const employeeIdWithoutZeros = response.EMPLOYEE_ID.replace(/^0+/, ''); // Remove leading zeros
+            const employeeIdOriginal = response.EMPLOYEE_ID; // Keep original with leading zeros
+            console.log('🔍 Checking registration for ID:', employeeIdWithoutZeros, 'Original:', employeeIdOriginal);
+            
+            // getULTSPerson API doesn't require credentials (same as admin-person.html)
+            console.log('🔍 Checking person registration without credentials...');
+            let registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, null);
+            
+            console.log('📊 Registration data result:', registrationData);
                 
+                console.log('🎯 About to call displayEmployeeData with:', response, registrationData);
                 this.displayEmployeeData(response, registrationData);
                 this.updateStatus('Employee found', 'ready');
                 console.log('✅ Employee details loaded successfully');
+            
+            // Handle assignment flow based on personal node selection
+            console.log('🔗 Processing employee data...');
+            
+            if (this.selectedEntity && this.selectedEntity.properties) {
+                // Assignment Mode: Personal node is selected
+                const entityProps = this.selectedEntity.properties;
+                const hasOperatorName = entityProps.operator_name && entityProps.operator_name !== 'undefined';
+                const hasEmployeeId = entityProps.employee_id && entityProps.employee_id !== 'undefined';
+                
+                console.log('📱 Personal node selected:', entityProps.name);
+                console.log('📱 Has operator_name:', hasOperatorName, '(', entityProps.operator_name, ')');
+                console.log('📱 Has employee_id:', hasEmployeeId, '(', entityProps.employee_id, ')');
+                
+                if (!hasOperatorName || !hasEmployeeId) {
+                    // Case A: Empty personal node - auto-assign
+                    console.log('🔗 Personal node is empty - proceeding with auto-assignment');
+                    await this.handleAutoAssignment(response, employeeIdWithoutZeros, credentials);
+                } else {
+                    // Case B: Personal node has assignment - scanned employee will overwrite the assignment
+                    console.log('📋 Personal node already assigned, but scanned employee will overwrite assignment');
+                    console.log('📋 Current assignment:', entityProps.operator_name, entityProps.employee_id);
+                    console.log('📋 New employee to assign:', response.NAME, response.EMPLOYEE_ID);
+                    
+                    // Proceed with assignment (this will overwrite the existing assignment)
+                    await this.handleAutoAssignment(response, employeeIdWithoutZeros, credentials);
+                }
+            } else {
+                // Scan Mode: No personal node selected - just show employee details
+                console.log('📋 No personal node selected - showing employee details only');
+                // Employee details already displayed by displayEmployeeData above
+            }
             } else {
                 this.showError('PTFI employee not found in the system');
                 this.updateStatus('PTFI ID Card not found', 'error');
@@ -237,7 +277,7 @@ class RFIDReader {
             photoElement.src = photoUrl;
         } else {
             // Use default placeholder
-            photoElement.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjOUNBM0FGIi8+CjxwYXRoIGQ9Ik0yMCA4MEMyMCA2NS42NDA2IDMyLjY0MD2IDUzIDQ3IDUzSDYzQzc3LjM1OTQgNTMgOTAgNjUuNjQwNiA5MCA4MFYxMDBIMjBWODBaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPg==';
+            photoElement.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjOUNBM0FGIi8+CjxwYXRoIGQ9Ik0yMCA4MEMyMCA2NS42NDA2IDMyLjY0MDYgNTMgNDcgNTNINjNDNzcuMzU5NCA1MyA5MCA2NS42NDA2IDkwIDgwVjEwMEgyMFY4MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+';
         }
 
         // Add success animation
@@ -249,7 +289,7 @@ class RFIDReader {
             return 'N/A';
         }
         
-        // Mapping NODE prefix to GROUP name based on provided list
+        // Mapping NODE prefix to GROUP name based on actual database data
         const nodeToGroupMapping = {
             'OC1-': 'OFF/ON BOARD CREW 1',
             'OC2-': 'OFF/ON BOARD CREW 2', 
@@ -265,7 +305,7 @@ class RFIDReader {
             'OMT-': 'OPERATIONS MAINTENANCE',
             'MIS-': 'MIS',
             'UGT-': 'UG TECHNOLOGY',
-            'UGM-': 'UG MINE'
+            'UGM-': 'UG MINE'  // UGM- maps to UG MINE (based on actual database screenshot showing UGM-43 has ENTITYGROUPROLE_OID: 46)
         };
         
         // Find matching prefix
@@ -279,8 +319,53 @@ class RFIDReader {
         return 'N/A';
     }
 
+    // Get ENTITYGROUPROLE_OID based on personal node prefix and role
+    getEntityGroupRoleOid(nodeName, role = 'WORKER') {
+        if (!nodeName || nodeName === 'N/A') {
+            return 1; // Default
+        }
+        
+        // Mapping based on actual database data from screenshots
+        // ENTITYGROUPROLE_OID mapping for WORKER role
+        const nodeToEntityGroupRoleMapping = {
+            'OC1-': 2,   // OFF/ON BOARD CREW 1 + WORKER
+            'OC2-': 5,   // OFF/ON BOARD CREW 2 + WORKER
+            'SC1-': 8,   // SETUP CREW 1 + WORKER
+            'SC2-': 11,  // SETUP CREW 2 + WORKER
+            'SC3-': 14,  // SETUP CREW 3 + WORKER
+            'OC3-': 17,  // OFF/ON BOARD CREW 3 + WORKER
+            'DPC-': 20,  // DEPLOYMENT CREW + WORKER
+            'OSD-': 26,  // OFF/ON SET DAY CREW + WORKER
+            'INS-': 29,  // INSTRUMENTATION + WORKER
+            'CS-': 32,   // CENTRAL SERVICES + WORKER
+            'ERT-': 35,  // EMERGENCY RESPONSE TEAM + RESCUE
+            'OMT-': 36,  // OPERATIONS MAINTENANCE + WORKER
+            'MIS-': 39,  // MIS + WORKER
+            'UGT-': 42,  // UG TECHNOLOGY + WORKER
+            'UGM-': 46   // UG MINE + WORKER (based on actual database screenshot showing UGM-43 has ENTITYGROUPROLE_OID: 46)
+        };
+        
+        // Find matching prefix
+        for (const [prefix, entityGroupRoleOid] of Object.entries(nodeToEntityGroupRoleMapping)) {
+            if (nodeName.startsWith(prefix)) {
+                console.log(`📱 Node ${nodeName} -> ENTITYGROUPROLE_OID: ${entityGroupRoleOid} (${this.getGroupFromNode(nodeName)} + ${role})`);
+                return entityGroupRoleOid;
+            }
+        }
+        
+        // Default fallback
+        console.log(`📱 Node ${nodeName} -> Using default ENTITYGROUPROLE_OID: 1`);
+        return 1;
+    }
+
     // Update registration status display
     updateRegistrationStatus(registrationData) {
+                console.log('🎯 updateRegistrationStatus called with:', JSON.stringify(registrationData, null, 2));
+        console.log('🎯 registrationData.isRegistered:', registrationData?.isRegistered);
+        console.log('🎯 registrationData.entityName:', registrationData?.entityName);
+        console.log('🎯 typeof registrationData:', typeof registrationData);
+        console.log('🎯 Object.keys(registrationData):', Object.keys(registrationData || {}));
+        
         // Find or create registration status element
         let statusElement = document.getElementById('registrationStatus');
         if (!statusElement) {
@@ -374,10 +459,183 @@ class RFIDReader {
                     <div class="status-header">
                         <span class="status-icon">❌</span><span class="status-text">NOT REGISTERED</span>
                     </div>
+                    <div class="registration-form">
+                        <h4>Register Employee</h4>
+                        <div class="form-grid">
+                            <div class="form-item">
+                                <label>Person Name:</label>
+                                <input type="text" id="personName" placeholder="Full name" readonly />
+                            </div>
+                            <div class="form-item">
+                                <label>Display Name:</label>
+                                <input type="text" id="displayName" placeholder="First initial + Last name" maxlength="8" readonly />
+                            </div>
+                            <div class="form-item">
+                                <label>Employee ID:</label>
+                                <input type="text" id="employeeIdInput" placeholder="Employee ID" readonly />
+                            </div>
+                            <div class="form-item">
+                                <label>Entity Group:</label>
+                                <input type="text" id="entityGroupDisplay" value="UG MINE" readonly />
+                            </div>
+                            <div class="form-item">
+                                <label>Role:</label>
+                                <input type="text" id="roleDisplay" value="WORKER" readonly />
+                            </div>
+                            <div class="form-item">
+                                <button class="btn btn-primary" onclick="insertEmployeeDefault()">
+                                    <div class="icon-plus"></div>
+                                    Insert Employee
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             `;
             statusElement.className = 'registration-status not-registered';
+            
+            // Populate form with employee data
+            this.populateRegistrationFormDefault();
         }
+    }
+
+    // Populate registration form with employee data (default version)
+    populateRegistrationFormDefault() {
+        // Get current employee data
+        const employeeName = document.getElementById('employeeName').textContent;
+        const employeeId = document.getElementById('employeeId').textContent.replace('ID: ', '');
+        
+        // Populate person name with full name
+        document.getElementById('personName').value = employeeName;
+        
+        // Generate display name: First initial + space + 6 chars from last name
+        const nameParts = employeeName.split(' ');
+        if (nameParts.length >= 2) {
+            const firstName = nameParts[0];
+            const lastName = nameParts[nameParts.length - 1];
+            const displayName = firstName.charAt(0) + ' ' + lastName.substring(0, 6);
+            document.getElementById('displayName').value = displayName;
+        }
+        
+        // Populate employee ID (remove leading zeros)
+        const cleanEmployeeId = employeeId.replace(/^0+/, '');
+        document.getElementById('employeeIdInput').value = cleanEmployeeId;
+    }
+
+    // Insert employee with default values (UG MINE, WORKER)
+    async insertEmployeeDefault() {
+        try {
+            const personName = document.getElementById('personName').value.trim();
+            const displayName = document.getElementById('displayName').value.trim();
+            const employeeId = document.getElementById('employeeIdInput').value.trim();
+            
+            // Validation
+            if (!personName || !displayName || !employeeId) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            // Default values
+            const entityGroupOid = 16; // UG MINE
+            const role = 'WORKER';
+            const entityGroupRoleOid = 46; // UG MINE + WORKER combination
+            
+            console.log('🔍 Inserting with default values:');
+            console.log('  - Person Name:', personName);
+            console.log('  - Display Name:', displayName);
+            console.log('  - Employee ID:', employeeId);
+            console.log('  - Entity Group OID:', entityGroupOid);
+            console.log('  - Role:', role);
+            console.log('  - Entity Group Role OID:', entityGroupRoleOid);
+            
+            // Prepare data for insertion
+            const personData = {
+                ACTIVE: true,
+                PERSON_NAME: personName,
+                DISPLAY_NAME: displayName,
+                EMPLOYEE_ID: employeeId,
+                ENTITYGROUPROLE_OID: entityGroupRoleOid,
+                ROLE: role
+            };
+            
+            const username = 'fmiacp';
+            const password = 'track1nd0';
+            const credentials = btoa(username + ':' + password);
+            
+            console.log('🔍 Inserting person data:', personData);
+            const insertResult = await this.insertPersonData(personData, credentials);
+            
+            if (insertResult) {
+                console.log('✅ Employee registered successfully!');
+                
+                // If there's a selected entity (clicked personal node), auto-assign
+                if (this.selectedEntity && this.selectedEntity.properties) {
+                    console.log('🔗 Auto-assigning employee to selected entity:', this.selectedEntity.properties.name);
+                    
+                    // Create mock employee data for the assignment flow
+                    const mockEmployeeData = {
+                        NAME: personName,
+                        EMPLOYEE_ID: employeeId
+                    };
+                    
+                    await this.handleAutoAssignment(mockEmployeeData, employeeId, credentials);
+                } else {
+                // Refresh registration status
+                const employeeIdWithoutZeros = employeeId.replace(/^0+/, '');
+                const registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, credentials);
+                this.updateRegistrationStatus(registrationData);
+                }
+            } else {
+                alert('Failed to register employee');
+            }
+            
+        } catch (error) {
+            console.error('Error inserting employee with default values:', error);
+            alert('Error registering employee: ' + error.message);
+        }
+    }
+
+    // Insert person data via API
+    async insertPersonData(personData, credentials) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            xhr.open('PUT', `${this.apiBaseUrl}/updateULTSPerson`, true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.setRequestHeader('Authorization', 'Basic ' + credentials);
+            
+            // Convert object to URL-encoded format (like jQuery.param)
+            const formData = Object.keys(personData)
+                .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(personData[key]))
+                .join('&');
+            
+            console.log('🔍 Sending form data:', formData);
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            console.log('✅ Person inserted successfully:', data);
+                            resolve(data);
+                        } catch (e) {
+                            console.log('❌ Insert response parse error:', e);
+                            reject(new Error('Invalid JSON response'));
+                        }
+                    } else {
+                        console.log('❌ Insert failed:', xhr.status, xhr.statusText);
+                        reject(new Error(`HTTP Error ${xhr.status}: ${xhr.statusText}`));
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                console.log('❌ Insert network error');
+                reject(new Error('Network Error: Cannot connect to API server'));
+            };
+            
+            xhr.send(formData);
+        });
     }
 
     showError(message) {
@@ -429,27 +687,6 @@ class RFIDReader {
         }
     }
 
-    scanAgain() {
-        // Keep two-column layout visible
-        const layout = document.getElementById('twoColumnLayout');
-        if (layout) layout.style.display = 'grid';
-
-        // Hide employee card and error
-        const employeeCard = document.getElementById('employeeCard');
-        const errorMsg = document.getElementById('errorMessage');
-        if (employeeCard) employeeCard.style.display = 'none';
-        if (errorMsg) errorMsg.style.display = 'none';
-
-        // Show scan panel on right
-        const scanArea = document.getElementById('scanArea');
-        if (scanArea) scanArea.style.display = 'block';
-
-        // Reset status and scanning state
-        this.updateStatus('Ready to Scan', 'ready');
-        this.resetScan();
-        this.hideScanAnimation();
-    }
-
     // Start Real-time Auto Zone Data
     startAutoZoneRealtime() {
         // Load initial data
@@ -493,6 +730,8 @@ class RFIDReader {
     displayAutoZoneEntities(entities) {
         const entitiesList = document.getElementById('entitiesList');
         
+        console.log('📊 Raw entities data from API:', JSON.stringify(entities, null, 2));
+        
         if (!entities || entities.length === 0) {
             entitiesList.innerHTML = '<div class="entity-item"><p>No entities found in Auto Zone</p></div>';
             return;
@@ -531,6 +770,10 @@ class RFIDReader {
             const employeeId = entity.properties.employee_id || 'N/A';
             const role = entity.properties.role || 'UNKNOWN';
             
+            // Log each entity for debugging
+            console.log(`📱 Entity: ${name}, Operator: ${operatorName}, Employee: ${employeeId}, Role: ${role}`);
+            console.log(entity.properties.name);
+            
             // Determine role and color class
             const roleClass = this.getRoleClass(role);
             const isUnassigned = (operatorName && name && operatorName.trim() === name.trim());
@@ -540,37 +783,83 @@ class RFIDReader {
             const zone = entity.ZONES && entity.ZONES.length > 0 ? entity.ZONES[0].NAME : 'Unknown Zone';
             
             entityItem.innerHTML = `
-                <div class=\"entity-main-line\">
-                    <span class=\"entity-main-name\">${name}</span>
-                    <span class=\"entity-main-operator\">${operatorName}</span>
-                    <span class=\"entity-main-employee\">${employeeId}</span>
-                    <span class=\"entity-role-badge ${roleClass}\">${role}</span>
+                <div class="entity-main-line">
+                    <span class="entity-main-name">${name}</span>
+                    <span class="entity-main-operator">${operatorName}</span>
+                    <span class="entity-main-employee">${employeeId}</span>
+                    <span class="entity-role-badge ${roleClass}">${role}</span>
                 </div>
-                <div class=\"entity-location compact\">
-                    <span class=\"zone\">Zone:${zone}</span>
-                    <span class=\"coordinates\"> ${coordinates[0]},${coordinates[1]},${coordinates[2]}</span>
+                <div class="entity-location compact">
+                    <span class="zone">Zone:${zone}</span>
+                    <span class="coordinates"> ${coordinates[0]},${coordinates[1]},${coordinates[2]}</span>
                 </div>
             `;
             
-            // Clickable: show in employee card (if worker and has identification)
-            entityItem.style.cursor = 'pointer';
-            entityItem.addEventListener('click', () => {
-                console.log('🖱️ Entity clicked:', entity.properties.name);
-                // Add visual feedback
+            // Check if this entity is currently selected
+            if (this.selectedEntity && this.selectedEntity.properties && 
+                this.selectedEntity.properties.name === entity.properties.name) {
+                // Restore visual feedback for previously selected node
+                entityItem.classList.add('selected-node');
                 entityItem.style.backgroundColor = '#e0f2fe';
-                setTimeout(() => {
-                    entityItem.style.backgroundColor = '';
-                }, 200);
+                entityItem.style.boxShadow = '0 0 10px rgba(0, 123, 255, 0.5)';
+                entityItem.style.border = '2px solid #007bff';
+            }
+            
+            // Clickable: select personal node for assignment
+            entityItem.style.cursor = 'pointer';
+            entityItem.addEventListener('click', async () => {
+                console.log('🖱️ Personal node clicked:', entity.properties.name);
+                console.log('📋 Full entity data:', JSON.stringify(entity, null, 2));
                 
-                // Get employee_id and format it with leading zeros
-                const employeeId = entity.properties.employee_id;
-                if (employeeId) {
-                    // Format employee_id with leading zeros (10 digits total)
-                    const formattedEmployeeId = employeeId.toString().padStart(10, '0');
-                    console.log('🔍 Fetching employee details for ID:', formattedEmployeeId);
-                    this.fetchEmployeeDetails(formattedEmployeeId);
+                // Clear previous selection visual feedback
+                this.clearAllSelections();
+                
+                // Store the clicked entity for auto-assignment
+                this.selectedEntity = entity;
+                
+                // Add visual feedback for selected node
+                entityItem.classList.add('selected-node');
+                entityItem.style.backgroundColor = '#e0f2fe';
+                entityItem.style.boxShadow = '0 0 10px rgba(0, 123, 255, 0.5)';
+                entityItem.style.border = '2px solid #007bff';
+                
+                // Check if this personal node has an assigned employee
+                const hasOperatorName = entity.properties.operator_name && entity.properties.operator_name !== 'undefined';
+                const hasEmployeeId = entity.properties.employee_id && entity.properties.employee_id !== 'undefined';
+                
+                if (hasOperatorName && hasEmployeeId) {
+                    // Personal node has assignment - show assigned employee details immediately
+                    console.log('📋 Personal node has assignment:', entity.properties.operator_name, entity.properties.employee_id);
+                    
+                    try {
+                        console.log('🔍 Fetching assigned employee details for ID:', entity.properties.employee_id);
+                        const assignedEmployeeUrl = `${this.apiBaseUrl}/getPTFIDetailsEmployee?employee_id=${entity.properties.employee_id}`;
+                        const assignedEmployeeCredentials = btoa('fmiacp:track1nd0');
+                        const assignedEmployeeData = await this.makeAjaxRequest(assignedEmployeeUrl, assignedEmployeeCredentials);
+                        
+                        if (assignedEmployeeData && assignedEmployeeData.EMPLOYEE_ID) {
+                            console.log('✅ Assigned employee data found:', assignedEmployeeData);
+                            
+                            // Check registration status for the assigned employee
+                            const assignedEmployeeIdClean = assignedEmployeeData.EMPLOYEE_ID.replace(/^0+/, '');
+                            const assignedRegistrationData = await this.checkPersonRegistration(assignedEmployeeIdClean, null);
+                            
+                            // Display the assigned employee's details
+                            this.displayEmployeeData(assignedEmployeeData, assignedRegistrationData);
+                            
+                            // Update status to show this is the assigned employee
+                            this.updateStatus(`Showing assigned employee: ${assignedEmployeeData.NAME}`, 'ready');
+                        } else {
+                            console.log('❌ Could not fetch assigned employee details');
+                            this.showError('Could not load assigned employee details');
+                        }
+                    } catch (error) {
+                        console.error('❌ Error fetching assigned employee:', error);
+                        this.showError('Error loading assigned employee: ' + error.message);
+                    }
                 } else {
-                    console.error('❌ No employee_id found for entity:', entity.properties.name);
+                    // Personal node is empty - show ready for assignment message
+                    this.showReadyForAssignment(entity.properties.name);
                 }
             });
 
@@ -580,93 +869,495 @@ class RFIDReader {
         console.log(`✅ Displayed ${filteredEntities.length} personal nodes (filtered from ${entities.length} total entities)`);
     }
 
-    // Populate employee card from entity data
-    populateEmployeeCardFromEntity(entity) {
-        console.log('📋 Populating employee card for:', entity.properties.name);
+    // Clear all visual selections from personal nodes
+    clearAllSelections() {
+        console.log('🔄 clearAllSelections() called');
+        const allNodes = document.querySelectorAll('.entity-item');
+        console.log('🔍 Found entity items:', allNodes.length);
         
-        // Hide scan area and error message
-        document.getElementById('scanArea').style.display = 'none';
-        document.getElementById('errorMessage').style.display = 'none';
+        allNodes.forEach((node, index) => {
+            console.log(`🔍 Clearing node ${index}:`, node);
+            node.classList.remove('selected-node');
+            node.style.backgroundColor = '';
+            node.style.boxShadow = '';
+            node.style.border = '';
+            node.style.borderLeft = '';
+        });
         
-        // Show two column layout (already visible, but ensure)
-        document.getElementById('twoColumnLayout').style.display = 'grid';
-
-        // Show employee card
-        const employeeCard = document.getElementById('employeeCard');
-        employeeCard.style.display = 'block';
-        console.log('👤 Employee card displayed:', employeeCard.style.display);
-
-        // Update employee information
-        document.getElementById('employeeName').textContent = entity.properties.name || '-';
-        document.getElementById('employeeId').textContent = `ID: ${entity.properties.employee_id || '-'}`;
-        document.getElementById('employeeCompany').textContent = entity.properties.role || '-'; // Using role as placeholder for company
-        document.getElementById('employeeDepartment').textContent = 'N/A'; // Placeholder
-        document.getElementById('employeeJobTitle').textContent = entity.properties.role || 'N/A'; // Placeholder
-        document.getElementById('employeeEmail').textContent = 'N/A'; // Placeholder
-        document.getElementById('employeeSite').textContent = entity.ZONES && entity.ZONES.length > 0 ? entity.ZONES[0].NAME : 'N/A'; // Using zone as site address
-
-        // Update employee photo (using a generic placeholder for now as API doesn't provide photo URL)
-        const photoElement = document.getElementById('employeePhoto');
-        photoElement.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjOUNBM0FGIi8+CjxwYXRoIGQ9Ik0yMCA4MEMyMCA2NS42NDA2IDMyLjY0MDYgNTMgNDcgNTNINjNDNzcuMzU5NCA1MyA5MCA2NS42NDA2IDkwIDgwVjEwMEgyMFY4MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'; // Default placeholder
+        // Clear selected entity and reset button to green
+        this.selectedEntity = null;
+        this.updateScanButtonText('Scan Again');
         
-        // Add success animation
-        employeeCard.style.animation = 'slideIn 0.5s ease-out';
-        console.log('✅ Employee card population completed for:', entity.properties.name);
+        console.log('✅ All visual selections cleared and button reset to green');
     }
 
-    // Fetch employee details from API
-    async fetchEmployeeDetails(employeeId) {
-        try {
-            this.showLoading();
-            
-            const username = 'fmiacp';
-            const password = 'track1nd0';
-            const credentials = btoa(username + ':' + password);
-            
-            const apiUrl = `${this.apiBaseUrl}/getPTFIDetailsEmployee?employee_id=${employeeId}`;
-            console.log('🌐 Calling API:', apiUrl);
-            
-            const data = await this.makeAjaxRequest(apiUrl, credentials);
-            
-            console.log('📊 Raw API response:', data);
-            console.log('📊 Data type:', typeof data);
-            console.log('📊 Data length:', data ? data.length : 'null/undefined');
-            
-            if (data && data.EMPLOYEE_ID) {
-                console.log('📊 Employee data found:', data);
-                
-                // Check registration status in admin-person
-                const employeeIdWithoutZeros = employeeId.replace(/^0+/, ''); // Remove leading zeros
-                console.log('🔍 Checking registration for ID:', employeeIdWithoutZeros);
-                const registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, credentials);
-                console.log('📊 Registration data result:', registrationData);
-                
-                this.displayEmployeeData(data, registrationData);
-                console.log('✅ Employee details loaded successfully');
+    // Update scan button text to "Reset Selection" and change functionality
+    updateScanButtonText(text) {
+        console.log(`🔄 updateScanButtonText() called with text: "${text}"`);
+        const headerText = document.getElementById('scanAgainText');
+        const headerButton = document.getElementById('scanAgainBtn');
+        console.log('🔍 Looking for scanAgainText element:', headerText);
+        console.log('🔍 Looking for scanAgainBtn element:', headerButton);
+        
+        if (headerText) {
+            headerText.textContent = text;
+            console.log(`✅ Button text updated to: ${text}`);
+        } else {
+            console.log('❌ scanAgainText element not found!');
+        }
+        
+        // Apply red styling when in "Reset Selection" mode
+        if (headerButton) {
+            if (text === 'Reset Selection') {
+                headerButton.classList.add('reset-mode');
+                console.log('🔴 Applied red styling for Reset Selection mode');
             } else {
-                this.showError(`No employee data found for ID: ${employeeId}`);
-                console.log('❌ No employee data found - data:', data);
+                headerButton.classList.remove('reset-mode');
+                console.log('🟢 Applied green styling for Scan Again mode');
             }
-            
-        } catch (error) {
-            console.error('❌ Error fetching employee details:', error);
-            this.showError(`Failed to load employee details: ${error.message}`);
-        } finally {
-            this.hideLoading();
+        } else {
+            console.log('❌ scanAgainBtn element not found!');
         }
     }
 
-    // Check person registration in admin-person and admin-entity system
-    async checkPersonRegistration(employeeId, credentials) {
-        try {
-            // First check if person exists in admin-person
-            const personApiUrl = `${this.apiBaseUrl}/getULTSPerson`;
-            console.log('🔍 Checking person registration:', personApiUrl);
+    // Show ready for assignment message
+    showReadyForAssignment(entityName) {
+        // Keep scan area visible - don't change layout
+        document.getElementById('scanArea').style.display = 'block';
+        document.getElementById('employeeCard').style.display = 'none';
+        
+        // Change button text to "Reset Selection"
+        this.updateScanButtonText('Reset Selection');
+        
+        // Get group name and ENTITYGROUPROLE_OID for this node
+        const groupName = this.getGroupFromNode(entityName);
+        const entityGroupRoleOid = this.getEntityGroupRoleOid(entityName, 'WORKER');
+        
+        // Update scan area message to show assignment mode
+        const scanArea = document.getElementById('scanArea');
+        if (scanArea) {
+            const h2Elements = scanArea.querySelectorAll('h2');
             
-            const personData = await this.makeAjaxRequest(personApiUrl, credentials);
-            console.log('📋 Person registration data:', personData);
-            console.log('📋 Person data type:', typeof personData);
-            console.log('📋 Person data length:', personData ? personData.length : 'null/undefined');
+            if (h2Elements.length >= 1) {
+                h2Elements[0].textContent = 'Ready to Scan - Auto Assignment Mode';
+            }
+            
+            if (h2Elements.length >= 2) {
+                h2Elements[1].textContent = 'Scan PTFI ID Card';
+            }
+        }
+        
+        const scanSubtitle = document.querySelector('#scanArea p');
+        if (scanSubtitle) {
+            scanSubtitle.innerHTML = `
+                <strong>Personal Node Selected:</strong> ${entityName}<br>
+                <strong>Auto Settings:</strong> Role: WORKER, Group: ${groupName}<br>
+                Scan an employee ID card to automatically register and assign.
+            `;
+        }
+        
+        // Update status
+        this.updateStatus('Ready to Scan - Auto Assignment Mode', 'ready');
+        
+        console.log(`🎯 Personal node ${entityName} selected for auto-assignment`);
+        console.log(`📋 Auto settings: Role=WORKER, Group=${groupName}, ENTITYGROUPROLE_OID=${entityGroupRoleOid}`);
+    }
+
+    // Handle complete auto-assignment flow
+    async handleAutoAssignment(employeeData, employeeId, credentials) {
+        try {
+            console.log('🔄 Starting auto-assignment flow for employee:', employeeData.NAME);
+            
+            if (!this.selectedEntity || !this.selectedEntity.properties) {
+                // No personal node selected - just show employee details
+                console.log('📋 No personal node selected - showing employee details only');
+                this.displayEmployeeData(employeeData, null);
+                return;
+            }
+            
+            const entityName = this.selectedEntity.properties.name;
+            const entityOid = this.selectedEntity.properties.oid;
+            
+            console.log('📱 Selected personal node:', entityName, 'OID:', entityOid);
+            console.log('🔍 Selected entity properties:', JSON.stringify(this.selectedEntity.properties, null, 2));
+            
+            // Check if employee is registered and update group if needed
+            const registrationData = await this.checkPersonRegistration(employeeId, credentials);
+            console.log('📊 Current registration status:', registrationData);
+            
+            if (registrationData.isRegistered) {
+                // Employee exists - update group based on personal node name
+                console.log('🔄 Employee already registered, updating group...');
+                await this.updatePersonGroupByEmployeeId(employeeId, entityName, credentials);
+            } else {
+                // Employee not registered - auto-register with correct group
+                console.log('📝 Employee not registered, auto-registering...');
+                await this.autoRegisterEmployee(employeeData, employeeId, credentials);
+            }
+            
+            // Perform assignment using MACHINE_NAME
+            console.log('🔗 Assigning employee to personal node:', entityName);
+            const assignmentResult = await this.updateEntityAssignmentByMachineName(entityName, employeeId, credentials);
+            
+                if (assignmentResult) {
+                    alert(`Employee "${employeeData.NAME}" assigned to personal node "${entityName}" successfully!`);
+                    
+                    // Clear selected entity
+                    this.selectedEntity = null;
+                    
+                    // Wait a moment for database to update, then refresh entities list
+                    console.log('⏳ Waiting for database update...');
+                    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds for DB update
+                    
+                    // Force refresh entities list to show updated operator_name
+                    console.log('🔄 Force refreshing personal nodes list...');
+                    await this.loadAutoZoneData();
+                    
+                    // Also refresh employee data to show latest assignment
+                    console.log('🔄 Refreshing employee data to show latest assignment...');
+                    const credentials = btoa('admin:track1nd0');
+                    const updatedRegistrationData = await this.checkPersonRegistration(employeeId, credentials);
+                    console.log('📊 Updated registration data:', updatedRegistrationData);
+                    
+                    // Update the display with latest assignment
+                    this.displayEmployeeData(employeeData, updatedRegistrationData);
+                    
+                    // Show success message and auto-reset countdown
+                    this.updateStatus('✅ Assignment Successful! Returning to scan mode in 2 seconds...', 'ready');
+                    
+                    // Auto-reset to scan mode after successful assignment
+                    console.log('🔄 Auto-assignment completed - resetting to scan mode to prevent double assignment');
+                    
+                    // Visual countdown for user feedback
+                    let countdown = 2;
+                    const countdownInterval = setInterval(() => {
+                        countdown--;
+                        if (countdown > 0) {
+                            this.updateStatus(`✅ Assignment Successful! Returning to scan mode in ${countdown} seconds...`, 'ready');
+                        } else {
+                            clearInterval(countdownInterval);
+                        }
+                    }, 1000);
+                    
+                    // Clear selection and reset button to prevent accidental double assignment
+                    setTimeout(() => {
+                        this.clearAllSelections();
+                        
+                        // Hide employee details and show scan area
+                        const scanArea = document.getElementById('scanArea');
+                        const employeeCard = document.getElementById('employeeCard');
+                        const errorMsg = document.getElementById('errorMessage');
+                        
+                        if (employeeCard) employeeCard.style.display = 'none';
+                        if (errorMsg) errorMsg.style.display = 'none';
+                        if (scanArea) scanArea.style.display = 'block';
+                        
+                        // Reset status to ready
+                        this.updateStatus('Assignment completed - Ready to Scan', 'ready');
+                        
+                        // Force refresh personal nodes to show updated assignment
+                        this.loadAutoZoneData();
+                        
+                        console.log('✅ Auto-assignment completed successfully - back to scan mode');
+                    }, 2000); // Give user 2 seconds to see the assignment result
+            } else {
+                    throw new Error('Failed to assign employee to personal node');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error in auto-assignment flow:', error);
+            alert('Error in auto-assignment: ' + error.message);
+        }
+    }
+
+    // Auto-register employee with default values
+    async autoRegisterEmployee(employeeData, employeeId, credentials) {
+        try {
+            // Generate display name: First initial + space + 6 chars from last name
+            const nameParts = employeeData.NAME.split(' ');
+            let displayName = 'Unknown';
+            if (nameParts.length >= 2) {
+                const firstName = nameParts[0];
+                const lastName = nameParts[nameParts.length - 1];
+                displayName = firstName.charAt(0) + ' ' + lastName.substring(0, 6);
+            }
+            
+            // Auto-detect role and group from personal node name
+            const entityName = this.selectedEntity.properties.name;
+            const role = 'WORKER'; // Always WORKER (default)
+            const entityGroupRoleOid = this.getEntityGroupRoleOid(entityName, role);
+            const groupName = this.getGroupFromNode(entityName);
+            
+            const personData = {
+                ACTIVE: true,
+                PERSON_NAME: employeeData.NAME,
+                DISPLAY_NAME: displayName,
+                EMPLOYEE_ID: employeeId,
+                ENTITYGROUPROLE_OID: entityGroupRoleOid,
+                ROLE: role
+            };
+            
+            console.log('🔍 Auto-registering person data:', personData);
+            console.log('📱 Personal node:', entityName, 'Role:', role, 'Group:', groupName, 'ENTITYGROUPROLE_OID:', entityGroupRoleOid);
+            
+            const insertResult = await this.insertPersonData(personData, credentials);
+            
+            return insertResult;
+            
+        } catch (error) {
+            console.error('❌ Error auto-registering employee:', error);
+            throw error;
+        }
+    }
+
+    // Get entity by MACHINE_NAME to avoid duplicate OID issues
+    async getEntityByMachineName(machineName, credentials) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            // Store apiBaseUrl in local variable to avoid context issues
+            const apiBaseUrl = this.apiBaseUrl;
+            console.log('🔍 API Base URL:', apiBaseUrl);
+            
+            // Get data from getULTSEntity to find entity by MACHINE_NAME
+            const entityUrl = `${apiBaseUrl}/getULTSEntity`;
+            console.log('🔍 Getting entity by MACHINE_NAME:', entityUrl);
+            
+            xhr.open('GET', entityUrl, true);
+            xhr.setRequestHeader('Authorization', 'Basic ' + credentials);
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            const entityData = JSON.parse(xhr.responseText);
+                            console.log('📊 ULTSENTITY data:', entityData);
+                            
+                            // Find ALL entities with matching MACHINE_NAME (there might be duplicates)
+                            const matchingEntities = entityData.filter(e => e.MACHINE_NAME === machineName);
+                            console.log('🔍 Found entities with MACHINE_NAME:', machineName, ':', matchingEntities);
+                            
+                            if (matchingEntities.length > 0) {
+                                // If multiple entities with same MACHINE_NAME, choose the one that's available for assignment
+                                // Priority: 1) Unassigned (OPERATOR_NAME === MACHINE_NAME), 2) Lowest OID (first created)
+                                const availableEntity = matchingEntities.find(e => 
+                                    e.OPERATOR_NAME === machineName || 
+                                    e.OPERATOR_NAME === 'undefined' || 
+                                    e.PERSON_OID === 0
+                                ) || matchingEntities[0]; // Fallback to first one
+                                
+                                console.log('✅ Selected entity for assignment:', availableEntity);
+                                console.log('🔍 Using ULTSENTITY OID:', availableEntity.OID, 'for MACHINE_NAME:', machineName);
+                                
+                                resolve({
+                                    ultsEntityOid: availableEntity.OID,
+                                    entity: availableEntity,
+                                    allMatches: matchingEntities
+                                });
+                            } else {
+                                console.log('❌ No entity found in ULTSENTITY with MACHINE_NAME:', machineName);
+                                reject(new Error('No entity found in ULTSENTITY with MACHINE_NAME: ' + machineName));
+                            }
+                        } catch (e) {
+                            console.log('❌ ULTSENTITY response parse error:', e);
+                            reject(new Error('Invalid JSON response from ULTSENTITY'));
+                        }
+                    } else {
+                        console.log('❌ ULTSENTITY request failed:', xhr.status, xhr.statusText);
+                        reject(new Error(`HTTP Error ${xhr.status}: ${xhr.statusText}`));
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                console.log('❌ ULTSENTITY network error');
+                reject(new Error('Network Error: Cannot connect to ULTSENTITY API server'));
+            };
+            
+            xhr.send();
+        });
+    }
+
+    // Update entity assignment via API using MACHINE_NAME to avoid duplicate OID issues
+    async updateEntityAssignmentByMachineName(machineName, employeeId, credentials) {
+        try {
+            // Get correct OID by matching MACHINE_NAME (not OID) to avoid duplicates
+            console.log('🔍 Getting correct entity OID by matching MACHINE_NAME...');
+            const entityMatch = await this.getEntityByMachineName(machineName, credentials);
+            
+            console.log('✅ Entity Match result:', entityMatch);
+            console.log('🔍 Using ULTSENTITY OID:', entityMatch.ultsEntityOid, 'for MACHINE_NAME:', machineName);
+            
+            // Perform assignment using correct entity_id from ULTSENTITY
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                const apiBaseUrl = this.apiBaseUrl;
+                const assignUrl = `${apiBaseUrl}/updateULTSEntityAssignment?entity_id=${entityMatch.ultsEntityOid}&employee_id=${employeeId}`;
+                
+                console.log('🔗 Calling assignment API with correct ULTSENTITY OID:', assignUrl);
+                console.log('🔍 Assignment - entity_id:', entityMatch.ultsEntityOid, 'employee_id:', employeeId, 'MACHINE_NAME:', machineName);
+                
+                xhr.open('GET', assignUrl, true);
+                xhr.setRequestHeader('Authorization', 'Basic ' + credentials);
+                
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        console.log('📡 Assignment API response status:', xhr.status);
+                        console.log('📡 Assignment API response text:', xhr.responseText);
+                        
+                        if (xhr.status === 200) {
+                            try {
+                                const assignResult = JSON.parse(xhr.responseText);
+                                console.log('✅ Assignment successful with correct OID:', assignResult);
+                                console.log('📊 Assignment result details:', JSON.stringify(assignResult, null, 2));
+                                resolve(assignResult);
+                        } catch (e) {
+                            console.log('❌ Assignment response parse error:', e);
+                                console.log('📡 Raw response:', xhr.responseText);
+                                reject(new Error('Invalid JSON response from assignment'));
+                        }
+                    } else {
+                        console.log('❌ Assignment failed:', xhr.status, xhr.statusText);
+                            console.log('📡 Error response:', xhr.responseText);
+                        reject(new Error(`HTTP Error ${xhr.status}: ${xhr.statusText}`));
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                console.log('❌ Assignment network error');
+                reject(new Error('Network Error: Cannot connect to API server'));
+            };
+            
+            xhr.send();
+        });
+            
+        } catch (error) {
+            console.log('❌ Error getting correct entity by MACHINE_NAME:', error);
+            throw error;
+        }
+    }
+
+    // Update person group using existing updateULTSPerson API (PUT method)
+    async updatePersonGroupByEmployeeId(employeeId, personalNodeName, credentials) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            // Store apiBaseUrl in local variable to avoid context issues
+            const apiBaseUrl = this.apiBaseUrl;
+            console.log('🔍 API Base URL:', apiBaseUrl);
+            
+            // Get group and role based on personal node name
+            const groupName = this.getGroupFromNode(personalNodeName);
+            const entityGroupRoleOid = this.getEntityGroupRoleOid(personalNodeName, 'WORKER');
+            
+            // First, get current person data
+            const getUrl = `${apiBaseUrl}/getULTSPerson`;
+            console.log('🔍 Getting current person data:', getUrl);
+            
+            xhr.open('GET', getUrl, true);
+            xhr.setRequestHeader('Authorization', 'Basic ' + credentials);
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            const personData = JSON.parse(xhr.responseText);
+                            console.log('📊 Current person data:', personData);
+                            
+                            // Find the person with matching employee_id
+                            const person = personData.find(p => p.EMPLOYEE_ID == employeeId);
+                            if (person) {
+                                console.log('✅ Found person to update:', person);
+                                
+                                // Update person data with new group
+                                const updatedPersonData = {
+                                    ...person,
+                                    ENTITYGROUPROLE_OID: entityGroupRoleOid,
+                                    ROLE: 'WORKER'
+                                };
+                                
+                                console.log('🔄 Updated person data:', updatedPersonData);
+                                
+                                // Now update the person using PUT method
+                                const xhr2 = new XMLHttpRequest();
+                                const updateUrl = `${apiBaseUrl}/updateULTSPerson`;
+                                
+                                console.log('🔗 Updating person with URL:', updateUrl);
+                                console.log('📊 Person data to update:', JSON.stringify(updatedPersonData, null, 2));
+                                
+                                xhr2.open('PUT', updateUrl, true);
+                                xhr2.setRequestHeader('Authorization', 'Basic ' + credentials);
+                                xhr2.setRequestHeader('Content-Type', 'application/json');
+                                
+                                xhr2.onreadystatechange = function() {
+                                    if (xhr2.readyState === 4) {
+                                        if (xhr2.status === 200) {
+                                            try {
+                                                const updateResult = JSON.parse(xhr2.responseText);
+                                                console.log('✅ Person group update successful:', updateResult);
+                                                resolve(updateResult);
+                                            } catch (e) {
+                                                console.log('❌ Person update response parse error:', e);
+                                                reject(new Error('Invalid JSON response from person update'));
+                                            }
+            } else {
+                                            console.log('❌ Person update failed:', xhr2.status, xhr2.statusText);
+                                            reject(new Error(`HTTP Error ${xhr2.status}: ${xhr2.statusText}`));
+                                        }
+                                    }
+                                };
+                                
+                                xhr2.onerror = function() {
+                                    console.log('❌ Person update network error');
+                                    reject(new Error('Network Error: Cannot connect to API server'));
+                                };
+                                
+                                xhr2.send(JSON.stringify(updatedPersonData));
+                            } else {
+                                console.log('❌ No person found with employee_id:', employeeId);
+                                reject(new Error('No person found with employee_id: ' + employeeId));
+                            }
+                        } catch (e) {
+                            console.log('❌ Person data response parse error:', e);
+                            reject(new Error('Invalid JSON response from person data'));
+                        }
+                    } else {
+                        console.log('❌ Person data request failed:', xhr.status, xhr.statusText);
+                        reject(new Error(`HTTP Error ${xhr.status}: ${xhr.statusText}`));
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                console.log('❌ Person data network error');
+                reject(new Error('Network Error: Cannot connect to API server'));
+            };
+            
+            xhr.send();
+        });
+    }
+
+    // Check person registration in admin-person and admin-entity system
+    async checkPersonRegistration(employeeId, inputCredentials) {
+        try {
+        // First check if person exists in admin-person
+        const personApiUrl = `${this.apiBaseUrl}/getULTSPerson`;
+        console.log('🔍 Checking person registration:', personApiUrl);
+        console.log('🔍 Using credentials for admin API:', inputCredentials ? 'credentials provided' : 'no credentials');
+        
+        // ULTS backend requires authentication, using fmiacp credentials
+        const credentials = btoa('fmiacp:track1nd0');
+        const personData = await this.makeAjaxRequest(personApiUrl, credentials);
+        
+        console.log('📋 Person registration data:', personData);
+        console.log('📋 Person data type:', typeof personData);
+        console.log('📋 Person data length:', personData ? personData.length : 'null/undefined');
+        
+        if (personData && Array.isArray(personData) && personData.length > 0) {
+            console.log('📋 Sample person record:', personData[0]);
+            console.log('📋 All person names:', personData.map(p => p.PERSON_NAME));
+        }
             
             // Debug: Check if we got any data at all
             if (!personData) {
@@ -694,34 +1385,63 @@ class RFIDReader {
             }
             
             if (personData && Array.isArray(personData)) {
-                // Remove leading zeros from employeeId for comparison
+                // Clean both employeeId and database values for comparison
                 const cleanEmployeeId = employeeId.replace(/^0+/, '');
                 console.log('📋 Searching for employee_id:', employeeId, 'clean:', cleanEmployeeId, 'type:', typeof employeeId);
-                console.log('📋 Available employee_ids:', personData.map(p => ({id: p.EMPLOYEE_ID, type: typeof p.EMPLOYEE_ID})));
+                console.log('📋 Available employee_ids:', personData.map(p => ({id: p.EMPLOYEE_ID, type: typeof p.EMPLOYEE_ID, clean: String(p.EMPLOYEE_ID).replace(/^0+/, '')})));
                 
-                // Find person by employee_id (try both string and number comparison)
-                const person = personData.find(p => 
-                    p.EMPLOYEE_ID === employeeId || 
-                    p.EMPLOYEE_ID === employeeId.toString() ||
-                    p.EMPLOYEE_ID === parseInt(employeeId) ||
-                    p.EMPLOYEE_ID.toString() === employeeId.toString() ||
-                    // Try with cleaned employee_id (without leading zeros)
-                    p.EMPLOYEE_ID === cleanEmployeeId ||
-                    p.EMPLOYEE_ID === cleanEmployeeId.toString() ||
-                    p.EMPLOYEE_ID === parseInt(cleanEmployeeId) ||
-                    p.EMPLOYEE_ID.toString() === cleanEmployeeId.toString()
-                );
+                        // Enhanced search with more flexible matching
+                        // Database stores EMPLOYEE_ID as number (e.g., 80032009)
+                        // Input comes as string with leading zeros (e.g., "0080032009")
+                        const person = personData.find(p => {
+                            const dbEmployeeId = p.EMPLOYEE_ID; // This is a number like 80032009
+                            const inputEmployeeId = employeeId; // This is string like "80032009" (already cleaned)
+                            
+                            console.log('🔍 Comparing:', {
+                                database_id: dbEmployeeId,
+                                database_type: typeof dbEmployeeId,
+                                input_id: inputEmployeeId,
+                                input_type: typeof inputEmployeeId
+                            });
+                            
+                            // Convert database number to string and compare with cleaned input
+                            const dbIdAsString = String(dbEmployeeId);
+                            const inputIdCleaned = String(inputEmployeeId).replace(/^0+/, '');
+                            
+                            const match = (
+                                // Direct numeric comparison
+                                dbEmployeeId === parseInt(inputEmployeeId, 10) ||
+                                // String comparison after cleaning
+                                dbIdAsString === inputIdCleaned ||
+                                // Fallback comparisons
+                                dbIdAsString === inputEmployeeId ||
+                                String(dbEmployeeId) === String(inputEmployeeId)
+                            );
+                            
+                            if (match) {
+                                console.log('✅ Employee match found:', {
+                                    database: dbEmployeeId,
+                                    input: inputEmployeeId,
+                                    dbAsString: dbIdAsString,
+                                    inputCleaned: inputIdCleaned
+                                });
+                            }
+                            
+                            return match;
+                        });
                 
                 console.log('📋 Person search result:', person);
                 
                 if (person) {
                     console.log('✅ Person found in registration:', person);
                     
-                    // Now check entity assignment in admin-entity
-                    const entityApiUrl = `${this.apiBaseUrl}/getULTSEntity`;
-                    console.log('🔍 Checking entity assignment:', entityApiUrl);
-                    
-                    const entityData = await this.makeAjaxRequest(entityApiUrl, credentials);
+                            // Now check entity assignment in admin-entity
+                            const entityApiUrl = `${this.apiBaseUrl}/getULTSEntity`;
+                            console.log('🔍 Checking entity assignment:', entityApiUrl);
+                            
+                            // ULTS backend requires authentication, using fmiacp credentials
+                            const entityCredentials = btoa('fmiacp:track1nd0');
+                            const entityData = await this.makeAjaxRequest(entityApiUrl, entityCredentials);
                     console.log('📋 Entity assignment data:', entityData);
                     console.log('📋 Entity data type:', typeof entityData);
                     console.log('📋 Entity data length:', entityData ? entityData.length : 'null/undefined');
@@ -730,123 +1450,61 @@ class RFIDReader {
                     let entityAssignment = null;
                     let entityGroup = 'N/A';
                     
-                    if (entityData && Array.isArray(entityData)) {
-                        console.log('📋 Searching for entity assignment with person OID:', person.OID, 'employee_id:', employeeId);
-                        console.log('📋 Available PERSON_OIDs:', entityData.map(e => e.PERSON_OID));
-                        console.log('📋 Available OPERATOR_NAMEs:', entityData.map(e => e.OPERATOR_NAME));
+                        if (entityData && Array.isArray(entityData)) {
+                            console.log('📋 Searching for entity assignment with person OID:', person.OID, 'employee_id:', employeeId);
+                            console.log('📋 Person DISPLAY_NAME:', person.DISPLAY_NAME);
+                            console.log('📋 Available PERSON_OIDs sample:', entityData.slice(0,5).map(e => e.PERSON_OID));
+                            console.log('📋 Available OPERATOR_NAMEs sample:', entityData.slice(0,5).map(e => e.OPERATOR_NAME));
+                            console.log('📋 Total entity data count:', entityData.length);
                         
-                        // Look for entity where PERSON_OID matches the person's OID
-                        entityAssignment = entityData.find(e => 
+                            // Look for ALL entities where PERSON_OID matches the person's OID
+                            const allAssignments = entityData.filter(e => 
                             e.PERSON_OID && e.PERSON_OID === person.OID
                         );
                         
-                        // If not found by PERSON_OID, try OPERATOR_NAME as fallback
-                        if (!entityAssignment) {
-                            entityAssignment = entityData.find(e => 
+                            console.log('📋 All assignments found by PERSON_OID:', allAssignments);
+                            
+                            // Also look for entities where OPERATOR_NAME matches person's DISPLAY_NAME
+                            const operatorAssignments = entityData.filter(e => 
                                 e.OPERATOR_NAME && (
+                                    e.OPERATOR_NAME === person.DISPLAY_NAME ||
                                     e.OPERATOR_NAME.includes(person.DISPLAY_NAME) || 
                                     e.OPERATOR_NAME.includes(employeeId) ||
                                     e.OPERATOR_NAME.includes(cleanEmployeeId)
                                 )
                             );
-                        }
+                            
+                            console.log('📋 All assignments found by OPERATOR_NAME:', operatorAssignments);
+                            
+                            // Combine both results and remove duplicates
+                            const combinedAssignments = [...allAssignments];
+                            operatorAssignments.forEach(opAssign => {
+                                if (!combinedAssignments.find(assign => assign.OID === opAssign.OID)) {
+                                    combinedAssignments.push(opAssign);
+                                }
+                            });
+                            
+                            console.log('📋 Combined assignments:', combinedAssignments);
+                            
+                            // If found assignments, get the latest one (highest OID)
+                            if (combinedAssignments.length > 0) {
+                                // Sort by OID descending to get the latest assignment
+                                combinedAssignments.sort((a, b) => b.OID - a.OID);
+                                entityAssignment = combinedAssignments[0];
+                                console.log('✅ Latest assignment (highest OID):', entityAssignment);
+                                console.log('📊 Latest assignment details - MACHINE_NAME:', entityAssignment.MACHINE_NAME, 'OID:', entityAssignment.OID, 'OPERATOR_NAME:', entityAssignment.OPERATOR_NAME);
+                            }
                         
                         console.log('📋 Entity assignment search result:', entityAssignment);
                         
                         if (entityAssignment) {
                             console.log('✅ Entity assignment found:', entityAssignment);
-                            
-                            // Get entity group name directly from getULTSEntityGroup
-                            const entityGroupApiUrl = `${this.apiBaseUrl}/getULTSEntityGroup`;
-                            const entityGroupData = await this.makeAjaxRequest(entityGroupApiUrl, credentials);
-                            
-                            if (entityGroupData && Array.isArray(entityGroupData)) {
-                                // Based on database structure from admin-entity.html:
-                                // ENTITYGROUPROLE_OID in ULTSEntity maps to OID in ULTSEntityGroupRole
-                                // ULTSEntityGroupRole has ENTITYGROUP_OID that maps to ULTSEntityGroup
-                                
-                                // From the database structure you provided:
-                                // ENTITYGROUPROLE_OID 2 = WORKER with ENTITYGROUP_OID 1 = OFF/ON BOARD CREW 1
-                                // ENTITYGROUPROLE_OID 46 = WORKER with ENTITYGROUP_OID 16 = UG MINE
-                                // etc.
-                                
-                                // Try to find entity group by ENTITYGROUPROLE_OID
-                                // Based on admin-entity.html logic, we need to map ENTITYGROUPROLE_OID to ENTITYGROUP_OID
-                                const entityGroupRoleOid = entityAssignment.ENTITYGROUPROLE_OID;
-                                console.log('📋 Entity assignment ENTITYGROUPROLE_OID:', entityGroupRoleOid);
-                                console.log('📋 Available entity groups:', entityGroupData.map(g => ({oid: g.OID, name: g.NAME})));
-                                
-                                // Map ENTITYGROUPROLE_OID to ENTITYGROUP_OID based on provided ULTSEntityGroupRole database
-                                const entityGroupRoleMapping = {
-                                    1: 8,   // DEFAULT -> Group OID 8
-                                    2: 1,   // WORKER -> Group OID 1 (OFF/ON BOARD CREW 1)
-                                    3: 1,   // LEAD -> Group OID 1 (OFF/ON BOARD CREW 1)
-                                    4: 1,   // SUPER -> Group OID 1 (OFF/ON BOARD CREW 1)
-                                    5: 2,   // WORKER -> Group OID 2 (OFF/ON BOARD CREW 2)
-                                    6: 2,   // LEAD -> Group OID 2 (OFF/ON BOARD CREW 2)
-                                    7: 2,   // SUPER -> Group OID 2 (OFF/ON BOARD CREW 2)
-                                    8: 3,   // WORKER -> Group OID 3 (SETUP CREW 1)
-                                    9: 3,   // LEAD -> Group OID 3 (SETUP CREW 1)
-                                    10: 3,  // SUPER -> Group OID 3 (SETUP CREW 1)
-                                    11: 4,  // WORKER -> Group OID 4 (SETUP CREW 2)
-                                    12: 4,  // LEAD -> Group OID 4 (SETUP CREW 2)
-                                    13: 4,  // SUPER -> Group OID 4 (SETUP CREW 2)
-                                    14: 5,  // WORKER -> Group OID 5 (SETUP CREW 3)
-                                    15: 5,  // LEAD -> Group OID 5 (SETUP CREW 3)
-                                    16: 5,  // SUPER -> Group OID 5 (SETUP CREW 3)
-                                    17: 6,  // WORKER -> Group OID 6 (OFF/ON BOARD CREW 3)
-                                    18: 6,  // LEAD -> Group OID 6 (OFF/ON BOARD CREW 3)
-                                    19: 6,  // SUPER -> Group OID 6 (OFF/ON BOARD CREW 3)
-                                    20: 7,  // WORKER -> Group OID 7 (DEPLOYMENT CREW)
-                                    21: 7,  // LEAD -> Group OID 7 (DEPLOYMENT CREW)
-                                    22: 7,  // SUPER -> Group OID 7 (DEPLOYMENT CREW)
-                                    23: 7,  // RESCUE -> Group OID 7 (DEPLOYMENT CREW)
-                                    24: 7,  // SAFETY -> Group OID 7 (DEPLOYMENT CREW)
-                                    26: 9,  // WORKER -> Group OID 9 (OFF/ON SET DAY CREW)
-                                    27: 9,  // LEAD -> Group OID 9 (OFF/ON SET DAY CREW)
-                                    28: 9,  // SUPER -> Group OID 9 (OFF/ON SET DAY CREW)
-                                    29: 10, // WORKER -> Group OID 10 (INSTRUMENTATION)
-                                    30: 10, // LEAD -> Group OID 10 (INSTRUMENTATION)
-                                    31: 10, // SUPER -> Group OID 10 (INSTRUMENTATION)
-                                    32: 11, // WORKER -> Group OID 11 (CENTRAL SERVICES)
-                                    33: 11, // LEAD -> Group OID 11 (CENTRAL SERVICES)
-                                    34: 11, // SUPER -> Group OID 11 (CENTRAL SERVICES)
-                                    35: 12, // RESCUE -> Group OID 12 (EMERGENCY RESPONSE TEAM)
-                                    36: 13, // WORKER -> Group OID 13 (OPERATIONS MAINTENANCE)
-                                    37: 13, // LEAD -> Group OID 13 (OPERATIONS MAINTENANCE)
-                                    38: 13, // SUPER -> Group OID 13 (OPERATIONS MAINTENANCE)
-                                    39: 14, // WORKER -> Group OID 14 (MIS)
-                                    40: 14, // LEAD -> Group OID 14 (MIS)
-                                    41: 14, // SUPER -> Group OID 14 (MIS)
-                                    42: 15, // WORKER -> Group OID 15 (UG TECHNOLOGY)
-                                    43: 15, // LEAD -> Group OID 15 (UG TECHNOLOGY)
-                                    45: 15, // SUPER -> Group OID 15 (UG TECHNOLOGY)
-                                    46: 16, // WORKER -> Group OID 16 (UG MINE)
-                                    47: 16, // LEAD -> Group OID 16 (UG MINE)
-                                    48: 16  // SUPER -> Group OID 16 (UG MINE)
-                                };
-                                
-                                const mappedEntityGroupOid = entityGroupRoleMapping[entityGroupRoleOid];
-                                if (!mappedEntityGroupOid) {
-                                    console.log('⚠️ Unknown ENTITYGROUPROLE_OID:', entityGroupRoleOid);
-                                }
-                                
-                                if (mappedEntityGroupOid) {
-                                    const group = entityGroupData.find(g => g.OID === mappedEntityGroupOid);
-                                    if (group) {
-                                        entityGroup = group.NAME || 'N/A';
-                                        console.log('✅ Entity group found by mapping:', entityGroup);
-                                    } else {
-                                        entityGroup = person.ENTITY_GROUP || 'N/A';
-                                        console.log('⚠️ Entity group not found, using person data:', entityGroup);
-                                    }
-                                } else {
-                                    entityGroup = person.ENTITY_GROUP || 'N/A';
-                                    console.log('⚠️ No mapping found, using person data:', entityGroup);
-                                }
-                            }
+                            entityGroup = this.getGroupFromNode(entityAssignment.MACHINE_NAME);
                         }
                     }
+                    
+                    console.log('🎯 Before creating result - entityAssignment:', entityAssignment);
+                    console.log('🎯 Before creating result - entityGroup:', entityGroup);
                     
                     const result = {
                         isRegistered: true,
@@ -931,16 +1589,44 @@ class RFIDReader {
             </div>
         `;
     }
-
 }
 
-// Global function for scan again button
-function scanAgain() {
+// Global function for insert employee button (default version)
+function insertEmployeeDefault() {
     if (window.rfidReader) {
-        window.rfidReader.scanAgain();
+        window.rfidReader.insertEmployeeDefault();
     }
 }
 
+// Global function to handle scan again or reset selection (refresh page)
+function scanAgain() {
+    console.log('🖱️ scanAgain() function called');
+    const headerText = document.getElementById('scanAgainText');
+    
+    if (headerText && headerText.textContent === 'Reset Selection') {
+        // If in assignment mode, refresh the page to reset everything
+        console.log('🔄 Reset Selection - refreshing page...');
+        window.location.reload();
+    } else {
+        // Normal scan mode - just clear any existing employee data
+    if (window.rfidReader) {
+            console.log('🔄 Normal scan mode - clearing employee data...');
+            const scanArea = document.getElementById('scanArea');
+            const employeeCard = document.getElementById('employeeCard');
+            const errorMsg = document.getElementById('errorMessage');
+            
+            if (employeeCard) employeeCard.style.display = 'none';
+            if (errorMsg) errorMsg.style.display = 'none';
+            if (scanArea) scanArea.style.display = 'block';
+            
+            window.rfidReader.updateStatus('Ready to Scan', 'ready');
+            window.rfidReader.resetScan();
+            window.rfidReader.hideScanAnimation();
+            
+            console.log('🔄 Scan Again - cleared employee data');
+        }
+    }
+}
 
 // Initialize the RFID reader when the page loads
 document.addEventListener('DOMContentLoaded', () => {
@@ -951,11 +1637,6 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('API Base URL:', window.rfidReader.apiBaseUrl);
     console.log('Auto Zone API URL:', window.rfidReader.autoZoneApiUrl);
     console.log('Ready to scan PTFI ID cards...');
-    
-    // Optional: Add a test button for development (remove in production)
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        addTestButton();
-    }
 });
 
 // Cleanup when page unloads

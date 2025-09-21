@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PTFI Personal Node</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,9 +17,9 @@
             <div class="status-indicator">
                 <div class="status-dot" id="statusDot"></div>
                 <span id="statusText">Ready to Scan</span>
-                <button class="btn btn-primary header-scan-btn" onclick="scanAgain()">
+                <button class="btn btn-primary header-scan-btn" onclick="scanAgain()" id="scanAgainBtn">
                     <div class="icon-redo"></div>
-                    Scan Again
+                    <span id="scanAgainText">Scan Again</span>
                 </button>
             </div>
         </header>
@@ -46,10 +47,6 @@
                     <div class="scan-area" id="scanArea">
                         <div class="scan-header">
                             <h2>Ready to Scan</h2>
-                            <button class="btn btn-primary" onclick="scanAgain()">
-                                <div class="icon-redo"></div>
-                                Scan Again
-                            </button>
                         </div>
                         <div class="scan-icon">
                             <div class="icon-wifi"></div>
