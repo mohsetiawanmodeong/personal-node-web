@@ -20,7 +20,7 @@ class RFIDReader {
         // Change this variable to switch between plans:
         // true = PLAN B (closest_nodes API)
         // false = PLAN A (original autoZone API)
-        this.usePlanB = true; //change to false to use PLAN A and true to use PLAN B
+        this.usePlanB = false; //change to false to use PLAN A and true to use PLAN B
         // =========================
         
         this.initializeEventListeners();
@@ -973,11 +973,16 @@ class RFIDReader {
             
             // Log each node for debugging
             console.log(`📱 Closest Node: ${nodeName}, Range: ${avgRange}m, WASP: ${waspId}`);
+            console.log(`📅 Raw Timestamp: ${timestamp}`);
             
             // Determine role and color class based on range
             const roleClass = this.getRoleClassFromRange(avgRange);
             
             entityItem.className = `entity-item ${roleClass}`;
+            
+            // Format timestamp for better readability
+            const formattedTimestamp = this.formatTimestamp(timestamp);
+            console.log(`📅 Formatted Timestamp: ${formattedTimestamp}`);
             
             entityItem.innerHTML = `
                 <div class="entity-main-line">
@@ -987,7 +992,7 @@ class RFIDReader {
                     <span class="entity-role-badge ${roleClass}">CLOSEST</span>
                 </div>
                 <div class="entity-location compact">
-                    <span class="zone">Timestamp: ${timestamp}</span>
+                    <span class="zone">Time: ${formattedTimestamp}</span>
                     <span class="coordinates"> Range: ${avgRange} metres</span>
                 </div>
             `;
@@ -1741,6 +1746,38 @@ class RFIDReader {
             return 'super'; // Medium - yellow
         } else {
             return 'worker'; // Far - default
+        }
+    }
+
+    // Format timestamp for better readability
+    formatTimestamp(timestamp) {
+        if (!timestamp || timestamp === 'N/A') {
+            return 'N/A';
+        }
+        
+        try {
+            // Convert timestamp to Date object
+            const date = new Date(parseInt(timestamp));
+            
+            // Check if date is valid
+            if (isNaN(date.getTime())) {
+                return 'Invalid Time';
+            }
+            
+            // Format date and time
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            
+            // Return formatted timestamp
+            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+            
+        } catch (error) {
+            console.error('Error formatting timestamp:', error);
+            return 'Format Error';
         }
     }
 
