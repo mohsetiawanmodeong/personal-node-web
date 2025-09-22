@@ -21,13 +21,11 @@ class RFIDReader {
         this.isProcessing = false;
         this.isAssigning = false;
         // ===== PLAN SWITCHER =====
-        // Change this variable to switch between plans:
-        // true = PLAN B (closest_nodes API)
-        // false = PLAN A (original autoZone API)
-        this.usePlanB = false; //change to false to use PLAN A and true to use PLAN B
+        this.currentPlan = 'auto-zone'; // Track current plan
         // =========================
         
         this.initializeEventListeners();
+        this.initializePlanSelector();
         this.updateStatus('Ready to Scan', 'ready');
         this.startAutoZoneRealtime();
     }
@@ -81,6 +79,81 @@ class RFIDReader {
             if (e.key === 'Enter' && this.isScanning) {
                 e.preventDefault();
                 this.processRFIDInput();
+            }
+        });
+    }
+
+    // Initialize Plan Selector Dropdown
+    initializePlanSelector() {
+        const planTrigger = document.getElementById('planSelectorTrigger');
+        const dropdownMenu = document.getElementById('planDropdownMenu');
+        const planSelector = document.querySelector('.hidden-plan-selector');
+        
+        if (!planTrigger || !dropdownMenu || !planSelector) {
+            console.warn('Plan selector elements not found');
+            return;
+        }
+
+        // Toggle dropdown on button click
+        planTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            planSelector.classList.toggle('active');
+        });
+
+        // Handle plan selection
+        dropdownMenu.addEventListener('click', (e) => {
+            const dropdownItem = e.target.closest('.plan-dropdown-item');
+            if (!dropdownItem) return;
+
+            const plan = dropdownItem.dataset.plan;
+            this.switchPlan(plan);
+            
+            // Close dropdown
+            planSelector.classList.remove('active');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!planTrigger.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                planSelector.classList.remove('active');
+            }
+        });
+
+        // Set initial active state
+        this.updatePlanSelectorDisplay();
+    }
+
+    // Switch between Plan A and Plan B
+    switchPlan(plan) {
+        console.log(`🔄 Switching to ${plan}`);
+        
+        // Stop current auto-refresh
+        this.stopAutoZoneRealtime();
+        
+        // Clear current selections
+        this.clearAllSelections();
+        
+        // Update plan settings
+        this.currentPlan = plan;
+        
+        // Update UI
+        this.updatePlanSelectorDisplay();
+        
+        // Start new auto-refresh with selected plan
+        this.startAutoZoneRealtime();
+        
+        console.log(`✅ Switched to ${this.currentPlan === 'closest-nodes' ? 'Closest Nodes' : 'Auto Zone'}`);
+    }
+
+    // Update plan selector display
+    updatePlanSelectorDisplay() {
+        const dropdownItems = document.querySelectorAll('.plan-dropdown-item');
+        
+        // Update active state in dropdown items
+        dropdownItems.forEach(item => {
+            item.classList.remove('active');
+            if (item.dataset.plan === this.currentPlan) {
+                item.classList.add('active');
             }
         });
     }
@@ -876,13 +949,13 @@ class RFIDReader {
             this.loadCurrentPlanData();
         }, this.autoZoneIntervalTime);
         
-        const planName = this.usePlanB ? 'Closest Nodes (PLAN B)' : 'Auto Zone (PLAN A)';
+        const planName = this.currentPlan === 'closest-nodes' ? 'Closest Nodes' : 'Auto Zone';
         console.log(`🔄 ${planName} real-time updates started (every ${this.autoZoneIntervalTime/1000}s)`);
     }
 
     // Load data based on current plan
     loadCurrentPlanData() {
-        if (this.usePlanB) {
+        if (this.currentPlan === 'closest-nodes') {
             this.loadClosestNodesData();
         } else {
             this.loadAutoZoneData();
@@ -2061,7 +2134,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('✅ Ready to scan PTFI ID cards...');
     
     // Show current plan
-    const currentPlan = window.rfidReader.usePlanB ? 'PLAN B (closest_nodes)' : 'PLAN A (autoZone)';
+    const currentPlan = window.rfidReader.currentPlan === 'closest-nodes' ? 'PLAN B (closest_nodes)' : 'PLAN A (autoZone)';
     console.log('🎯 Current Plan:', currentPlan);
 });
 

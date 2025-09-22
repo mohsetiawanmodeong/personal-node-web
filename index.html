@@ -12,7 +12,7 @@
         <header class="header">
             <div class="logo">
                 <div class="icon-id-card"></div>
-                <h1>PTFI Personal Node</h1>
+                <h1>PTFI Personal Node Kiosk</h1>
             </div>
             <div class="status-indicator">
                 <div class="status-dot" id="statusDot"></div>
@@ -173,6 +173,25 @@
                 <div class="modal-footer">
                     <button class="btn btn-cancel" id="cancelBtn">Cancel</button>
                     <button class="btn btn-confirm" id="confirmBtn">Yes, Unassign</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden Plan Selector (Bottom Right) -->
+        <div class="hidden-plan-selector">
+            <div class="plan-trigger-btn" id="planSelectorTrigger">
+                <span class="trigger-icon">⚙️</span>
+            </div>
+            <div class="plan-dropdown-menu" id="planDropdownMenu">
+                <div class="plan-dropdown-item" data-plan="auto-zone">
+                    <span class="plan-icon">🏢</span>
+                    <span class="plan-name">Auto Zone</span>
+                    <span class="plan-desc">getFLTAutoZoneEntitiesList</span>
+                </div>
+                <div class="plan-dropdown-item" data-plan="closest-nodes">
+                    <span class="plan-icon">📍</span>
+                    <span class="plan-name">Closest Nodes</span>
+                    <span class="plan-desc">getClosestNodes</span>
                 </div>
             </div>
         </div>

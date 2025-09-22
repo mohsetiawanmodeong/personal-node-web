@@ -28,6 +28,7 @@ body {
     padding: 20px 30px;
     margin-bottom: 30px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    gap: 20px;
 }
 
 .logo {
@@ -70,6 +71,107 @@ body {
     font-size: 1.8rem;
     font-weight: 600;
     color: #333;
+}
+
+/* Hidden Plan Selector (Bottom Right) */
+.hidden-plan-selector {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.plan-trigger-btn {
+    width: 50px;
+    height: 50px;
+    background: rgba(30, 64, 175, 0.1);
+    border: 2px solid rgba(30, 64, 175, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.plan-trigger-btn:hover {
+    background: rgba(30, 64, 175, 0.2);
+    border-color: rgba(30, 64, 175, 0.4);
+    transform: scale(1.1);
+}
+
+.plan-trigger-btn:active {
+    transform: scale(0.95);
+}
+
+.trigger-icon {
+    font-size: 1.2rem;
+    color: #1e40af;
+}
+
+.plan-dropdown-menu {
+    position: absolute;
+    bottom: 60px;
+    right: 0;
+    background: white;
+    border: 2px solid rgba(30, 64, 175, 0.2);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    min-width: 250px;
+    z-index: 1001;
+}
+
+.hidden-plan-selector.active .plan-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.plan-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid rgba(30, 64, 175, 0.1);
+}
+
+.plan-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.plan-dropdown-item:hover {
+    background: rgba(30, 64, 175, 0.05);
+}
+
+.plan-dropdown-item.active {
+    background: rgba(30, 64, 175, 0.1);
+    color: #1e40af;
+}
+
+.plan-icon {
+    font-size: 1.2rem;
+    width: 20px;
+    text-align: center;
+}
+
+.plan-name {
+    font-weight: 600;
+    color: #333;
+    flex: 1;
+}
+
+.plan-desc {
+    font-size: 0.8rem;
+    color: #666;
+    font-family: 'Courier New', monospace;
 }
 
 .status-indicator {
