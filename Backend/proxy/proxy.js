@@ -64,12 +64,27 @@ app.disable('etag');
 //http://10.211.240.25:4650
 //
 app.use((req, res, next) => {
-//  const allowedOrigins = ['http://10.211.240.25:4650'];
-//  const origin = req.headers.origin;
-//  if (allowedOrigins.includes(origin)) {
-//       res.setHeader('Access-Control-Allow-Origin', origin);
-//  }
-  res.header('Access-Control-Allow-Origin', 'http://ttd-app');
+  // Dynamic CORS - allow multiple origins
+  const allowedOrigins = [
+    'http://ttd-app',
+    'http://ugm-kiosk-01:3000',
+    'http://desktop-ps64608:3000',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    // Fallback for development - allow any localhost/127.0.0.1
+    if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+      res.header('Access-Control-Allow-Origin', origin);
+    } else {
+      res.header('Access-Control-Allow-Origin', 'http://ttd-app'); // Default fallback
+    }
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', true);
