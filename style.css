@@ -605,7 +605,7 @@ body {
 .card-header {
     background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
     color: white;
-    padding: 20px;
+    padding: 10px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -653,7 +653,7 @@ body {
 }
 
 .card-body {
-    padding: 20px;
+    padding: 10px;
 }
 
 .info-grid.compact {
@@ -1001,8 +1001,8 @@ body {
 
 /* Registration Status Styles */
 .registration-status {
-    margin-bottom: 15px;
-    padding: 12px;
+    margin-bottom: 6px;
+    padding: 6px;
     border-radius: 8px;
     text-align: center;
     font-weight: 600;
@@ -1058,7 +1058,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
 }
 
 .status-registered .status-icon,
@@ -1069,7 +1068,6 @@ body {
 
 /* New Grid Layout for Registration Details */
 .registration-details-grid {
-    margin-top: 2px;
     display: grid;
     grid-template-columns: repeat(2, minmax(140px, 1fr));
     gap: 8px;
@@ -1200,22 +1198,26 @@ body {
 
 /* Unassign Button Styles */
 .unassign-btn {
-    width: 100%;
-    margin: 12px 0;
-    padding: 12px 16px;
-    background: #dc2626;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+    width: 100% !important;
+    margin: 0 0 10px 0 !important;
+    padding: 14px 16px !important;
+    background: #dc2626 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2) !important;
+    position: relative !important;
+    height: 42px !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+    gap: 8px !important;
 }
 
 .unassign-btn:hover {
@@ -1231,11 +1233,21 @@ body {
 }
 
 .unassign-btn .icon-user-minus {
-    width: 16px;
-    height: 16px;
-    background: currentColor;
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cline x1='22' y1='11' x2='16' y2='11'/%3E%3C/svg%3E") no-repeat center;
-    mask-size: contain;
+    width: 18px !important;
+    height: 18px !important;
+    background: currentColor !important;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cline x1='22' y1='11' x2='16' y2='11'/%3E%3C/svg%3E") no-repeat center !important;
+    mask-size: contain !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+}
+
+.unassign-btn .button-text {
+    flex-shrink: 0 !important;
+    text-align: center !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    font-size: 1rem !important;
 }
 
 /* Responsive Design for Registration Grid */
@@ -1248,5 +1260,223 @@ body {
     .form-grid {
         grid-template-columns: 1fr;
         gap: 6px;
+    }
+}
+
+/* Success Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: hidden;
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.modal-header {
+    padding: 32px 32px 16px 32px;
+    text-align: center;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px auto;
+    font-size: 32px;
+}
+
+.modal-icon.success {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.icon-check {
+    font-size: 32px;
+    font-weight: bold;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.icon-check::before {
+    content: '✓';
+    font-size: 40px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.modal-icon.warning {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+}
+
+.icon-warning {
+    font-size: 32px;
+    font-weight: bold;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.icon-warning::before {
+    content: '!';
+    font-size: 40px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.modal-body {
+    padding: 24px 32px;
+    text-align: center;
+}
+
+.modal-body p {
+    margin: 0;
+    font-size: 16px;
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+.modal-footer {
+    padding: 16px 32px 32px 32px;
+    text-align: center;
+    border-top: 1px solid #e5e7eb;
+}
+
+.modal-footer .btn {
+    min-width: 120px;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.auto-close-text {
+    margin: 0;
+    font-size: 14px;
+    color: #6b7280;
+    text-align: center;
+    font-style: italic;
+}
+
+#countdownTimer, #unassignCountdownTimer {
+    font-weight: 600;
+    color: #059669;
+}
+
+/* Button Styles for Confirmation Modal */
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin: 0 8px;
+    min-width: 120px;
+}
+
+.btn-cancel {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.btn-cancel:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+}
+
+.btn-confirm {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-confirm:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-confirm:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+/* Responsive Modal */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        margin: 20px;
+    }
+    
+    .modal-header {
+        padding: 24px 24px 12px 24px;
+    }
+    
+    .modal-icon {
+        width: 60px;
+        height: 60px;
+        font-size: 24px;
+    }
+    
+    .modal-header h2 {
+        font-size: 20px;
+    }
+    
+    .modal-body {
+        padding: 20px 24px;
+    }
+    
+    .modal-footer {
+        padding: 12px 24px 24px 24px;
     }
 }

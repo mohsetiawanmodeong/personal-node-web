@@ -121,6 +121,61 @@
                 <p>Loading employee data...</p>
             </div>
         </div>
+
+        <!-- Success Modal -->
+        <div class="modal-overlay" id="successModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-icon success">
+                        <div class="icon-check"></div>
+                    </div>
+                    <h2>Assignment Successful!</h2>
+                </div>
+                <div class="modal-body">
+                    <p id="successMessage">Employee has been assigned successfully!</p>
+                </div>
+                <div class="modal-footer">
+                    <p class="auto-close-text">Automatically closing in <span id="countdownTimer">3</span> seconds...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unassign Success Modal -->
+        <div class="modal-overlay" id="unassignSuccessModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-icon success">
+                        <div class="icon-check"></div>
+                    </div>
+                    <h2>Unassignment Successful!</h2>
+                </div>
+                <div class="modal-body">
+                    <p id="unassignSuccessMessage">Employee has been unassigned successfully!</p>
+                </div>
+                <div class="modal-footer">
+                    <p class="auto-close-text">Automatically closing in <span id="unassignCountdownTimer">3</span> seconds...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirmation Modal -->
+        <div class="modal-overlay" id="confirmationModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-icon warning">
+                        <div class="icon-warning"></div>
+                    </div>
+                    <h2>Confirm Unassignment</h2>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmationMessage">Are you sure you want to unassign this employee?</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-cancel" id="cancelBtn">Cancel</button>
+                    <button class="btn btn-confirm" id="confirmBtn">Yes, Unassign</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>

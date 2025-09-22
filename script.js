@@ -331,12 +331,17 @@ class RFIDReader {
         // Add unassign button if personal node is selected and assigned
         this.addUnassignButton();
 
+        
+
         // Update employee photo
         const photoElement = document.getElementById('employeePhoto');
         if (employee.PHOTO) {
             // Construct full URL for the photo
             const photoUrl = `http://172.16.175.60:4990/${employee.PHOTO}`;
-            photoElement.src = photoUrl;
+            
+            // Try to load photo with credentials
+            this.loadEmployeePhoto(photoUrl, photoElement);
+            
         } else {
             // Use default placeholder
             photoElement.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjOUNBM0FGIi8+CjxwYXRoIGQ9Ik0yMCA4MEMyMCA2NS42NDA2IDMyLjY0MDYgNTMgNDcgNTNINjNDNzcuMzU5NCA1MyA5MCA2NS42NDA2IDkwIDgwVjEwMEgyMFY4MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+';
@@ -345,6 +350,45 @@ class RFIDReader {
         // Add success animation
         employeeCard.style.animation = 'slideIn 0.5s ease-out';
     }
+
+    // Load employee photo with credentials
+    async loadEmployeePhoto(photoUrl, photoElement) {
+        try {
+            console.log('🖼️ Loading employee photo:', photoUrl);
+            
+            // Get credentials
+            const username = 'fmiacp';
+            const password = 'track1nd0';
+            const credentials = btoa(username + ':' + password);
+            
+            // Fetch photo with credentials
+            const response = await fetch(photoUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Basic ${credentials}`,
+                    'Content-Type': 'image/jpeg'
+                }
+            });
+            
+            if (response.ok) {
+                // Convert response to blob URL
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                photoElement.src = blobUrl;
+                console.log('✅ Employee photo loaded successfully');
+            } else {
+                throw new Error(`Photo load failed: ${response.status}`);
+            }
+            
+        } catch (error) {
+            console.log('❌ Photo failed to load:', error.message);
+            // Use default placeholder if photo fails to load
+            photoElement.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjOUNBM0FGIi8+CjxwYXRoIGQ9Ik0yMCA4MEMyMCA2NS42NDA2IDMyLjY0MDYgNTMgNDcgNTNINjNDNzcuMzU5NCA1MyA5MCA2NS42NDA2IDkwIDgwVjEwMEgyMFY4MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+';
+        }
+    }
+
+
+
 
     // Add unassign button for assigned personal nodes
     addUnassignButton() {
@@ -377,7 +421,7 @@ class RFIDReader {
         unassignButton.className = 'btn btn-danger unassign-btn';
         unassignButton.innerHTML = `
             <div class="icon-user-minus"></div>
-            Unassign from ${this.selectedEntity.properties.name}
+            <span class="button-text">Unassign from ${this.selectedEntity.properties.name}</span>
         `;
         unassignButton.onclick = () => this.handleUnassign();
 
@@ -418,64 +462,73 @@ class RFIDReader {
         const entityName = this.selectedEntity.properties.name;
         const employeeName = this.selectedEntity.properties.operator_name;
         
-        // Confirm unassignment
-        const confirmed = confirm(`Are you sure you want to unassign "${employeeName}" from personal node "${entityName}"?`);
-        if (!confirmed) {
-            return;
-        }
+        // Show confirmation modal
+        showConfirmationModal(
+            `Are you sure you want to unassign "${employeeName}" from personal node "${entityName}"?`,
+            async () => {
+                // User confirmed - proceed with unassignment
+                this.isAssigning = true;
+                
+                try {
+                    this.showLoading();
+                    this.updateStatus('Unassigning employee...', 'scanning');
 
-        this.isAssigning = true;
-        
-        try {
-            this.showLoading();
-            this.updateStatus('Unassigning employee...', 'scanning');
+                    // Call unassign API (set employee_id to 0)
+                    const credentials = btoa('fmiacp:track1nd0');
+                    const unassignResult = await this.updateEntityAssignmentByMachineName(entityName, 0, credentials);
 
-            // Call unassign API (set employee_id to 0)
-            const credentials = btoa('fmiacp:track1nd0');
-            const unassignResult = await this.updateEntityAssignmentByMachineName(entityName, 0, credentials);
-
-            if (unassignResult) {
-                alert(`Employee "${employeeName}" has been unassigned from personal node "${entityName}" successfully!`);
-                
-                // Clear selected entity
-                this.selectedEntity = null;
-                
-                // Wait for database update
-                console.log('⏳ Waiting for database update...');
-                await new Promise(resolve => setTimeout(resolve, 1500)); // Reduced from 3 to 1.5 seconds
-                
-                // Refresh entities list
-                console.log('🔄 Refreshing personal nodes list...');
-                await this.loadAutoZoneData();
-                
-                // Hide employee card and show scan area
-                const scanArea = document.getElementById('scanArea');
-                const employeeCard = document.getElementById('employeeCard');
-                const errorMsg = document.getElementById('errorMessage');
-                
-                if (employeeCard) employeeCard.style.display = 'none';
-                if (errorMsg) errorMsg.style.display = 'none';
-                if (scanArea) scanArea.style.display = 'block';
-                
-                // Reset status
-                this.updateStatus('Employee unassigned - Ready to Scan', 'ready');
-                
-                // Clear all selections
-                this.clearAllSelections();
-                
-                console.log('✅ Unassignment completed successfully');
-            } else {
-                throw new Error('Failed to unassign employee from personal node');
+                    if (unassignResult) {
+                        // Show unassign success modal
+                        showUnassignSuccessModal(`Employee "${employeeName}" has been unassigned from personal node "${entityName}" successfully!`);
+                        
+                        // Clear selected entity
+                        this.selectedEntity = null;
+                        
+                        // Wait for database update
+                        console.log('⏳ Waiting for database update...');
+                        await new Promise(resolve => setTimeout(resolve, 1500)); // Reduced from 3 to 1.5 seconds
+                        
+                        // Refresh entities list
+                        console.log('🔄 Refreshing personal nodes list...');
+                        await this.loadAutoZoneData();
+                        
+                        // Hide employee card and show scan area
+                        const scanArea = document.getElementById('scanArea');
+                        const employeeCard = document.getElementById('employeeCard');
+                        const errorMsg = document.getElementById('errorMessage');
+                        
+                        if (scanArea) scanArea.style.display = 'block';
+                        if (employeeCard) employeeCard.style.display = 'none';
+                        if (errorMsg) errorMsg.style.display = 'none';
+                        
+                        // Reset button text
+                        this.updateScanButtonText('Scan Again');
+                        
+                        // Remove unassign button
+                        this.removeUnassignButton();
+                        
+                        console.log('✅ Unassignment completed successfully');
+                        
+                    } else {
+                        throw new Error('Failed to unassign employee from personal node');
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Error unassigning:', error);
+                    alert('Error unassigning employee: ' + error.message);
+                } finally {
+                    this.isAssigning = false;
+                    this.hideLoading();
+                }
+            },
+            () => {
+                // User cancelled - do nothing
+                console.log('❌ Unassignment cancelled by user');
             }
-            
-        } catch (error) {
-            console.error('❌ Error unassigning employee:', error);
-            alert('Error unassigning employee: ' + error.message);
-            this.updateStatus('Unassignment failed', 'error');
-        } finally {
-            this.hideLoading();
-            this.isAssigning = false; // Reset assigning flag
-        }
+        );
+        
+        return; // Exit early since confirmation is handled in modal
+
     }
 
     // Check if personal node is empty/unassigned
@@ -502,6 +555,77 @@ class RFIDReader {
         
         // If none of the above, it's assigned
         return false;
+    }
+
+    // Check if employee is already assigned to any personal node
+    async checkEmployeeAssignment(employeeId) {
+        try {
+            console.log('🔍 Checking if employee is already assigned:', employeeId);
+            
+            // Get current personal nodes data
+            const username = 'fmiacp';
+            const password = 'track1nd0';
+            const credentials = btoa(username + ':' + password);
+            
+            const response = await this.makeAjaxRequest(this.autoZoneApiUrl, credentials);
+            
+            if (response && response.features) {
+                console.log('📊 Total features found:', response.features.length);
+                
+                // Look for any personal node that has this employee assigned
+                const assignedNode = response.features.find(feature => {
+                    const properties = feature.properties;
+                    console.log(`🔍 Checking feature: ${properties?.name}, employee_id: ${properties?.employee_id}, operator: ${properties?.operator_name}`);
+                    
+                    // Normalize employee IDs by removing leading zeros for comparison
+                    const normalizedScannedId = employeeId.toString().replace(/^0+/, '');
+                    const normalizedNodeId = properties?.employee_id?.toString().replace(/^0+/, '');
+                    
+                    const isMatch = properties && 
+                           properties.employee_id && 
+                           normalizedNodeId === normalizedScannedId &&
+                           !this.isPersonalNodeEmpty(properties.operator_name, properties.employee_id, properties.name);
+                    
+                    console.log(`  - scanned ID: ${employeeId} -> normalized: ${normalizedScannedId}`);
+                    console.log(`  - node ID: ${properties?.employee_id} -> normalized: ${normalizedNodeId}`);
+                    console.log(`  - employee_id match: ${normalizedNodeId === normalizedScannedId}`);
+                    console.log(`  - isPersonalNodeEmpty: ${this.isPersonalNodeEmpty(properties.operator_name, properties.employee_id, properties.name)}`);
+                    console.log(`  - isMatch: ${isMatch}`);
+                    
+                    return isMatch;
+                });
+                
+                if (assignedNode) {
+                    console.log('✅ Employee is assigned to:', assignedNode.properties.name);
+                    return {
+                        isAssigned: true,
+                        nodeName: assignedNode.properties.name,
+                        nodeData: assignedNode
+                    };
+                } else {
+                    console.log('❌ Employee is not assigned to any personal node');
+                    return {
+                        isAssigned: false,
+                        nodeName: null,
+                        nodeData: null
+                    };
+                }
+            }
+            
+            return {
+                isAssigned: false,
+                nodeName: null,
+                nodeData: null
+            };
+            
+        } catch (error) {
+            console.error('❌ Error checking employee assignment:', error);
+            return {
+                isAssigned: false,
+                nodeName: null,
+                nodeData: null
+            };
+        }
     }
 
     getGroupFromNode(nodeName) {
@@ -1082,6 +1206,7 @@ class RFIDReader {
         // Remove unassign button
         this.removeUnassignButton();
         
+        
         console.log('✅ All visual selections cleared and button reset to green');
     }
 
@@ -1201,42 +1326,27 @@ class RFIDReader {
             const assignmentResult = await this.updateEntityAssignmentByMachineName(entityName, employeeId, credentials);
             
                 if (assignmentResult) {
-                    alert(`Employee "${employeeData.NAME}" assigned to personal node "${entityName}" successfully!`);
+                    // Show success modal with auto-close (3 seconds)
+                    showSuccessModal(`Employee "${employeeData.NAME}" assigned to personal node "${entityName}" successfully!`);
                     
-                    // Wait a moment for database to update
-                    console.log('⏳ Waiting for database update...');
-                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds for database
+                    // Wait for database to update (2 seconds) + modal auto-close (3 seconds) = 5 seconds total
+                    console.log('⏳ Waiting for database update and modal auto-close...');
+                    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds total
                     
-                    // Show success message and refresh countdown
-                    this.updateStatus('✅ Assignment Successful! Refreshing page in 2 seconds...', 'ready');
+                    // Refresh page after modal closes to ensure clean state
+                    console.log('🔄 Clearing cache and refreshing page to ensure clean scan mode...');
                     
-                    // Visual countdown for user feedback
-                    let countdown = 2;
-                    const countdownInterval = setInterval(() => {
-                        countdown--;
-                        if (countdown > 0) {
-                            this.updateStatus(`✅ Assignment Successful! Refreshing page in ${countdown} seconds...`, 'ready');
-                        } else {
-                            clearInterval(countdownInterval);
-                        }
-                    }, 1000);
-                    
-                    // Refresh page after countdown to ensure clean state
-                    setTimeout(() => {
-                        console.log('🔄 Clearing cache and refreshing page to ensure clean scan mode...');
-                        
-                        // Clear browser cache to ensure fresh data
-                        if ('caches' in window) {
-                            caches.keys().then(names => {
-                                names.forEach(name => {
-                                    caches.delete(name);
-                                });
+                    // Clear browser cache to ensure fresh data
+                    if ('caches' in window) {
+                        caches.keys().then(names => {
+                            names.forEach(name => {
+                                caches.delete(name);
                             });
-                        }
-                        
-                        // Force refresh with cache bypass
-                        window.location.reload(true);
-                    }, 2000); // Refresh after 2 seconds
+                        });
+                    }
+                    
+                    // Force refresh with cache bypass
+                    window.location.reload(true);
             } else {
                     throw new Error('Failed to assign employee to personal node');
             }
@@ -1771,6 +1881,130 @@ function insertEmployeeDefault() {
 }
 
 
+// Global function to show success modal with auto-close
+function showSuccessModal(message) {
+    console.log('🎉 Showing success modal:', message);
+    const modal = document.getElementById('successModal');
+    const messageElement = document.getElementById('successMessage');
+    const countdownElement = document.getElementById('countdownTimer');
+    
+    if (messageElement) {
+        messageElement.textContent = message;
+    }
+    
+    if (modal) {
+        modal.style.display = 'flex';
+        
+        // Auto-close modal after 3 seconds with countdown
+        let countdown = 3;
+        if (countdownElement) {
+            countdownElement.textContent = countdown;
+        }
+        
+        const countdownInterval = setInterval(() => {
+            countdown--;
+            if (countdownElement) {
+                countdownElement.textContent = countdown;
+            }
+            
+            if (countdown <= 0) {
+                clearInterval(countdownInterval);
+                closeSuccessModal();
+            }
+        }, 1000);
+    }
+}
+
+// Global function to close success modal
+function closeSuccessModal() {
+    console.log('❌ Closing success modal');
+    const modal = document.getElementById('successModal');
+    
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Show confirmation modal
+function showConfirmationModal(message, onConfirm, onCancel) {
+    const modal = document.getElementById('confirmationModal');
+    const messageElement = document.getElementById('confirmationMessage');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    
+    if (modal && messageElement && confirmBtn && cancelBtn) {
+        messageElement.textContent = message;
+        modal.style.display = 'flex';
+        
+        // Remove existing event listeners
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        
+        // Add new event listeners
+        newConfirmBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+            if (onConfirm) onConfirm();
+        });
+        
+        newCancelBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+            if (onCancel) onCancel();
+        });
+    }
+}
+
+// Show unassign success modal
+function showUnassignSuccessModal(message) {
+    const modal = document.getElementById('unassignSuccessModal');
+    const messageElement = document.getElementById('unassignSuccessMessage');
+    const countdownElement = document.getElementById('unassignCountdownTimer');
+    
+    if (modal && messageElement && countdownElement) {
+        messageElement.textContent = message;
+        modal.style.display = 'flex';
+        
+        // Start countdown
+        let countdown = 3;
+        countdownElement.textContent = countdown;
+        
+        const countdownInterval = setInterval(() => {
+            countdown--;
+            countdownElement.textContent = countdown;
+            
+            if (countdown <= 0) {
+                clearInterval(countdownInterval);
+                modal.style.display = 'none';
+                
+                // Refresh page after modal closes
+                setTimeout(() => {
+                    console.log('🔄 Refreshing page after unassign success...');
+                    
+                    // Clear browser cache
+                    if ('caches' in window) {
+                        caches.keys().then(names => {
+                            names.forEach(name => {
+                                caches.delete(name);
+                            });
+                        });
+                    }
+                    
+                    window.location.reload(true);
+                }, 500);
+            }
+        }, 1000);
+    }
+}
+
+// Close unassign success modal
+function closeUnassignSuccessModal() {
+    const modal = document.getElementById('unassignSuccessModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
 // Global function to handle scan again or reset selection (refresh page)
 function scanAgain() {
     console.log('🖱️ scanAgain() function called');
@@ -1802,6 +2036,9 @@ function scanAgain() {
             if (employeeCard) employeeCard.style.display = 'none';
             if (errorMsg) errorMsg.style.display = 'none';
             if (scanArea) scanArea.style.display = 'block';
+            
+            // Reset button text
+            window.rfidReader.updateScanButtonText('Scan Again');
             
             window.rfidReader.updateStatus('Ready to Scan', 'ready');
             window.rfidReader.resetScan();
