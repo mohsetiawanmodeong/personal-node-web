@@ -14,7 +14,7 @@ class RFIDReader {
         this.isScanning = false;
         this.scanTimeout = null;
         this.autoZoneInterval = null;
-        this.autoZoneIntervalTime = 3000; //3 seconds
+        this.autoZoneIntervalTime = 1500; //1.5 seconds
         this.selectedEntity = null; // Store clicked entity for auto-assignment
         
         // Protection against double execution
@@ -256,6 +256,25 @@ class RFIDReader {
             return;
         }
 
+        // Check if confirmation modal is open
+        const confirmationModal = document.getElementById('confirmationModal');
+        if (confirmationModal && confirmationModal.style.display === 'flex') {
+            console.log('📱 RFID scan detected during confirmation popup - triggering YES action');
+            
+            // Find and click the confirm button
+            const confirmBtn = document.getElementById('confirmBtn');
+            if (confirmBtn) {
+                confirmBtn.click();
+                console.log('✅ Confirmation button clicked via RFID scan');
+            } else {
+                console.log('❌ Confirm button not found');
+            }
+            
+            // Reset scan input
+            this.resetScan();
+            return;
+        }
+
         console.log('Processing PTFI ID card input:', smartcardId);
         this.fetchEmployeeData(smartcardId);
     }
@@ -311,18 +330,71 @@ class RFIDReader {
                 console.log('📱 Has operator_name:', hasOperatorName, '(', entityProps.operator_name, ')');
                 console.log('📱 Has employee_id:', hasEmployeeId, '(', entityProps.employee_id, ')');
                 
-                if (!hasOperatorName || !hasEmployeeId) {
-                    // Case A: Empty personal node - auto-assign
-                    console.log('🔗 Personal node is empty - proceeding with auto-assignment');
-                    await this.handleAutoAssignment(response, employeeIdWithoutZeros, credentials);
-                } else {
-                    // Case B: Personal node has assignment - scanned employee will overwrite the assignment
-                    console.log('📋 Personal node already assigned, but scanned employee will overwrite assignment');
-                    console.log('📋 Current assignment:', entityProps.operator_name, entityProps.employee_id);
-                    console.log('📋 New employee to assign:', response.NAME, response.EMPLOYEE_ID);
+                // SIMPLE LOGIC: Check if same employee is scanning again
+                console.log('🔗 SIMPLE CHECK: Is same employee scanning again?');
+                console.log('📊 Current assignment:', {
+                    operatorName: entityProps.operator_name,
+                    employeeId: entityProps.employee_id,
+                    scannedEmployeeId: employeeIdWithoutZeros,
+                    scannedEmployeeOriginal: response.EMPLOYEE_ID
+                });
+                
+                // Check if this personal node is already assigned to the same employee
+                const currentEmployeeId = entityProps.employee_id;
+                const currentOperatorName = entityProps.operator_name;
+                
+                // Simple check: if node has assignment and employee_id matches
+                if (currentEmployeeId && 
+                    currentEmployeeId !== 'undefined' && 
+                    currentEmployeeId !== '0' && 
+                    currentEmployeeId !== 0 &&
+                    currentOperatorName && 
+                    currentOperatorName !== 'undefined' &&
+                    currentOperatorName !== entityProps.name) {
                     
-                    // Proceed with assignment (this will overwrite the existing assignment)
+                    // Normalize both IDs for comparison
+                    const normalizedCurrentId = currentEmployeeId.toString().replace(/^0+/, '');
+                    const normalizedScannedId = employeeIdWithoutZeros.toString().replace(/^0+/, '');
+                    
+                    console.log('🔍 Comparing IDs:', {
+                        currentId: currentEmployeeId,
+                        scannedId: employeeIdWithoutZeros,
+                        normalizedCurrent: normalizedCurrentId,
+                        normalizedScanned: normalizedScannedId,
+                        match: normalizedCurrentId === normalizedScannedId
+                    });
+                    
+                    if (normalizedCurrentId === normalizedScannedId) {
+                        // SAME EMPLOYEE - Show unassign confirmation
+                        console.log('✅ SAME EMPLOYEE DETECTED - Showing unassign confirmation');
+                        const credentials = btoa('fmiacp:track1nd0');
+                        await this.handleRescanUnassign(response, employeeIdWithoutZeros, entityProps.name, credentials);
+                        return;
+                    } else {
+                        // DIFFERENT EMPLOYEE - Show reassign confirmation
+                        console.log('🔄 DIFFERENT EMPLOYEE DETECTED - Showing reassign confirmation');
+                        console.log('📊 Reassign details:', {
+                            currentNodeEmployee: currentEmployeeId,
+                            newNodeEmployee: employeeIdWithoutZeros,
+                            nodeName: entityProps.name,
+                            newNodeName: response.NAME
+                        });
+                        const credentials = btoa('fmiacp:track1nd0');
+                        await this.handleRescanReassign(response, employeeIdWithoutZeros, entityProps.name, credentials);
+                        return;
+                    }
+                } else {
+                    // NODE IS AVAILABLE - Proceed with normal assignment
+                    console.log('📋 NODE IS AVAILABLE - Proceeding with normal assignment');
+                    console.log('📊 Available node details:', {
+                        nodeName: entityProps.name,
+                        operatorName: entityProps.operator_name,
+                        employeeId: entityProps.employee_id,
+                        scannedEmployee: response.NAME,
+                        scannedEmployeeId: employeeIdWithoutZeros
+                    });
                     await this.handleAutoAssignment(response, employeeIdWithoutZeros, credentials);
+                    return;
                 }
             } else {
                 // Scan Mode: No personal node selected - just show employee details
@@ -604,9 +676,6 @@ class RFIDReader {
                         // Show unassign success modal
                         showUnassignSuccessModal(`Employee "${employeeName}" has been unassigned from personal node "${entityName}" successfully!`);
                         
-                        // Clear selected entity
-                        this.selectedEntity = null;
-                        
                         // Wait for database update
                         console.log('⏳ Waiting for database update...');
                         await new Promise(resolve => setTimeout(resolve, 1500)); // Reduced from 3 to 1.5 seconds
@@ -615,19 +684,14 @@ class RFIDReader {
                         console.log('🔄 Refreshing personal nodes list...');
                         await this.loadAutoZoneData();
                         
-                        // Hide employee card and show scan area
-                        const scanArea = document.getElementById('scanArea');
-                        const employeeCard = document.getElementById('employeeCard');
-                        const errorMsg = document.getElementById('errorMessage');
+                        // Stay in personal node mode - don't clear selection
+                        console.log('📋 Staying in personal node mode after button unassign');
+                        this.updateStatus('Ready to Scan - Auto Assignment Mode', 'ready');
                         
-                        if (scanArea) scanArea.style.display = 'block';
-                        if (employeeCard) employeeCard.style.display = 'none';
-                        if (errorMsg) errorMsg.style.display = 'none';
-                        
-                        // Reset button text
+                        // Update button text to show we're still in assignment mode
                         this.updateScanButtonText('Scan Again');
                         
-                        // Remove unassign button
+                        // Remove unassign button (since node is now available)
                         this.removeUnassignButton();
                         
                         console.log('✅ Unassignment completed successfully');
@@ -1416,6 +1480,307 @@ class RFIDReader {
         console.log(`📋 Auto settings: Role=WORKER, Group=${groupName}, ENTITYGROUPROLE_OID=${entityGroupRoleOid}`);
     }
 
+
+    // Check personal node assignment status and determine action
+    async checkNodeAssignmentStatus(entityName, employeeId, credentials) {
+        try {
+            console.log('🔍 Checking node assignment status:', entityName, employeeId);
+            console.log('🔍 Employee ID type:', typeof employeeId, 'Value:', employeeId);
+            console.log('🔍 Employee ID length:', employeeId ? employeeId.toString().length : 0);
+            console.log('🔍 Employee ID normalized:', employeeId ? employeeId.toString().replace(/^0+/, '') : '');
+            
+            // For closest nodes API, assignment checking is not supported yet
+            if (this.currentPlan === 'closest-nodes') {
+                console.log('📍 Closest nodes API - assignment checking not supported yet');
+                return { status: 'available', action: 'assign' };
+            }
+            
+            // Get current personal nodes data to check assignment
+            console.log('🔍 Fetching current assignment data from:', this.autoZoneApiUrl);
+            const response = await this.makeAjaxRequest(this.autoZoneApiUrl, credentials);
+            
+            if (response && response.features) {
+                console.log('🔍 Total features found:', response.features.length);
+                
+                // Find the specific entity
+                const entity = response.features.find(feature => 
+                    feature.properties.name === entityName
+                );
+                
+                if (entity) {
+                    console.log('✅ Entity found:', entityName);
+                    const assignedEmployeeId = entity.properties.employee_id;
+                    const operatorName = entity.properties.operator_name;
+                    
+                    console.log('🔍 Assigned Employee ID details:', {
+                        value: assignedEmployeeId,
+                        type: typeof assignedEmployeeId,
+                        length: assignedEmployeeId ? assignedEmployeeId.toString().length : 0,
+                        normalized: assignedEmployeeId ? assignedEmployeeId.toString().replace(/^0+/, '') : ''
+                    });
+                    
+                    console.log('📊 Entity assignment check - Full entity data:', JSON.stringify(entity.properties, null, 2));
+                    console.log('📊 Entity assignment check - Comparison:', {
+                        entityName: entityName,
+                        assignedEmployeeId: assignedEmployeeId,
+                        scannedEmployeeId: employeeId,
+                        operatorName: operatorName,
+                        assignedEmployeeIdType: typeof assignedEmployeeId,
+                        scannedEmployeeIdType: typeof employeeId,
+                        assignedEmployeeIdLength: assignedEmployeeId ? assignedEmployeeId.toString().length : 0,
+                        scannedEmployeeIdLength: employeeId ? employeeId.toString().length : 0
+                    });
+                    
+                    // Check if node is empty/available
+                    console.log('🔍 Checking if node is empty:', {
+                        operatorName: operatorName,
+                        assignedEmployeeId: assignedEmployeeId,
+                        entityName: entityName
+                    });
+                    
+                    const isEmpty = this.isPersonalNodeEmpty(operatorName, assignedEmployeeId, entityName);
+                    console.log('🔍 Is node empty result:', isEmpty);
+                    
+                    if (isEmpty) {
+                        console.log('📋 Node is empty/available - should assign');
+                        return { status: 'available', action: 'assign' };
+                    }
+                    
+                    // Normalize employee IDs by removing leading zeros for comparison
+                    const normalizedAssignedId = assignedEmployeeId ? assignedEmployeeId.toString().replace(/^0+/, '') : '';
+                    const normalizedScannedId = employeeId ? employeeId.toString().replace(/^0+/, '') : '';
+                    
+                    console.log('📊 Normalized IDs comparison:', {
+                        originalAssignedId: assignedEmployeeId,
+                        originalScannedId: employeeId,
+                        normalizedAssignedId: normalizedAssignedId,
+                        normalizedScannedId: normalizedScannedId
+                    });
+                    
+                    // Check if node is assigned to the same employee by normalized employee_id
+                    console.log('🔍 Checking normalized match:', {
+                        normalizedAssignedId: normalizedAssignedId,
+                        normalizedScannedId: normalizedScannedId,
+                        match: normalizedAssignedId === normalizedScannedId
+                    });
+                    
+                    if (normalizedAssignedId && normalizedScannedId && normalizedAssignedId === normalizedScannedId) {
+                        console.log('✅ Node is assigned to the same employee (normalized employee_id match) - should unassign');
+                        return { status: 'same_employee', action: 'unassign' };
+                    }
+                    
+                    // Additional check: also compare with original formats (in case normalization didn't work)
+                    console.log('🔍 Checking exact match:', {
+                        assignedEmployeeId: assignedEmployeeId,
+                        employeeId: employeeId,
+                        match: assignedEmployeeId && employeeId && assignedEmployeeId.toString() === employeeId.toString()
+                    });
+                    
+                    if (assignedEmployeeId && employeeId && assignedEmployeeId.toString() === employeeId.toString()) {
+                        console.log('✅ Node is assigned to the same employee (exact match) - should unassign');
+                        return { status: 'same_employee', action: 'unassign' };
+                    }
+                    
+                    // If node has assignment but different employee, should reassign
+                    console.log('🔍 Checking if node has different employee assignment:', {
+                        assignedEmployeeId: assignedEmployeeId,
+                        isNotZero: assignedEmployeeId !== 0,
+                        isNotZeroString: assignedEmployeeId !== '0',
+                        hasAssignment: assignedEmployeeId && assignedEmployeeId !== 0 && assignedEmployeeId !== '0'
+                    });
+                    
+                    if (assignedEmployeeId && assignedEmployeeId !== 0 && assignedEmployeeId !== '0') {
+                        console.log('📋 Node is assigned to different employee - should reassign');
+                        return { status: 'different_employee', action: 'reassign' };
+                    }
+                    
+                    // Default to assign if unclear
+                    console.log('📋 Node status unclear - defaulting to assign');
+                    console.log('🔍 Final decision: ASSIGN (no match found)');
+                    return { status: 'available', action: 'assign' };
+                    
+                } else {
+                    console.log('❌ Entity not found in response:', entityName);
+                    console.log('🔍 Available entities:', response.features.map(f => f.properties.name));
+                    return { status: 'available', action: 'assign' };
+                }
+            } else {
+                console.log('❌ No features found in API response');
+                return { status: 'available', action: 'assign' };
+            }
+            
+        } catch (error) {
+            console.error('❌ Error checking node assignment status:', error);
+            return { status: 'available', action: 'assign' }; // Default to assign on error
+        }
+    }
+
+    // Handle rescan reassign (when different employee scans on already assigned node)
+    async handleRescanReassign(employeeData, employeeId, entityName, credentials) {
+        try {
+            console.log('🔄 Handling rescan reassign for:', employeeData.NAME, 'on', entityName);
+            
+            // Show confirmation modal for reassign
+            const confirmMessage = `Personal node "${entityName}" is already assigned to another employee.\n\nDo you want to reassign it to "${employeeData.NAME}"?`;
+            
+            showConfirmationModal(
+                confirmMessage,
+                async () => {
+                    // User confirmed reassign
+                    console.log('✅ User confirmed reassign via rescan');
+                    
+                    // Proceed with normal assignment flow (this will overwrite the existing assignment)
+                    await this.proceedWithAssignment(employeeData, employeeId, entityName, credentials);
+                },
+                () => {
+                    // User cancelled reassign
+                    console.log('❌ User cancelled reassign via rescan');
+                    
+                    // Just clear selections and return to scan mode
+                    this.clearAllSelections();
+                    this.updateStatus('Ready to Scan', 'ready');
+                }
+            );
+            
+        } catch (error) {
+            console.error('❌ Error in rescan reassign flow:', error);
+            alert('Error in rescan reassign: ' + error.message);
+        }
+    }
+
+    // Proceed with assignment (extracted from handleAutoAssignment for reuse)
+    async proceedWithAssignment(employeeData, employeeId, entityName, credentials) {
+        try {
+            console.log('🔄 Proceeding with assignment for:', employeeData.NAME, 'on', entityName);
+            
+            // Check if employee is registered and update group if needed
+            const registrationData = await this.checkPersonRegistration(employeeId, credentials);
+            console.log('📊 Current registration status:', registrationData);
+            
+            if (registrationData.isRegistered) {
+                // Employee exists - update group based on personal node name
+                console.log('🔄 Employee already registered, updating group...');
+                await this.updatePersonGroupByEmployeeId(employeeId, entityName, credentials);
+            } else {
+                // Employee not registered - backend will handle auto-registration during assignment
+                console.log('📝 Employee not registered - backend will auto-register during assignment');
+            }
+            
+            // Perform assignment using MACHINE_NAME
+            console.log('🔗 Assigning employee to personal node:', entityName);
+            
+            // Check if we're using closest nodes API (which doesn't have entity_id)
+            let assignmentResult;
+            if (this.currentPlan === 'closest-nodes' && this.selectedEntity.closestNodeData) {
+                console.log('📍 Using closest nodes API - assignment may not be available');
+                console.log('⚠️ Closest nodes API does not support entity assignment yet');
+                
+                // For now, show a message that assignment is not available for closest nodes
+                showSuccessModal(`Closest nodes API does not support assignment yet. Employee "${employeeData.NAME}" data displayed for reference only.`);
+                
+                // Wait for modal auto-close (1.5 seconds)
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Clear selections and return to scan mode
+                this.clearAllSelections();
+                this.updateStatus('Ready to Scan', 'ready');
+                return;
+            } else {
+                // Use normal assignment for auto-zone API
+                assignmentResult = await this.updateEntityAssignmentByMachineName(entityName, employeeId, credentials);
+            }
+            
+            if (assignmentResult) {
+                // Show success modal with auto-close (1.5 seconds)
+                showSuccessModal(`Employee "${employeeData.NAME}" assigned to personal node "${entityName}" successfully!`);
+                
+                // Wait for database to update (2 seconds) + modal auto-close (1.5 seconds) = 3.5 seconds total
+                console.log('⏳ Waiting for database update and modal auto-close...');
+                await new Promise(resolve => setTimeout(resolve, 3500)); // Wait 3.5 seconds total
+                
+                // Refresh page after modal closes to ensure clean state
+                console.log('🔄 Clearing cache and refreshing page to ensure clean scan mode...');
+                
+                // Clear browser cache to ensure fresh data
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        names.forEach(name => {
+                            caches.delete(name);
+                        });
+                    });
+                }
+                
+                // Force refresh with cache bypass
+                window.location.reload(true);
+            } else {
+                throw new Error('Failed to assign employee to personal node');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error in proceed with assignment:', error);
+            alert('Error in assignment: ' + error.message);
+        }
+    }
+
+    // Handle rescan unassign (when same employee scans again on already assigned node)
+    async handleRescanUnassign(employeeData, employeeId, entityName, credentials) {
+        try {
+            console.log('🔄 Handling rescan unassign for:', employeeData.NAME, 'on', entityName);
+            
+            // Show confirmation modal for unassign
+            const confirmMessage = `Are you sure you want to unassign "${employeeData.NAME}" from personal node "${entityName}"?`;
+            
+            showConfirmationModal(
+                confirmMessage,
+                async () => {
+                    // User confirmed unassign
+                    console.log('✅ User confirmed unassign via rescan');
+                    
+                    // Perform unassign
+                    const unassignResult = await this.updateEntityAssignmentByMachineName(entityName, 0, credentials);
+                    
+                    if (unassignResult) {
+                        // Show success modal
+                        showUnassignSuccessModal(`Employee "${employeeData.NAME}" unassigned from personal node "${entityName}" successfully!`);
+                        
+                        // Wait for modal auto-close (1.5 seconds)
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        
+                        // Wait for database update (additional delay)
+                        console.log('⏳ Waiting for database update...');
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        
+                        // Refresh data to show updated status
+                        console.log('🔄 Refreshing personal nodes list...');
+                        await this.loadCurrentPlanData();
+                        
+                        // Stay in personal node mode - don't clear selection
+                        console.log('📋 Staying in personal node mode after unassign');
+                        this.updateStatus('Ready to Scan - Auto Assignment Mode', 'ready');
+                        
+                        // Update button text to show we're still in assignment mode
+                        this.updateScanButtonText('Scan Again');
+                    } else {
+                        throw new Error('Failed to unassign employee from personal node');
+                    }
+                },
+                () => {
+                    // User cancelled unassign
+                    console.log('❌ User cancelled unassign via rescan');
+                    
+                    // Stay in personal node mode - don't clear selection
+                    console.log('📋 Staying in personal node mode after cancel');
+                    this.updateStatus('Ready to Scan - Auto Assignment Mode', 'ready');
+                    this.updateScanButtonText('Scan Again');
+                }
+            );
+            
+        } catch (error) {
+            console.error('❌ Error in rescan unassign flow:', error);
+            alert('Error in rescan unassign: ' + error.message);
+        }
+    }
+
     // Handle complete auto-assignment flow
     async handleAutoAssignment(employeeData, employeeId, credentials) {
         // Protection against double assignment
@@ -1446,63 +1811,30 @@ class RFIDReader {
             const registrationData = await this.checkPersonRegistration(employeeId, credentials);
             console.log('📊 Current registration status:', registrationData);
             
-            if (registrationData.isRegistered) {
-                // Employee exists - update group based on personal node name
-                console.log('🔄 Employee already registered, updating group...');
-                await this.updatePersonGroupByEmployeeId(employeeId, entityName, credentials);
-            } else {
-                // Employee not registered - backend will handle auto-registration during assignment
-                console.log('📝 Employee not registered - backend will auto-register during assignment');
-            }
+            // Check node assignment status and determine action
+            console.log('🔍 About to check assignment status with:', {
+                entityName: entityName,
+                employeeId: employeeId,
+                employeeIdType: typeof employeeId
+            });
+            const assignmentStatus = await this.checkNodeAssignmentStatus(entityName, employeeId, credentials);
+            console.log('🔍 Node assignment status result:', assignmentStatus);
             
-            // Perform assignment using MACHINE_NAME
-            console.log('🔗 Assigning employee to personal node:', entityName);
-            
-            // Check if we're using closest nodes API (which doesn't have entity_id)
-            let assignmentResult;
-            if (this.currentPlan === 'closest-nodes' && this.selectedEntity.closestNodeData) {
-                console.log('📍 Using closest nodes API - assignment may not be available');
-                console.log('⚠️ Closest nodes API does not support entity assignment yet');
-                
-                // For now, show a message that assignment is not available for closest nodes
-                showSuccessModal(`Closest nodes API does not support assignment yet. Employee "${employeeData.NAME}" data displayed for reference only.`);
-                
-                // Wait for modal auto-close (3 seconds)
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                
-                // Clear selections and return to scan mode
-                this.clearAllSelections();
-                this.updateStatus('Ready to Scan', 'ready');
+            if (assignmentStatus.action === 'unassign') {
+                // Same employee scanning again on already assigned node - show unassign confirmation
+                console.log('🔄 Same employee scanning again - showing unassign confirmation');
+                await this.handleRescanUnassign(employeeData, employeeId, entityName, credentials);
+                return;
+            } else if (assignmentStatus.action === 'reassign') {
+                // Different employee scanning on already assigned node - show reassign confirmation
+                console.log('🔄 Different employee scanning - showing reassign confirmation');
+                await this.handleRescanReassign(employeeData, employeeId, entityName, credentials);
                 return;
             } else {
-                // Use normal assignment for auto-zone API
-                assignmentResult = await this.updateEntityAssignmentByMachineName(entityName, employeeId, credentials);
-            }
-            
-                if (assignmentResult) {
-                    // Show success modal with auto-close (3 seconds)
-                    showSuccessModal(`Employee "${employeeData.NAME}" assigned to personal node "${entityName}" successfully!`);
-                    
-                    // Wait for database to update (2 seconds) + modal auto-close (3 seconds) = 5 seconds total
-                    console.log('⏳ Waiting for database update and modal auto-close...');
-                    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds total
-                    
-                    // Refresh page after modal closes to ensure clean state
-                    console.log('🔄 Clearing cache and refreshing page to ensure clean scan mode...');
-                    
-                    // Clear browser cache to ensure fresh data
-                    if ('caches' in window) {
-                        caches.keys().then(names => {
-                            names.forEach(name => {
-                                caches.delete(name);
-                            });
-                        });
-                    }
-                    
-                    // Force refresh with cache bypass
-                    window.location.reload(true);
-            } else {
-                    throw new Error('Failed to assign employee to personal node');
+                // Node is available - proceed with normal assignment
+                console.log('🔄 Node is available - proceeding with normal assignment');
+                await this.proceedWithAssignment(employeeData, employeeId, entityName, credentials);
+                return;
             }
             
         } catch (error) {
@@ -2049,23 +2381,23 @@ function showSuccessModal(message) {
     if (modal) {
         modal.style.display = 'flex';
         
-        // Auto-close modal after 3 seconds with countdown
-        let countdown = 3;
+        // Auto-close modal after 1.5 seconds with countdown
+        let countdown = 1.5;
         if (countdownElement) {
             countdownElement.textContent = countdown;
         }
         
         const countdownInterval = setInterval(() => {
-            countdown--;
+            countdown -= 0.5;
             if (countdownElement) {
-                countdownElement.textContent = countdown;
+                countdownElement.textContent = Math.ceil(countdown);
             }
             
             if (countdown <= 0) {
                 clearInterval(countdownInterval);
                 closeSuccessModal();
             }
-        }, 1000);
+        }, 500);
     }
 }
 
@@ -2079,7 +2411,7 @@ function closeSuccessModal() {
     }
 }
 
-// Show confirmation modal
+// Show confirmation modal with auto-cancel timer
 function showConfirmationModal(message, onConfirm, onCancel) {
     const modal = document.getElementById('confirmationModal');
     const messageElement = document.getElementById('confirmationMessage');
@@ -2096,14 +2428,41 @@ function showConfirmationModal(message, onConfirm, onCancel) {
         confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
         cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
         
+        // Auto-cancel timer (5 seconds)
+        let countdown = 5;
+        let timerInterval;
+        
+        // Update button text with countdown
+        const updateButtonText = () => {
+            newCancelBtn.textContent = `Cancel (${countdown})`;
+        };
+        
+        // Start countdown
+        updateButtonText();
+        timerInterval = setInterval(() => {
+            countdown--;
+            updateButtonText();
+            
+            if (countdown <= 0) {
+                clearInterval(timerInterval);
+                modal.style.display = 'none';
+                console.log('⏰ Auto-cancel: No action taken within 3 seconds');
+                if (onCancel) onCancel();
+            }
+        }, 1000);
+        
         // Add new event listeners
         newConfirmBtn.addEventListener('click', () => {
+            clearInterval(timerInterval);
             modal.style.display = 'none';
+            console.log('✅ User confirmed action');
             if (onConfirm) onConfirm();
         });
         
         newCancelBtn.addEventListener('click', () => {
+            clearInterval(timerInterval);
             modal.style.display = 'none';
+            console.log('❌ User cancelled action');
             if (onCancel) onCancel();
         });
     }
@@ -2120,12 +2479,12 @@ function showUnassignSuccessModal(message) {
         modal.style.display = 'flex';
         
         // Start countdown
-        let countdown = 3;
-        countdownElement.textContent = countdown;
+        let countdown = 1.5;
+        countdownElement.textContent = Math.ceil(countdown);
         
         const countdownInterval = setInterval(() => {
-            countdown--;
-            countdownElement.textContent = countdown;
+            countdown -= 0.5;
+            countdownElement.textContent = Math.ceil(countdown);
             
             if (countdown <= 0) {
                 clearInterval(countdownInterval);
@@ -2147,7 +2506,7 @@ function showUnassignSuccessModal(message) {
                     window.location.reload(true);
                 }, 500);
             }
-        }, 1000);
+        }, 500);
     }
 }
 
