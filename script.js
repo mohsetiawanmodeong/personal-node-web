@@ -316,7 +316,7 @@ class RFIDReader {
             let registrationData = await this.checkPersonRegistration(employeeIdWithoutZeros, null);
             
                 console.log('📊 Registration data result:', registrationData);
-            
+                
             // Handle assignment flow based on personal node selection
             console.log('🔗 Processing employee data...');
             
@@ -400,9 +400,9 @@ class RFIDReader {
                 // Scan Mode: No personal node selected - just show employee details
                 console.log('📋 No personal node selected - showing employee details only');
                     console.log('🎯 About to call displayEmployeeData with:', response, registrationData);
-                    this.displayEmployeeData(response, registrationData);
-                    this.updateStatus('Employee found', 'ready');
-                    console.log('✅ Employee details loaded successfully');
+                this.displayEmployeeData(response, registrationData);
+                this.updateStatus('Employee found', 'ready');
+                console.log('✅ Employee details loaded successfully');
             }
             } else {
                 this.showError('PTFI employee not found in the system');
@@ -1178,18 +1178,18 @@ class RFIDReader {
             
             // Display different content based on assignment status
             if (isUnassigned) {
-                entityItem.innerHTML = `
+            entityItem.innerHTML = `
                     <div class="entity-main-line">
                         <span class="entity-main-name">${name}</span>
                         <span class="entity-main-operator">Available</span>
                         <span class="entity-main-employee">-</span>
-                        <span class="entity-role-badge ${roleClass}">READY</span>
-                    </div>
+                        <span class="entity-role-badge ${roleClass}">ASSIGNABLE</span>
+                </div>
                     <div class="entity-location compact">
                         <span class="zone">Zone:${zone}</span>
                         <span class="coordinates"> ${coordinates[0]},${coordinates[1]},${coordinates[2]}</span>
-                    </div>
-                `;
+                </div>
+            `;
             } else {
             entityItem.innerHTML = `
                 <div class="entity-main-line">
@@ -1210,9 +1210,9 @@ class RFIDReader {
                 this.selectedEntity.properties.name === entity.properties.name) {
                 // Restore visual feedback for previously selected node
                 entityItem.classList.add('selected-node');
-                entityItem.style.backgroundColor = '#e0f2fe';
-                entityItem.style.boxShadow = '0 0 10px rgba(0, 123, 255, 0.5)';
-                entityItem.style.border = '2px solid #007bff';
+                entityItem.style.backgroundColor = '#ffd700';
+                entityItem.style.boxShadow = '0 0 15px rgba(255, 215, 0, 0.8)';
+                entityItem.style.border = '3px solid #ff8c00';
             }
             
             // Clickable: select personal node for assignment
@@ -1229,9 +1229,9 @@ class RFIDReader {
                 
                 // Add visual feedback for selected node
                 entityItem.classList.add('selected-node');
-                entityItem.style.backgroundColor = '#e0f2fe';
-                entityItem.style.boxShadow = '0 0 10px rgba(0, 123, 255, 0.5)';
-                entityItem.style.border = '2px solid #007bff';
+                entityItem.style.backgroundColor = '#ffd700';
+                entityItem.style.boxShadow = '0 0 15px rgba(255, 215, 0, 0.8)';
+                entityItem.style.border = '3px solid #ff8c00';
                 
                 // Check if this personal node is empty or assigned
                 const isEmpty = this.isPersonalNodeEmpty(entity.properties.operator_name, entity.properties.employee_id, entity.properties.name);
@@ -1282,8 +1282,55 @@ class RFIDReader {
         console.log(`✅ Displayed ${filteredEntities.length} personal nodes (filtered from ${entities.length} total entities)`);
     }
 
+    // Fetch employee data for closest nodes using OID
+    async fetchEmployeeDataForClosestNodes(closestNodes) {
+        try {
+            console.log('🔍 Fetching employee data for closest nodes...');
+            
+            // Get all OIDs from closest nodes
+            const oids = closestNodes.filter(node => node.OID).map(node => node.OID);
+            
+            if (oids.length === 0) {
+                console.log('📋 No OIDs found in closest nodes data');
+                return closestNodes;
+            }
+            
+            console.log('📊 OIDs to fetch:', oids);
+            
+            // Fetch employee data from ULTS API
+            const credentials = btoa('fmiacp:track1nd0');
+            const entityUrl = `${this.apiBaseUrl}/getULTSEntity`;
+            const entityData = await this.makeAjaxRequest(entityUrl, credentials);
+            
+            if (entityData && entityData.length > 0) {
+                console.log('📋 Entity data fetched:', entityData.length, 'records');
+                
+                // Map employee data to closest nodes
+                closestNodes.forEach(node => {
+                    if (node.OID) {
+                        const entityMatch = entityData.find(entity => entity.OID === node.OID);
+                        if (entityMatch) {
+                            node.employee_id = entityMatch.EMPLOYEE_ID;
+                            node.operator_name = entityMatch.OPERATOR_NAME;
+                            console.log(`✅ Mapped employee data for ${node.pdsName}:`, {
+                                employee_id: entityMatch.EMPLOYEE_ID,
+                                operator_name: entityMatch.OPERATOR_NAME
+                            });
+                        }
+                    }
+                });
+            }
+            
+            return closestNodes;
+            
+        } catch (error) {
+            console.error('❌ Error fetching employee data for closest nodes:', error);
+            return closestNodes; // Return original data if fetch fails
+        }
+    }
+
     // Display Closest Nodes Entities (PLAN B - Alternative API)
-    displayClosestNodesEntities(closestNodes) {
+    async displayClosestNodesEntities(closestNodes) {
         const entitiesList = document.getElementById('entitiesList');
         
         console.log('📊 Raw closest nodes data from API:', JSON.stringify(closestNodes, null, 2));
@@ -1293,15 +1340,18 @@ class RFIDReader {
             return;
         }
 
+        // Fetch employee data for closest nodes
+        const nodesWithEmployeeData = await this.fetchEmployeeDataForClosestNodes(closestNodes);
+
         // Update total count
         const totalCountElement = document.getElementById('totalCount');
         if (totalCountElement) {
-            totalCountElement.textContent = `(Total: ${closestNodes.length})`;
+            totalCountElement.textContent = `(Total: ${nodesWithEmployeeData.length})`;
         }
 
         entitiesList.innerHTML = '';
 
-        closestNodes.forEach(node => {
+        nodesWithEmployeeData.forEach(node => {
             const entityItem = document.createElement('div');
             
             // Extract data from closest_nodes API format
@@ -1309,13 +1359,29 @@ class RFIDReader {
             const avgRange = node.avgRangeMetres || 0;
             const waspId = node.waspID || 'N/A';
             const timestamp = node.rangingTimestamp || 'N/A';
+            const battery = node.health?.battery || 'N/A';
+            const oid = node.OID || null;
+            
+            // Use employee data from ULTS API (already fetched)
+            let employeeName = 'Available';
+            let employeeId = '-';
+            
+            if (node.operator_name && node.operator_name !== 'undefined' && node.operator_name !== nodeName) {
+                employeeName = node.operator_name;
+                employeeId = node.employee_id || '-';
+                console.log(`✅ Node ${nodeName} has employee: ${employeeName} (ID: ${employeeId})`);
+            } else {
+                console.log(`📋 Node ${nodeName} is available for assignment`);
+            }
             
             // Log each node for debugging
             console.log(`📱 Closest Node: ${nodeName}, Range: ${avgRange}m, WASP: ${waspId}`);
             console.log(`📅 Raw Timestamp: ${timestamp}`);
             
-            // Determine role and color class based on range
-            const roleClass = this.getRoleClassFromRange(avgRange);
+            // Determine role and color class based on assignment status
+            const isAssigned = employeeName !== 'Available';
+            const roleClass = isAssigned ? 'worker' : this.getRoleClassFromRange(avgRange);
+            const roleBadge = isAssigned ? 'WORKER' : 'ASSIGNABLE';
             
             entityItem.className = `entity-item ${roleClass}`;
             
@@ -1326,23 +1392,25 @@ class RFIDReader {
             entityItem.innerHTML = `
                 <div class="entity-main-line">
                     <span class="entity-main-name">${nodeName}</span>
-                    <span class="entity-main-operator">Range: ${avgRange}m</span>
-                    <span class="entity-main-employee">WASP: ${waspId}</span>
-                    <span class="entity-role-badge ${roleClass}">CLOSEST</span>
+                    <span class="entity-main-operator">${employeeName}</span>
+                    <span class="entity-main-employee">${employeeId}</span>
+                    <span class="entity-role-badge ${roleClass}">${roleBadge}</span>
                 </div>
                 <div class="entity-location compact">
-                    <span class="zone">Time: ${formattedTimestamp}</span>
-                    <span class="coordinates"> Range: ${avgRange} metres</span>
+                    <span class="time">Time: ${formattedTimestamp}</span>
+                    <span class="range"> Range: ${avgRange}m, WASP: ${waspId},</span>
+                    <span class="battery"> Battery: ${battery}%</span>
                 </div>
             `;
             
             // Check if this node is currently selected
-            if (this.selectedEntity && this.selectedEntity.pdsName === node.pdsName) {
+            if (this.selectedEntity && this.selectedEntity.properties && 
+                this.selectedEntity.properties.name === node.pdsName) {
                 // Restore visual feedback for previously selected node
                 entityItem.classList.add('selected-node');
-                entityItem.style.backgroundColor = '#e0f2fe';
-                entityItem.style.boxShadow = '0 0 10px rgba(0, 123, 255, 0.5)';
-                entityItem.style.border = '2px solid #007bff';
+                entityItem.style.backgroundColor = '#ffd700';
+                entityItem.style.boxShadow = '0 0 15px rgba(255, 215, 0, 0.8)';
+                entityItem.style.border = '3px solid #ff8c00';
             }
             
             // Clickable: select personal node for assignment
@@ -1359,27 +1427,66 @@ class RFIDReader {
                 this.selectedEntity = {
                     properties: {
                         name: node.pdsName,
-                        oid: node.oid || null, // May not be available in closest_nodes
+                        oid: node.OID || null, // Use OID from closest_nodes API
                         employee_id: node.employee_id || null,
-                        operator_name: node.operator_name || null
+                        operator_name: node.operator_name || null,
+                        battery: node.health?.battery || 'N/A',
+                        waspId: node.waspID || 'N/A',
+                        avgRange: node.avgRangeMetres || 0
                     },
                     closestNodeData: node // Keep original data for reference
                 };
                 
                 // Add visual feedback for selected node
                 entityItem.classList.add('selected-node');
-                entityItem.style.backgroundColor = '#e0f2fe';
-                entityItem.style.boxShadow = '0 0 10px rgba(0, 123, 255, 0.5)';
-                entityItem.style.border = '2px solid #007bff';
+                entityItem.style.backgroundColor = '#ffd700';
+                entityItem.style.boxShadow = '0 0 15px rgba(255, 215, 0, 0.8)';
+                entityItem.style.border = '3px solid #ff8c00';
                 
-                // Show ready for assignment message
-                this.showReadyForAssignment(node.pdsName);
+                // Check if this personal node has an assigned employee
+                const hasOperatorName = node.operator_name && node.operator_name !== 'undefined' && node.operator_name !== node.pdsName;
+                const hasEmployeeId = node.employee_id && node.employee_id !== 'undefined';
+                
+                if (hasOperatorName && hasEmployeeId) {
+                    // Personal node has assignment - show assigned employee details immediately
+                    console.log('📋 Personal node has assignment:', node.operator_name, node.employee_id);
+                    
+                    try {
+                        console.log('🔍 Fetching assigned employee details for ID:', node.employee_id);
+                        const assignedEmployeeUrl = `${this.apiBaseUrl}/getPTFIDetailsEmployee?employee_id=${node.employee_id}`;
+                        const assignedEmployeeCredentials = btoa('fmiacp:track1nd0');
+                        const assignedEmployeeData = await this.makeAjaxRequest(assignedEmployeeUrl, assignedEmployeeCredentials);
+                        
+                        if (assignedEmployeeData && assignedEmployeeData.EMPLOYEE_ID) {
+                            console.log('✅ Assigned employee data found:', assignedEmployeeData);
+                            
+                            // Check registration status for the assigned employee
+                            const assignedEmployeeIdClean = assignedEmployeeData.EMPLOYEE_ID.replace(/^0+/, '');
+                            const assignedRegistrationData = await this.checkPersonRegistration(assignedEmployeeIdClean, null);
+                            
+                            // Display the assigned employee's details
+                            this.displayEmployeeData(assignedEmployeeData, assignedRegistrationData);
+                            
+                            // Update status to show this is the assigned employee
+                            this.updateStatus(`Showing assigned employee: ${assignedEmployeeData.NAME}`, 'ready');
+                        } else {
+                            console.log('❌ Could not fetch assigned employee details');
+                            this.showError('Could not load assigned employee details');
+                        }
+                    } catch (error) {
+                        console.error('❌ Error fetching assigned employee:', error);
+                        this.showError('Error loading assigned employee: ' + error.message);
+                    }
+                } else {
+                    // Personal node is empty - show ready for assignment message
+                    this.showReadyForAssignment(node.pdsName);
+                }
             });
 
             entitiesList.appendChild(entityItem);
         });
 
-        console.log(`✅ Displayed ${closestNodes.length} closest nodes from alternative API`);
+        console.log(`✅ Displayed ${nodesWithEmployeeData.length} closest nodes from alternative API`);
     }
 
     // Clear all visual selections from personal nodes
@@ -1489,11 +1596,9 @@ class RFIDReader {
             console.log('🔍 Employee ID length:', employeeId ? employeeId.toString().length : 0);
             console.log('🔍 Employee ID normalized:', employeeId ? employeeId.toString().replace(/^0+/, '') : '');
             
-            // For closest nodes API, assignment checking is not supported yet
-            if (this.currentPlan === 'closest-nodes') {
-                console.log('📍 Closest nodes API - assignment checking not supported yet');
-                return { status: 'available', action: 'assign' };
-            }
+            // Use same assignment checking logic for both PLAN A and PLAN B
+            // Both plans now use ULTSENTITY-based assignment checking for consistency
+            console.log('📍 Using ULTSENTITY-based assignment checking for consistency across both plans');
             
             // Get current personal nodes data to check assignment
             console.log('🔍 Fetching current assignment data from:', this.autoZoneApiUrl);
@@ -1669,26 +1774,10 @@ class RFIDReader {
             // Perform assignment using MACHINE_NAME
             console.log('🔗 Assigning employee to personal node:', entityName);
             
-            // Check if we're using closest nodes API (which doesn't have entity_id)
-            let assignmentResult;
-            if (this.currentPlan === 'closest-nodes' && this.selectedEntity.closestNodeData) {
-                console.log('📍 Using closest nodes API - assignment may not be available');
-                console.log('⚠️ Closest nodes API does not support entity assignment yet');
-                
-                // For now, show a message that assignment is not available for closest nodes
-                showSuccessModal(`Closest nodes API does not support assignment yet. Employee "${employeeData.NAME}" data displayed for reference only.`);
-                
-                // Wait for modal auto-close (1.5 seconds)
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                
-                // Clear selections and return to scan mode
-                this.clearAllSelections();
-                this.updateStatus('Ready to Scan', 'ready');
-                return;
-            } else {
-                // Use normal assignment for auto-zone API
-                assignmentResult = await this.updateEntityAssignmentByMachineName(entityName, employeeId, credentials);
-            }
+            // Use same assignment logic for both PLAN A and PLAN B
+            // Both plans now use machine name-based assignment for consistency
+            console.log('🔗 Using machine name-based assignment for consistency across both plans');
+            const assignmentResult = await this.updateEntityAssignmentByMachineName(entityName, employeeId, credentials);
             
             if (assignmentResult) {
                 // Show success modal with auto-close (1.5 seconds)
@@ -1786,9 +1875,9 @@ class RFIDReader {
         // Protection against double assignment
         if (this.isAssigning) {
             console.log('⚠️ Already assigning, ignoring duplicate assignment request');
-            return;
-        }
-        
+                return;
+            }
+            
         this.isAssigning = true;
         
         try {
@@ -1808,7 +1897,7 @@ class RFIDReader {
             console.log('🔍 Selected entity properties:', JSON.stringify(this.selectedEntity.properties, null, 2));
             
             // Check if employee is registered and update group if needed
-            const registrationData = await this.checkPersonRegistration(employeeId, credentials);
+                const registrationData = await this.checkPersonRegistration(employeeId, credentials);
             console.log('📊 Current registration status:', registrationData);
             
             // Check node assignment status and determine action
@@ -1913,6 +2002,7 @@ class RFIDReader {
             xhr.send();
         });
     }
+
 
     // Update entity assignment via API using MACHINE_NAME to avoid duplicate OID issues
     async updateEntityAssignmentByMachineName(machineName, employeeId, credentials) {

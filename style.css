@@ -356,15 +356,15 @@ body {
 }
 
 .entity-item.selected-node {
-    background: rgba(224, 242, 254, 0.95);
-    border-left: 4px solid #007bff;
-    border: 2px solid #007bff;
-    box-shadow: 0 0 15px rgba(0, 123, 255, 0.3);
+    background: rgba(255, 215, 0, 0.95);
+    border-left: 4px solid #ff8c00;
+    border: 3px solid #ff8c00;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
     transform: translateY(-2px);
 }
 
 .entity-item.selected-node .entity-main-name {
-    color: #007bff;
+    color: #ff8c00;
     font-weight: bold;
 }
 
@@ -552,7 +552,12 @@ body {
     color: #1e40af;
 }
 
-.entity-location .coordinates {
+.entity-location .time {
+    font-weight: 600;
+    color: #1e40af;
+}
+
+.entity-location .coordinates .range .battery {
     font-family: monospace;
     font-size: 0.8rem;
 }
