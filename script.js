@@ -1203,55 +1203,40 @@ class RFIDReader {
                 if (assignmentResult) {
                     alert(`Employee "${employeeData.NAME}" assigned to personal node "${entityName}" successfully!`);
                     
-                    // Clear selected entity
-                    this.selectedEntity = null;
-                    
-                    // Wait a moment for database to update, then refresh entities list
+                    // Wait a moment for database to update
                     console.log('⏳ Waiting for database update...');
-                    await new Promise(resolve => setTimeout(resolve, 2000)); // Reduced from 5 to 2 seconds
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds for database
                     
-                    // Force refresh entities list to show updated operator_name
-                    console.log('🔄 Force refreshing personal nodes list...');
-                    await this.loadAutoZoneData();
-                    
-                    // Show success message and auto-reset countdown
-                    this.updateStatus('✅ Assignment Successful! Returning to scan mode in 1 second...', 'ready');
-                    
-                    // Auto-reset to scan mode after successful assignment
-                    console.log('🔄 Auto-assignment completed - resetting to scan mode to prevent double assignment');
+                    // Show success message and refresh countdown
+                    this.updateStatus('✅ Assignment Successful! Refreshing page in 2 seconds...', 'ready');
                     
                     // Visual countdown for user feedback
-                    let countdown = 1;
+                    let countdown = 2;
                     const countdownInterval = setInterval(() => {
                         countdown--;
                         if (countdown > 0) {
-                            this.updateStatus(`✅ Assignment Successful! Returning to scan mode in ${countdown} seconds...`, 'ready');
+                            this.updateStatus(`✅ Assignment Successful! Refreshing page in ${countdown} seconds...`, 'ready');
                         } else {
                             clearInterval(countdownInterval);
                         }
                     }, 1000);
                     
-                    // Clear selection and reset button to prevent accidental double assignment
+                    // Refresh page after countdown to ensure clean state
                     setTimeout(() => {
-                        this.clearAllSelections();
+                        console.log('🔄 Clearing cache and refreshing page to ensure clean scan mode...');
                         
-                        // Hide employee details and show scan area
-                        const scanArea = document.getElementById('scanArea');
-                        const employeeCard = document.getElementById('employeeCard');
-                        const errorMsg = document.getElementById('errorMessage');
+                        // Clear browser cache to ensure fresh data
+                        if ('caches' in window) {
+                            caches.keys().then(names => {
+                                names.forEach(name => {
+                                    caches.delete(name);
+                                });
+                            });
+                        }
                         
-                        if (employeeCard) employeeCard.style.display = 'none';
-                        if (errorMsg) errorMsg.style.display = 'none';
-                        if (scanArea) scanArea.style.display = 'block';
-                        
-                        // Reset status to ready
-                        this.updateStatus('Assignment completed - Ready to Scan', 'ready');
-                        
-                        // Force refresh personal nodes to show updated assignment
-                        this.loadAutoZoneData();
-                        
-                        console.log('✅ Auto-assignment completed successfully - back to scan mode');
-                    }, 1000); // Reduced from 2 to 1 second
+                        // Force refresh with cache bypass
+                        window.location.reload(true);
+                    }, 2000); // Refresh after 2 seconds
             } else {
                     throw new Error('Failed to assign employee to personal node');
             }
@@ -1793,8 +1778,19 @@ function scanAgain() {
     
     if (headerText && headerText.textContent === 'Reset Selection') {
         // If in assignment mode, refresh the page to reset everything
-        console.log('🔄 Reset Selection - refreshing page...');
-        window.location.reload();
+        console.log('🔄 Reset Selection - clearing cache and refreshing page...');
+        
+        // Clear browser cache to ensure fresh data
+        if ('caches' in window) {
+            caches.keys().then(names => {
+                names.forEach(name => {
+                    caches.delete(name);
+                });
+            });
+        }
+        
+        // Force refresh with cache bypass
+        window.location.reload(true);
     } else {
         // Normal scan mode - just clear any existing employee data
     if (window.rfidReader) {
