@@ -397,10 +397,42 @@ class RFIDReader {
                     return;
                 }
             } else {
-                // Scan Mode: No personal node selected - just show employee details
+                // Scan Mode: No personal node selected - show employee details and unassign option if assigned
                 console.log('📋 No personal node selected - showing employee details only');
-                    console.log('🎯 About to call displayEmployeeData with:', response, registrationData);
+                console.log('🎯 About to call displayEmployeeData with:', response, registrationData);
+                
+                // Check if this is a rescan of the same employee (simple logic)
+                if (this.scannedEmployeeData && 
+                    this.scannedEmployeeData.employeeId === employeeIdWithoutZeros &&
+                    registrationData.isRegistered && 
+                    registrationData.isAssigned &&
+                    registrationData.entityName !== 'N/A') {
+                    
+                    // Same employee rescan - show unassign confirmation
+                    console.log('✅ SAME EMPLOYEE RESCAN DETECTED - Showing unassign confirmation');
+                    console.log('📊 Rescan details:', {
+                        employeeId: employeeIdWithoutZeros,
+                        entityName: registrationData.entityName,
+                        isRegistered: registrationData.isRegistered,
+                        isAssigned: registrationData.isAssigned
+                    });
+                    const credentials = btoa('fmiacp:track1nd0');
+                    await this.handleScanModeRescanUnassign(response, employeeIdWithoutZeros, registrationData.entityName, credentials);
+                    return;
+                }
+                
+                // Store scanned employee data for potential unassign
+                this.scannedEmployeeData = {
+                    employeeData: response,
+                    employeeId: employeeIdWithoutZeros,
+                    registrationData: registrationData
+                };
+                
                 this.displayEmployeeData(response, registrationData);
+                
+                // Add unassign button if employee is registered and assigned
+                this.addUnassignButtonForScanMode(registrationData);
+                
                 this.updateStatus('Employee found', 'ready');
                 console.log('✅ Employee details loaded successfully');
             }
@@ -633,6 +665,59 @@ class RFIDReader {
         }
     }
 
+    // Add unassign button for scan mode (when employee is registered and assigned)
+    addUnassignButtonForScanMode(registrationData) {
+        console.log('🔍 addUnassignButtonForScanMode called with:', registrationData);
+        
+        // Only show unassign button if employee is registered and assigned
+        if (!registrationData || !registrationData.isRegistered || !registrationData.isAssigned) {
+            console.log('📋 Employee not registered/assigned - no unassign button needed');
+            console.log('📊 Registration data details:', {
+                isRegistered: registrationData ? registrationData.isRegistered : 'null',
+                isAssigned: registrationData ? registrationData.isAssigned : 'null',
+                entityName: registrationData ? registrationData.entityName : 'null'
+            });
+            return;
+        }
+        
+        console.log('✅ Employee is registered and assigned - adding unassign button');
+
+        // Check if unassign button already exists
+        let unassignButton = document.getElementById('unassignButton');
+        if (unassignButton) {
+            return; // Button already exists
+        }
+
+        // Get assigned entity name
+        const assignedEntityName = registrationData.entityName || 'Personal Node';
+        
+        // Create unassign button
+        unassignButton = document.createElement('button');
+        unassignButton.id = 'unassignButton';
+        unassignButton.className = 'btn btn-danger unassign-btn';
+        unassignButton.innerHTML = `
+            <div class="icon-user-minus"></div>
+            <span class="button-text">Unassign from ${assignedEntityName}</span>
+        `;
+
+        // Add click event for scan mode unassign
+        unassignButton.onclick = () => this.handleScanModeUnassignClick();
+
+        // Add button to employee card
+        const employeeCard = document.getElementById('employeeCard');
+        const cardBody = employeeCard.querySelector('.card-body');
+        
+        // Insert button after registration status
+        const registrationStatus = document.getElementById('registrationStatus');
+        if (registrationStatus) {
+            registrationStatus.insertAdjacentElement('afterend', unassignButton);
+        } else {
+            cardBody.appendChild(unassignButton);
+        }
+        
+        console.log('✅ Unassign button added for scan mode');
+    }
+
     // Remove unassign button
     removeUnassignButton() {
         const unassignButton = document.getElementById('unassignButton');
@@ -716,6 +801,157 @@ class RFIDReader {
         
         return; // Exit early since confirmation is handled in modal
 
+    }
+
+    // Handle unassign action for scan mode
+    async handleScanModeUnassignClick() {
+        // Protection against double execution
+        if (this.isAssigning) {
+            console.log('⚠️ Already processing assignment/unassignment, ignoring duplicate request');
+            return;
+        }
+        
+        if (!this.scannedEmployeeData) {
+            alert('No scanned employee data available for unassignment');
+            return;
+        }
+        
+        const employeeData = this.scannedEmployeeData.employeeData;
+        const employeeId = this.scannedEmployeeData.employeeId;
+        const registrationData = this.scannedEmployeeData.registrationData;
+        
+        const entityName = registrationData.entityName || 'Personal Node';
+        const employeeName = employeeData.NAME;
+        
+        console.log('📋 Scan mode unassigning:', {
+            employeeName: employeeName,
+            employeeId: employeeId,
+            entityName: entityName
+        });
+        
+        // Show confirmation modal
+        showConfirmationModal(
+            `Are you sure you want to unassign "${employeeName}" from personal node "${entityName}"?`,
+            async () => {
+                // User confirmed - proceed with unassignment
+                this.isAssigning = true;
+                
+                try {
+                    this.showLoading();
+                    this.updateStatus('Unassigning employee...', 'scanning');
+
+                    // Call unassign API (set employee_id to 0)
+                    const credentials = btoa('fmiacp:track1nd0');
+                    const unassignResult = await this.updateEntityAssignmentByMachineName(entityName, 0, credentials);
+
+                    if (unassignResult) {
+                        // Show unassign success modal
+                        showUnassignSuccessModal(`Employee "${employeeName}" has been unassigned from personal node "${entityName}" successfully!`);
+                        
+                        // Wait for database update
+                        console.log('⏳ Waiting for database update...');
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        
+                        // Refresh entities list
+                        console.log('🔄 Refreshing personal nodes list...');
+                        await this.loadCurrentPlanData();
+                        
+                        // Update employee data to show unassigned status
+                        const updatedRegistrationData = await this.checkPersonRegistration(employeeId, null);
+                        this.displayEmployeeData(employeeData, updatedRegistrationData);
+                        
+                        // Remove unassign button (since employee is now unassigned)
+                        this.removeUnassignButton();
+                        
+                        this.updateStatus('Employee unassigned successfully', 'ready');
+                        
+                        console.log('✅ Scan mode unassignment completed successfully');
+                        
+                    } else {
+                        throw new Error('Failed to unassign employee from personal node');
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Error unassigning:', error);
+                    alert('Error unassigning employee: ' + error.message);
+                } finally {
+                    this.isAssigning = false;
+                    this.hideLoading();
+                }
+            },
+            () => {
+                // User cancelled - do nothing
+                console.log('❌ Scan mode unassignment cancelled by user');
+            }
+        );
+        
+        return; // Exit early since confirmation is handled in modal
+    }
+
+    // Handle rescan unassign for scan mode (when same employee scans again)
+    async handleScanModeRescanUnassign(employeeData, employeeId, entityName, credentials) {
+        try {
+            console.log('🔄 Handling scan mode rescan unassign for:', employeeData.NAME, 'on', entityName);
+            
+            // Show confirmation modal for unassign
+            const confirmMessage = `Are you sure you want to unassign "${employeeData.NAME}" from personal node "${entityName}"?`;
+            
+            showConfirmationModal(
+                confirmMessage,
+                async () => {
+                    // User confirmed unassign
+                    console.log('✅ User confirmed scan mode rescan unassign');
+                    
+                    // Perform unassign
+                    const unassignResult = await this.updateEntityAssignmentByMachineName(entityName, 0, credentials);
+                    
+                    if (unassignResult) {
+                        // Show success modal
+                        showUnassignSuccessModal(`Employee "${employeeData.NAME}" unassigned from personal node "${entityName}" successfully!`);
+                        
+                        // Wait for modal auto-close (1.5 seconds)
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        
+                        // Wait for database update (additional delay)
+                        console.log('⏳ Waiting for database update...');
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        
+                        // Refresh entities list
+                        console.log('🔄 Refreshing personal nodes list...');
+                        await this.loadCurrentPlanData();
+                        
+                        // Update employee data to show unassigned status
+                        const updatedRegistrationData = await this.checkPersonRegistration(employeeId, null);
+                        this.displayEmployeeData(employeeData, updatedRegistrationData);
+                        
+                        // Remove unassign button (since employee is now unassigned)
+                        this.removeUnassignButton();
+                        
+                        // Update scanned employee data
+                        this.scannedEmployeeData = {
+                            employeeData: employeeData,
+                            employeeId: employeeId,
+                            registrationData: updatedRegistrationData
+                        };
+                        
+                        this.updateStatus('Employee unassigned successfully', 'ready');
+                        
+                        console.log('✅ Scan mode rescan unassignment completed successfully');
+                        
+                    } else {
+                        throw new Error('Failed to unassign employee from personal node');
+                    }
+                },
+                () => {
+                    // User cancelled - do nothing
+                    console.log('❌ Scan mode rescan unassignment cancelled by user');
+                }
+            );
+            
+        } catch (error) {
+            console.error('❌ Error in scan mode rescan unassign:', error);
+            alert('Error in rescan unassign: ' + error.message);
+        }
     }
 
     // Check if personal node is empty/unassigned
@@ -2321,6 +2557,7 @@ class RFIDReader {
                     
                     const result = {
                         isRegistered: true,
+                        isAssigned: entityAssignment ? true : false, // Add isAssigned property
                         entityGroup: entityGroup !== 'N/A' ? entityGroup : (person.ENTITY_GROUP || 'N/A'), // Use entity assignment group if found, otherwise person group
                         role: person.ROLE || 'N/A',
                         personName: person.PERSON_NAME || 'N/A',
@@ -2334,6 +2571,7 @@ class RFIDReader {
                     console.log('❌ Person not found in registration');
                     return {
                         isRegistered: false,
+                        isAssigned: false,
                         entityGroup: null,
                         role: null,
                         personName: null,
