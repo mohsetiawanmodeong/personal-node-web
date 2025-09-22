@@ -21,12 +21,22 @@ class RFIDReader {
         this.isProcessing = false;
         this.isAssigning = false;
         // ===== PLAN SWITCHER =====
-        this.currentPlan = 'auto-zone'; // Track current plan
+        // Load saved plan preference or default to auto-zone
+        this.currentPlan = this.loadSavedPlanPreference();
+        console.log(`🎯 Loaded saved plan preference: ${this.currentPlan}`);
         // =========================
         
         this.initializeEventListeners();
         this.initializePlanSelector();
         this.updateStatus('Ready to Scan', 'ready');
+        
+        // Show which API is being used on startup
+        const apiName = this.currentPlan === 'closest-nodes' ? 'Closest Nodes' : 'Auto Zone';
+        console.log(`🚀 Starting application with ${apiName} API`);
+        
+        // Update UI to show current plan
+        this.updatePlanSelectorDisplay();
+        
         this.startAutoZoneRealtime();
     }
 
@@ -123,6 +133,43 @@ class RFIDReader {
         this.updatePlanSelectorDisplay();
     }
 
+    // Load saved plan preference from localStorage
+    loadSavedPlanPreference() {
+        try {
+            const savedPlan = localStorage.getItem('ptfi-personal-node-api-preference');
+            if (savedPlan && (savedPlan === 'auto-zone' || savedPlan === 'closest-nodes')) {
+                console.log(`📱 Found saved API preference: ${savedPlan}`);
+                return savedPlan;
+            } else {
+                console.log('📱 No valid saved preference found, using default: auto-zone');
+                return 'auto-zone';
+            }
+        } catch (error) {
+            console.error('❌ Error loading saved plan preference:', error);
+            return 'auto-zone';
+        }
+    }
+
+    // Save plan preference to localStorage
+    savePlanPreference(plan) {
+        try {
+            localStorage.setItem('ptfi-personal-node-api-preference', plan);
+            console.log(`💾 Saved API preference: ${plan}`);
+        } catch (error) {
+            console.error('❌ Error saving plan preference:', error);
+        }
+    }
+
+    // Clear saved plan preference (reset to default)
+    clearPlanPreference() {
+        try {
+            localStorage.removeItem('ptfi-personal-node-api-preference');
+            console.log('🗑️ Cleared saved API preference, will use default: auto-zone');
+        } catch (error) {
+            console.error('❌ Error clearing plan preference:', error);
+        }
+    }
+
     // Switch between Plan A and Plan B
     switchPlan(plan) {
         console.log(`🔄 Switching to ${plan}`);
@@ -135,6 +182,9 @@ class RFIDReader {
         
         // Update plan settings
         this.currentPlan = plan;
+        
+        // Save preference to localStorage
+        this.savePlanPreference(plan);
         
         // Update UI
         this.updatePlanSelectorDisplay();
@@ -955,6 +1005,8 @@ class RFIDReader {
 
     // Load data based on current plan
     loadCurrentPlanData() {
+        console.log(`🔄 Loading data for current plan: ${this.currentPlan}`);
+        
         if (this.currentPlan === 'closest-nodes') {
             this.loadClosestNodesData();
         } else {
@@ -1239,7 +1291,16 @@ class RFIDReader {
                 this.clearAllSelections();
                 
                 // Store the clicked node for auto-assignment
-                this.selectedEntity = node;
+                // Convert closest nodes format to compatible format
+                this.selectedEntity = {
+                    properties: {
+                        name: node.pdsName,
+                        oid: node.oid || null, // May not be available in closest_nodes
+                        employee_id: node.employee_id || null,
+                        operator_name: node.operator_name || null
+                    },
+                    closestNodeData: node // Keep original data for reference
+                };
                 
                 // Add visual feedback for selected node
                 entityItem.classList.add('selected-node');
@@ -1276,7 +1337,7 @@ class RFIDReader {
         this.selectedEntity = null;
         this.updateScanButtonText('Scan Again');
         
-        // Remove unassign button
+        // Remove unassign button if it exists
         this.removeUnassignButton();
         
         
@@ -1396,7 +1457,27 @@ class RFIDReader {
             
             // Perform assignment using MACHINE_NAME
             console.log('🔗 Assigning employee to personal node:', entityName);
-            const assignmentResult = await this.updateEntityAssignmentByMachineName(entityName, employeeId, credentials);
+            
+            // Check if we're using closest nodes API (which doesn't have entity_id)
+            let assignmentResult;
+            if (this.currentPlan === 'closest-nodes' && this.selectedEntity.closestNodeData) {
+                console.log('📍 Using closest nodes API - assignment may not be available');
+                console.log('⚠️ Closest nodes API does not support entity assignment yet');
+                
+                // For now, show a message that assignment is not available for closest nodes
+                showSuccessModal(`Closest nodes API does not support assignment yet. Employee "${employeeData.NAME}" data displayed for reference only.`);
+                
+                // Wait for modal auto-close (3 seconds)
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                // Clear selections and return to scan mode
+                this.clearAllSelections();
+                this.updateStatus('Ready to Scan', 'ready');
+                return;
+            } else {
+                // Use normal assignment for auto-zone API
+                assignmentResult = await this.updateEntityAssignmentByMachineName(entityName, employeeId, credentials);
+            }
             
                 if (assignmentResult) {
                     // Show success modal with auto-close (3 seconds)
