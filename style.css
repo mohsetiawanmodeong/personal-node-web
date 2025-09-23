@@ -444,6 +444,11 @@ body {
     color: white;
 }
 
+.entity-role-badge.default {
+    background-color: #6b7280;
+    color: white;
+}
+
 .entity-header {
     display: flex;
     justify-content: space-between;
@@ -625,14 +630,14 @@ body {
 
 /* Header styling for selected personal node */
 .column-header h3.selected-node {
-    color: #ff8c00 !important; /* Caterpillar yellow */
+    color: #ff8c00 !important; /* Orange text for "Personal Node Selected" */
     font-weight: 700 !important;
     text-shadow: 0 0 10px rgba(255, 140, 0, 0.3) !important;
     transition: all 0.3s ease;
 }
 
 .column-header h3.selected-node span {
-    color: #ff8c00 !important; /* Caterpillar yellow for the count */
+    color: #ffffff !important; /* White text for node name badge */
     font-weight: 700 !important;
 }
 
@@ -1556,7 +1561,39 @@ body {
     color: white;
 }
 
+.modal-icon.info {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+}
+
+.modal-icon.caution {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+}
+
 .icon-warning {
+    font-size: 32px;
+    font-weight: bold;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.icon-info {
+    font-size: 32px;
+    font-weight: bold;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.icon-caution {
     font-size: 32px;
     font-weight: bold;
     color: white;
@@ -1569,6 +1606,22 @@ body {
 
 .icon-warning::before {
     content: '!';
+    font-size: 40px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.icon-info::before {
+    content: 'i';
+    font-size: 40px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.icon-caution::before {
+    content: '⚠';
     font-size: 40px;
     font-weight: bold;
     color: white;
@@ -1659,6 +1712,69 @@ body {
 .btn-confirm:active {
     transform: translateY(0);
     box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.btn-confirm.info {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-confirm.info:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-confirm.info:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.btn-confirm.caution {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.btn-confirm.caution:hover {
+    background: linear-gradient(135deg, #d97706, #b45309);
+    box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-confirm.caution:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+/* Entity Name Badge Styles */
+.entity-name-badge {
+    display: inline-block;
+    background: linear-gradient(90deg, #ff8c00 0%, #ff6b00 100%);
+    color: #ffffff;
+    font-size: 1.5rem;
+    font-weight: 800;
+    border-radius: 999px;
+    padding: 0.4em 1.2em;
+    margin: 12px 0 20px 0;
+    box-shadow: 0 3px 12px rgba(255, 140, 0, 0.25);
+    letter-spacing: 0.05em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.entity-name-badge-small {
+    display: inline-block;
+    background: linear-gradient(90deg, #ff8c00 0%, #ff6b00 100%);
+    color: #ffffff;
+    font-size: 1.1rem;
+    font-weight: 800;
+    border-radius: 999px;
+    padding: 0.4em 0.9em;
+    margin: 0 0 0 8px;
+    box-shadow: 0 3px 10px rgba(255, 140, 0, 0.3);
+    letter-spacing: 0.05em;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Responsive Modal */

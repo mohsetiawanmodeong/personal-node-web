@@ -716,7 +716,8 @@ class RFIDReader {
             },
             () => {
                 // User cancelled - do nothing
-            }
+            },
+            'warning' // Red color for unassign
         );
         
         return; // Exit early since confirmation is handled in modal
@@ -795,7 +796,8 @@ class RFIDReader {
             },
             () => {
                 // User cancelled - do nothing
-            }
+            },
+            'warning' // Red color for unassign
         );
         
         return; // Exit early since confirmation is handled in modal
@@ -855,7 +857,8 @@ class RFIDReader {
                 },
                 () => {
                     // User cancelled - do nothing
-                }
+                },
+                'warning' // Red color for unassign
             );
             
         } catch (error) {
@@ -1223,7 +1226,11 @@ class RFIDReader {
             const credentials = btoa(username + ':' + password);
             
             const data = await this.makeAjaxRequest(this.autoZoneApiUrl, credentials);
-            this.displayAutoZoneEntities(data);
+            
+            // Fetch employee data to get correct roles
+            const entitiesWithEmployeeData = await this.fetchEmployeeDataForAutoZone(data, credentials);
+            
+            this.displayAutoZoneEntities(entitiesWithEmployeeData);
             
         } catch (error) {
             console.error('❌ Error loading Auto Zone data:', error);
@@ -1242,6 +1249,40 @@ class RFIDReader {
         } catch (error) {
             console.error('❌ Error loading Closest Nodes data:', error);
             this.displayAutoZoneError(error.message);
+        }
+    }
+
+    // Fetch employee data for Auto Zone entities to get correct roles
+    async fetchEmployeeDataForAutoZone(entities, credentials) {
+        try {
+            // Filter assigned entities
+            const assignedEntities = entities.filter(entity => {
+                const operatorName = entity.properties.operator_name;
+                const employeeId = entity.properties.employee_id;
+                const name = entity.properties.name;
+                
+                return operatorName && operatorName !== 'undefined' && operatorName !== name &&
+                       employeeId && employeeId !== 'undefined';
+            });
+            
+            // Fetch registration data for each assigned employee
+            for (const entity of assignedEntities) {
+                try {
+                    const employeeIdClean = entity.properties.employee_id.toString().replace(/^0+/, '');
+                    const registrationData = await this.checkPersonRegistration(employeeIdClean, credentials);
+                    entity.properties.registrationData = registrationData;
+                    console.log('🔍 Fetched registrationData for auto zone entity:', entity.properties.name, ':', registrationData);
+                } catch (error) {
+                    console.error('Error fetching registration data for entity:', entity.properties.name, error);
+                    entity.properties.registrationData = null;
+                }
+            }
+            
+            return entities;
+            
+        } catch (error) {
+            console.error('Error fetching employee data for auto zone:', error);
+            return entities; // Return original data if fetch fails
         }
     }
 
@@ -1286,26 +1327,51 @@ class RFIDReader {
             const name = entity.properties.name || 'Unknown';
             const operatorName = entity.properties.operator_name || 'N/A';
             const employeeId = entity.properties.employee_id || 'N/A';
-            const role = entity.properties.role || 'UNKNOWN';
             
             // Log each entity for debugging
             
-            // Determine if personal node is empty/unassigned or assigned
-            const isUnassigned = this.isPersonalNodeEmpty(operatorName, employeeId, name);
-            const roleClass = isUnassigned ? 'safety' : this.getRoleClass(role);
+            // Use employee data from registration (like closest nodes mode)
+            let employeeName = 'Available';
+            let employeeIdDisplay = '-';
+            let roleBadge = 'ASSIGNABLE';
+            let roleClass = 'safety'; // Default for unassigned
+            
+            if (operatorName && operatorName !== 'undefined' && operatorName !== name) {
+                employeeName = operatorName;
+                employeeIdDisplay = employeeId || '-';
+                
+                // Get role from registration data (like closest nodes mode)
+                if (entity.properties.registrationData && entity.properties.registrationData.role) {
+                    roleBadge = entity.properties.registrationData.role;
+                    roleClass = this.getRoleClass(entity.properties.registrationData.role);
+                    console.log('✅ Using registrationData role for auto zone entity:', name, ':', entity.properties.registrationData.role);
+                } else {
+                    // Fallback to WORKER if no role data
+                    roleBadge = 'WORKER';
+                    roleClass = 'worker';
+                    console.log('⚠️ No registrationData role for auto zone entity:', name, ', using WORKER fallback');
+                }
+            } else {
+                // Unassigned - use ASSIGNABLE
+                roleBadge = 'ASSIGNABLE';
+                roleClass = 'safety';
+            }
             
             entityItem.className = `entity-item ${roleClass}`;
             const coordinates = entity.geometry.coordinates;
             const zone = entity.ZONES && entity.ZONES.length > 0 ? entity.ZONES[0].NAME : 'Unknown Zone';
+            
+            // Determine if personal node is empty/unassigned or assigned
+            const isUnassigned = this.isPersonalNodeEmpty(operatorName, employeeId, name);
             
             // Display different content based on assignment status
             if (isUnassigned) {
             entityItem.innerHTML = `
                     <div class="entity-main-line">
                         <span class="entity-main-name">${name}</span>
-                        <span class="entity-main-operator">Available</span>
-                        <span class="entity-main-employee">-</span>
-                        <span class="entity-role-badge ${roleClass}">ASSIGNABLE</span>
+                        <span class="entity-main-operator">${employeeName}</span>
+                        <span class="entity-main-employee">${employeeIdDisplay}</span>
+                        <span class="entity-role-badge ${roleClass}">${roleBadge}</span>
                 </div>
                     <div class="entity-location compact">
                         <span class="zone">Zone:${zone}</span>
@@ -1316,9 +1382,9 @@ class RFIDReader {
             entityItem.innerHTML = `
                 <div class="entity-main-line">
                     <span class="entity-main-name">${name}</span>
-                    <span class="entity-main-operator">${operatorName}</span>
-                    <span class="entity-main-employee">${employeeId}</span>
-                    <span class="entity-role-badge ${roleClass}">${role}</span>
+                    <span class="entity-main-operator">${employeeName}</span>
+                    <span class="entity-main-employee">${employeeIdDisplay}</span>
+                    <span class="entity-role-badge ${roleClass}">${roleBadge}</span>
                 </div>
                 <div class="entity-location compact">
                     <span class="zone">Zone:${zone}</span>
@@ -1341,8 +1407,18 @@ class RFIDReader {
             entityItem.style.cursor = 'pointer';
             entityItem.addEventListener('click', async () => {
                 
-                // Clear previous selection visual feedback
-                this.clearAllSelections();
+                // Check if this is the same node that's already selected (toggle off)
+                if (this.selectedEntity && 
+                    this.selectedEntity.properties && 
+                    this.selectedEntity.properties.name === entity.properties.name) {
+                    
+                    // Same node clicked - simple toggle off
+                    this.simpleToggleOff();
+                    return;
+                }
+                
+                // Clear previous selection visual feedback (gentle)
+                this.clearSelectionVisuals();
                 
                 // Store the clicked entity for auto-assignment
                 this.selectedEntity = entity;
@@ -1444,6 +1520,7 @@ class RFIDReader {
                         const employeeIdClean = node.employee_id.toString().replace(/^0+/, '');
                         const registrationData = await this.checkPersonRegistration(employeeIdClean, credentials);
                         node.registrationData = registrationData;
+                        console.log('🔍 Fetched registrationData for', node.pdsName, ':', registrationData);
                     } catch (error) {
                         console.error('Error fetching registration data for node:', node.pdsName, error);
                         node.registrationData = null;
@@ -1501,14 +1578,19 @@ class RFIDReader {
                 employeeName = node.operator_name;
                 employeeId = node.employee_id || '-';
                 
+                console.log('🔍 Processing assigned node:', nodeName, 'employeeId:', employeeId, 'registrationData:', node.registrationData);
+                console.log('🔍 registrationData.role:', node.registrationData ? node.registrationData.role : 'null');
+                
                 // Get role from employee data (like auto zone mode)
                 if (node.registrationData && node.registrationData.role) {
                     roleBadge = node.registrationData.role;
                     roleClass = this.getRoleClass(node.registrationData.role);
+                    console.log('✅ Using registrationData role for', nodeName, ':', node.registrationData.role, '-> class:', roleClass);
                 } else {
-                    // Fallback to WORKER if no role data
+                    // Fallback to WORKER if no role data (not DEFAULT)
                     roleBadge = 'WORKER';
                     roleClass = 'worker';
+                    console.log('⚠️ No registrationData role for', nodeName, ', using WORKER fallback');
                 }
             } else {
                 // Unassigned - use ASSIGNABLE
@@ -1566,8 +1648,18 @@ class RFIDReader {
             entityItem.style.cursor = 'pointer';
             entityItem.addEventListener('click', async () => {
                 
-                // Clear previous selection visual feedback
-                this.clearAllSelections();
+                // Check if this is the same node that's already selected (toggle off)
+                if (this.selectedEntity && 
+                    this.selectedEntity.properties && 
+                    this.selectedEntity.properties.name === node.pdsName) {
+                    
+                    // Same node clicked - simple toggle off
+                    this.simpleToggleOff();
+                    return;
+                }
+                
+                // Clear previous selection visual feedback (gentle)
+                this.clearSelectionVisuals();
                 
                 // Store the clicked node for auto-assignment
                 // Convert closest nodes format to compatible format
@@ -1648,12 +1740,11 @@ class RFIDReader {
         const totalCountElement = document.getElementById('totalCount');
         
         if (headerElement && totalCountElement) {
-            // Update header text (keep the structure)
-            headerElement.innerHTML = `Personal Node Selected <span id="totalCount">(${nodeName})</span>`;
+            // Update header text with badge styling
+            headerElement.innerHTML = `Personal Node Selected <span id="totalCount" class="entity-name-badge-small">${nodeName}</span>`;
             
-            // Apply styling to both header and count
+            // Apply styling to header
             headerElement.classList.add('selected-node');
-            totalCountElement.classList.add('selected-node');
         } else {
         }
     }
@@ -1696,6 +1787,8 @@ class RFIDReader {
         // Reset header to default
         this.resetHeaderToDefault();
         
+        // Don't call returnToScanMode here to avoid layout issues
+        
     }
 
     // Update scan button text to "Reset Selection" and change functionality
@@ -1716,6 +1809,193 @@ class RFIDReader {
                 headerButton.classList.remove('reset-mode');
             }
         } else {
+        }
+    }
+
+    // Display employee data for assignment mode (no layout changes)
+    displayEmployeeDataForAssignment(employee, registrationData = null) {
+        // Don't change layout - keep scan area visible
+        const scanArea = document.getElementById('scanArea');
+        if (scanArea) scanArea.style.display = 'block';
+        
+        // Update scan area message to show assigned employee info
+        if (scanArea) {
+            const h2Elements = scanArea.querySelectorAll('h2');
+            
+            if (h2Elements.length >= 1) {
+                h2Elements[0].textContent = `Assigned Employee: ${employee.NAME || '-'}`;
+            }
+            
+            if (h2Elements.length >= 2) {
+                h2Elements[1].textContent = `ID: ${employee.EMPLOYEE_ID || '-'}`;
+            }
+        }
+        
+        const scanSubtitle = document.querySelector('#scanArea p');
+        if (scanSubtitle) {
+            scanSubtitle.innerHTML = `
+                <strong>Current Assignment:</strong><br>
+                <span class="entity-name-badge">${this.selectedEntity.properties.name}</span>
+                <br><br>
+                <strong>Employee Details:</strong><br>
+                Name: ${employee.NAME || '-'}<br>
+                ID: ${employee.EMPLOYEE_ID || '-'}<br>
+                Company: ${employee.COMPANY || '-'}<br>
+                Department: ${employee.DEPARTMENT || '-'}<br>
+                Job Title: ${employee.JOB_TITLE || '-'}<br>
+                ${registrationData ? `Role: ${registrationData.role || 'WORKER'}<br>` : ''}
+                <br>
+                <span>Scan a different ID card to reassign this personal node.</span>
+            `;
+        }
+    }
+
+    // Reset right panel to initial scan mode
+    resetRightPanelToScanMode() {
+        const scanArea = document.getElementById('scanArea');
+        const employeeCard = document.getElementById('employeeCard');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        // Show scan area, hide others
+        if (scanArea) scanArea.style.display = 'block';
+        if (employeeCard) employeeCard.style.display = 'none';
+        if (errorMessage) errorMessage.style.display = 'none';
+        
+        // Reset scan area content to initial state
+        if (scanArea) {
+            const h2Elements = scanArea.querySelectorAll('h2');
+            
+            if (h2Elements.length >= 1) {
+                h2Elements[0].textContent = 'Ready to Scan';
+            }
+            
+            if (h2Elements.length >= 2) {
+                h2Elements[1].textContent = 'Scan PTFI ID Card';
+            }
+            
+            const scanSubtitle = scanArea.querySelector('p');
+            if (scanSubtitle) {
+                scanSubtitle.innerHTML = `
+                    <strong>Instructions:</strong><br>
+                    <span>Scan an employee ID card to view details and manage assignments.</span>
+                `;
+            }
+        }
+    }
+
+    // Simple toggle off (minimal changes)
+    simpleToggleOff() {
+        // Remove visual feedback from all nodes
+        const allNodes = document.querySelectorAll('.entity-item');
+        allNodes.forEach((node) => {
+            node.classList.remove('selected-node');
+            node.style.backgroundColor = '';
+            node.style.boxShadow = '';
+            node.style.border = '';
+            node.style.borderLeft = '';
+        });
+        
+        // Clear selected entity
+        this.selectedEntity = null;
+        
+        // Reset button text
+        this.updateScanButtonText('Scan Again');
+        
+        // Remove unassign button if it exists
+        this.removeUnassignButton();
+        
+        // Reset header to default
+        this.resetHeaderToDefault();
+        
+        // Reset right panel to scan mode
+        this.resetRightPanelToScanMode();
+        
+        // Update status only
+        this.updateStatus('Ready to Scan', 'ready');
+    }
+
+    // Clear selection visuals only (gentle)
+    clearSelectionVisuals() {
+        // Remove visual feedback from all nodes
+        const allNodes = document.querySelectorAll('.entity-item');
+        allNodes.forEach((node) => {
+            node.classList.remove('selected-node');
+            node.style.backgroundColor = '';
+            node.style.boxShadow = '';
+            node.style.border = '';
+            node.style.borderLeft = '';
+        });
+        
+        // Remove unassign button if it exists
+        this.removeUnassignButton();
+    }
+
+    // Toggle off selection (gentle unselect)
+    toggleOffSelection() {
+        // Remove visual feedback from selected node only
+        const allNodes = document.querySelectorAll('.entity-item');
+        allNodes.forEach((node) => {
+            node.classList.remove('selected-node');
+            node.style.backgroundColor = '';
+            node.style.boxShadow = '';
+            node.style.border = '';
+            node.style.borderLeft = '';
+        });
+        
+        // Clear selected entity
+        this.selectedEntity = null;
+        
+        // Reset button text
+        this.updateScanButtonText('Scan Again');
+        
+        // Remove unassign button if it exists
+        this.removeUnassignButton();
+        
+        // Reset header to default
+        this.resetHeaderToDefault();
+        
+        // Return to scan mode layout
+        this.returnToScanMode();
+        
+        // Update status
+        this.updateStatus('Ready to Scan', 'ready');
+    }
+
+    // Return to scan mode layout
+    returnToScanMode() {
+        // Hide employee card and show scan area
+        const scanArea = document.getElementById('scanArea');
+        const employeeCard = document.getElementById('employeeCard');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        if (scanArea) scanArea.style.display = 'block';
+        if (employeeCard) employeeCard.style.display = 'none';
+        if (errorMessage) errorMessage.style.display = 'none';
+        
+        // Hide two column layout
+        const twoColumnLayout = document.getElementById('twoColumnLayout');
+        if (twoColumnLayout) twoColumnLayout.style.display = 'none';
+        
+        // Reset scan area content to default
+        if (scanArea) {
+            const h2Elements = scanArea.querySelectorAll('h2');
+            
+            if (h2Elements.length >= 1) {
+                h2Elements[0].textContent = 'Ready to Scan';
+            }
+            
+            if (h2Elements.length >= 2) {
+                h2Elements[1].textContent = 'Scan PTFI ID Card';
+            }
+            
+            // Reset scan subtitle
+            const scanSubtitle = scanArea.querySelector('p');
+            if (scanSubtitle) {
+                scanSubtitle.innerHTML = `
+                    <strong>Instructions:</strong><br>
+                    <span>Scan an employee ID card to view details and manage assignments.</span>
+                `;
+            }
         }
     }
 
@@ -1750,7 +2030,8 @@ class RFIDReader {
         if (scanSubtitle) {
             scanSubtitle.innerHTML = `
                 <strong>Personal Node Selected:</strong><br>
-                <span style="font-size: 2rem; color: #ff8c00; font-weight: 700; text-shadow: 0 0 10px rgba(255, 140, 0, 0.4); margin-bottom: 20px; display: block;">${entityName}</span>
+                <span class="entity-name-badge">${entityName}</span>
+                <br>
                 <strong>Auto Settings:</strong> Role: WORKER, Group: ${groupName}<br>
                 <span>Scan an employee ID card to automatically register and assign.</span>
             `;
@@ -1842,7 +2123,8 @@ class RFIDReader {
             'Continue Anyway',
             'Cancel',
             onContinue,
-            onCancel
+            onCancel,
+            'caution' // Yellow color for battery warning
         );
     }
 
@@ -2030,7 +2312,8 @@ class RFIDReader {
                             // Just clear selections and return to scan mode
                             this.clearAllSelections();
                             this.updateStatus('Ready to Scan', 'ready');
-                        }
+                        },
+                        'caution' // Yellow color for reassign
                     );
                 },
                 () => {
@@ -2083,7 +2366,8 @@ class RFIDReader {
                             // Just clear selections and return to scan mode
                             this.clearAllSelections();
                             this.updateStatus('Ready to Scan', 'ready');
-                        }
+                        },
+                        'info' // Blue color for assignment
                     );
                 },
                 () => {
@@ -2197,7 +2481,8 @@ class RFIDReader {
                     // Stay in personal node mode - don't clear selection
                     this.updateStatus('Ready to Scan - Auto Assignment Mode', 'ready');
                     this.updateScanButtonText('Scan Again');
-                }
+                },
+                'warning' // Red color for unassign
             );
             
         } catch (error) {
@@ -2571,7 +2856,7 @@ class RFIDReader {
                         isRegistered: true,
                         isAssigned: entityAssignment ? true : false, // Add isAssigned property
                         entityGroup: entityGroup !== 'N/A' ? entityGroup : (person.ENTITY_GROUP || 'N/A'), // Use entity assignment group if found, otherwise person group
-                        role: person.ROLE || 'N/A',
+                        role: (person.ROLE && person.ROLE !== 'DEFAULT') ? person.ROLE : 'WORKER', // Convert DEFAULT to WORKER
                         personName: person.PERSON_NAME || 'N/A',
                         displayName: person.DISPLAY_NAME || 'N/A',
                         entityName: entityAssignment ? entityAssignment.MACHINE_NAME : 'N/A' // Use MACHINE_NAME as entity name
@@ -2625,6 +2910,8 @@ class RFIDReader {
                 return 'lead';
             case 'WORKER':
                 return 'worker';
+            case 'DEFAULT':
+                return 'default';
             default:
                 return 'worker'; // Default to worker
         }
@@ -2758,15 +3045,17 @@ function closeSuccessModal() {
     }
 }
 
-// Show confirmation modal with custom title and button text
-function showCustomConfirmationModal(message, title, confirmText, cancelText, onConfirm, onCancel) {
+// Show confirmation modal with custom title, button text, and color theme
+function showCustomConfirmationModal(message, title, confirmText, cancelText, onConfirm, onCancel, colorTheme = 'warning') {
     const modal = document.getElementById('confirmationModal');
     const messageElement = document.getElementById('confirmationMessage');
     const confirmBtn = document.getElementById('confirmBtn');
     const cancelBtn = document.getElementById('cancelBtn');
     const titleElement = modal.querySelector('h2');
+    const iconElement = modal.querySelector('.modal-icon');
+    const iconInnerElement = modal.querySelector('.modal-icon div');
     
-    if (modal && messageElement && confirmBtn && cancelBtn && titleElement) {
+    if (modal && messageElement && confirmBtn && cancelBtn && titleElement && iconElement) {
         // Update title
         titleElement.textContent = title;
         
@@ -2776,6 +3065,17 @@ function showCustomConfirmationModal(message, title, confirmText, cancelText, on
         // Update button texts
         confirmBtn.textContent = confirmText;
         cancelBtn.textContent = cancelText;
+        
+        // Update icon and color theme
+        iconElement.className = `modal-icon ${colorTheme}`;
+        
+        // Update icon content based on theme
+        if (iconInnerElement) {
+            iconInnerElement.className = `icon-${colorTheme}`;
+        }
+        
+        // Update confirm button color theme
+        confirmBtn.className = `btn btn-confirm ${colorTheme}`;
         
         modal.style.display = 'flex';
         
