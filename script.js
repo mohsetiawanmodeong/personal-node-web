@@ -1332,7 +1332,7 @@ class RFIDReader {
             
             // Use employee data from registration (like closest nodes mode)
             let employeeName = 'Available';
-            let employeeIdDisplay = '-';
+            let employeeIdDisplay = '';
             let roleBadge = 'ASSIGNABLE';
             let roleClass = 'safety'; // Default for unassigned
             
@@ -1570,7 +1570,7 @@ class RFIDReader {
             
             // Use employee data from ULTS API (already fetched)
             let employeeName = 'Available';
-            let employeeId = '-';
+            let employeeId = '';
             let roleBadge = 'ASSIGNABLE';
             let roleClass = 'safety'; // Default for unassigned
             
@@ -2317,9 +2317,9 @@ class RFIDReader {
                         () => {
                             // User cancelled reassign/override
                             
-                            // Just clear selections and return to scan mode
-                            this.clearAllSelections();
-                            this.updateStatus('Ready to Scan', 'ready');
+                            // Stay in personal node mode - don't clear selection
+                            this.updateStatus('Ready to Scan - Auto Assignment Mode', 'ready');
+                            this.updateScanButtonText('Reset Selection');
                         },
                         'caution' // Yellow color for reassign
                     );
@@ -2327,9 +2327,9 @@ class RFIDReader {
                 () => {
                     // User cancelled due to battery warning
                     
-                    // Just clear selections and return to scan mode
-                    this.clearAllSelections();
-                    this.updateStatus('Ready to Scan', 'ready');
+                    // Stay in personal node mode - don't clear selection
+                    this.updateStatus('Ready to Scan - Auto Assignment Mode', 'ready');
+                    this.updateScanButtonText('Reset Selection');
                 }
             );
             
@@ -2371,9 +2371,9 @@ class RFIDReader {
                         () => {
                             // User cancelled assignment
                             
-                            // Just clear selections and return to scan mode
-                            this.clearAllSelections();
-                            this.updateStatus('Ready to Scan', 'ready');
+                            // Stay in personal node mode - don't clear selection
+                            this.updateStatus('Ready to Scan - Auto Assignment Mode', 'ready');
+                            this.updateScanButtonText('Reset Selection');
                         },
                         'info' // Blue color for assignment
                     );
@@ -2381,9 +2381,9 @@ class RFIDReader {
                 () => {
                     // User cancelled due to battery warning
                     
-                    // Just clear selections and return to scan mode
-                    this.clearAllSelections();
-                    this.updateStatus('Ready to Scan', 'ready');
+                    // Stay in personal node mode - don't clear selection
+                    this.updateStatus('Ready to Scan - Auto Assignment Mode', 'ready');
+                    this.updateScanButtonText('Reset Selection');
                 }
             );
             
@@ -2488,7 +2488,7 @@ class RFIDReader {
                     
                     // Stay in personal node mode - don't clear selection
                     this.updateStatus('Ready to Scan - Auto Assignment Mode', 'ready');
-                    this.updateScanButtonText('Scan Again');
+                    this.updateScanButtonText('Reset Selection');
                 },
                 'warning' // Red color for unassign
             );
