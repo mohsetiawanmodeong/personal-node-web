@@ -4,7 +4,7 @@ class RFIDReader {
         this.apiBaseUrl = this.detectApiBaseUrl();
         
         // ===== PLAN A: Original API =====
-        this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=160&minlastupdate=30000`; //OB4 2 Flr -> 30 Menit
+        this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=160&minlastupdate=30000`; //OB4 2 Flr -> 30 detik
         // this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=112&minlastupdate=1800000`; //GBC Full Area -> 30 Menit
         // this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=130&minlastupdate=1800000`; //GBC RTA Office Only -> 30 Menit
         
@@ -21,7 +21,7 @@ class RFIDReader {
         this.isProcessing = false;
         this.isAssigning = false;
         // ===== PLAN SWITCHER =====
-        // Load saved plan preference or default to auto-zone
+        // Load saved plan preference or default to closest-nodes
         this.currentPlan = this.loadSavedPlanPreference();
         // =========================
         
@@ -131,11 +131,11 @@ class RFIDReader {
             if (savedPlan && (savedPlan === 'auto-zone' || savedPlan === 'closest-nodes')) {
                 return savedPlan;
             } else {
-                return 'auto-zone';
+                return 'closest-nodes'; // Default to closest-nodes instead of auto-zone
             }
         } catch (error) {
             console.error('❌ Error loading saved plan preference:', error);
-            return 'auto-zone';
+            return 'closest-nodes'; // Default to closest-nodes instead of auto-zone
         }
     }
 
@@ -1608,16 +1608,24 @@ class RFIDReader {
             // Format timestamp for better readability
             const formattedTimestamp = this.formatTimestamp(timestamp);
             
-            // Determine battery styling based on percentage
+            // Determine battery styling and display based on percentage
             let batteryClass = '';
-            if (battery >= 75) {
-                batteryClass = 'battery-high';
-            } else if (battery >= 50) {
-                batteryClass = 'battery-medium';
-            } else if (battery >= 25) {
-                batteryClass = 'battery-low';
+            let batteryDisplay = '';
+            
+            if (battery !== 'N/A' && battery !== null && battery !== undefined && battery !== '') {
+                if (battery >= 75) {
+                    batteryClass = 'battery-high';
+                } else if (battery >= 50) {
+                    batteryClass = 'battery-medium';
+                } else if (battery >= 25) {
+                    batteryClass = 'battery-low';
+                } else {
+                    batteryClass = 'battery-critical';
+                }
+                batteryDisplay = `<span class="battery ${batteryClass}"> Battery: ${battery}%</span>`;
             } else {
-                batteryClass = 'battery-critical';
+                // Don't display battery if N/A, null, or undefined
+                batteryDisplay = '';
             }
 
             entityItem.innerHTML = `
@@ -1629,8 +1637,8 @@ class RFIDReader {
                 </div>
                 <div class="entity-location compact">
                     <span class="time">Time: ${formattedTimestamp}</span>
-                    <span class="range"> Range: ${avgRange}m, WASP ID: ${waspId},</span>
-                    <span class="battery ${batteryClass}"> Battery: ${battery}%</span>
+                    <span class="range"> Range: ${avgRange}m, WASP ID: ${waspId}</span>
+                    ${batteryDisplay}
                 </div>
             `;
             
@@ -2130,8 +2138,8 @@ class RFIDReader {
 
     // Check battery level and show warning if needed
     checkBatteryAndWarn(nodeName, batteryLevel, onContinue, onCancel) {
-        // Check if battery is below 50% and battery data is available
-        if (batteryLevel !== 'N/A' && batteryLevel < 50) {
+        // Check if battery is 50% or below and battery data is available
+        if (batteryLevel !== 'N/A' && batteryLevel !== null && batteryLevel !== undefined && batteryLevel !== '' && batteryLevel <= 50) {
             this.showBatteryLowWarning(nodeName, batteryLevel, onContinue, onCancel);
         } else {
             // Battery is OK or data not available, proceed directly
