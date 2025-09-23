@@ -360,12 +360,27 @@ body {
     border-left: 4px solid #ff8c00;
     border: 3px solid #ff8c00;
     box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
-    transform: translateY(-2px);
+    transform: translateY(-2px) scale(1.05);
+    padding: 20px;
+    margin-bottom: 15px;
+    z-index: 10;
+    position: relative;
 }
 
 .entity-item.selected-node .entity-main-name {
     color: #ff8c00;
     font-weight: bold;
+    font-size: 1.3rem;
+}
+
+.entity-item.selected-node .entity-main-operator {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.entity-item.selected-node .entity-main-employee {
+    font-size: 1.1rem;
+    font-weight: 700;
 }
 
 .entity-item:hover {
@@ -557,9 +572,103 @@ body {
     color: #1e40af;
 }
 
-.entity-location .coordinates .range .battery {
+.entity-location .coordinates .range {
     font-family: monospace;
     font-size: 0.8rem;
+}
+
+/* Battery styling with color coding and animation */
+.entity-location .battery {
+    font-weight: 600;
+    font-family: monospace;
+    font-size: 0.9rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+/* Battery level colors */
+.battery-high {
+    color: #059669; /* Green for 75-100% */
+    background-color: rgba(5, 150, 105, 0.1);
+}
+
+.battery-medium {
+    color: #d97706; /* Yellow for 50-74% */
+    background-color: rgba(217, 119, 6, 0.1);
+}
+
+.battery-low {
+    color: #dc2626; /* Red for 25-49% */
+    background-color: rgba(220, 38, 38, 0.1);
+    animation: pulse-red 1.5s infinite;
+}
+
+.battery-critical {
+    color: #dc2626; /* Red for <25% */
+    background-color: rgba(220, 38, 38, 0.2);
+    animation: pulse-red 1s infinite;
+    font-weight: 700;
+}
+
+/* Pulsing animation for low battery */
+@keyframes pulse-red {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+    }
+}
+
+/* Header styling for selected personal node */
+.column-header h3.selected-node {
+    color: #ff8c00 !important; /* Caterpillar yellow */
+    font-weight: 700 !important;
+    text-shadow: 0 0 10px rgba(255, 140, 0, 0.3) !important;
+    transition: all 0.3s ease;
+}
+
+.column-header h3.selected-node span {
+    color: #ff8c00 !important; /* Caterpillar yellow for the count */
+    font-weight: 700 !important;
+}
+
+/* Override for Personal Node Selected to keep it large */
+#scanArea p strong:first-child {
+    font-size: 1.7rem !important;
+    color: #ff8c00 !important; /* Caterpillar yellow */
+    font-weight: 700 !important;
+    text-shadow: 0 0 10px rgba(255, 140, 0, 0.4) !important;
+    display: inline !important;
+    line-height: 1.3;
+}
+
+/* Override for Personal Node Selected value */
+#scanArea p strong:first-child + span {
+    font-size: 1.7rem !important;
+    color: #ff8c00 !important; /* Caterpillar yellow */
+    font-weight: 700 !important;
+    text-shadow: 0 0 10px rgba(255, 140, 0, 0.4) !important;
+}
+
+/* Auto Settings text styling - target the entire line */
+#scanArea p {
+    font-size: 1.3rem !important;
+    color: #374151 !important;
+    line-height: 1.4;
+    margin-top: 8px !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Instruction text styling */
+#scanArea p span:last-child {
+    display: block;
+    font-size: 1rem !important;
+    margin-top: 8px !important;
 }
 
 /* Responsive Design for Two Column Layout */
@@ -584,7 +693,7 @@ body {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     border-radius: 20px;
-    padding: 60px 40px;
+    padding: 60px 20px 0px 20px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
     border: 2px dashed rgba(30, 64, 175, 0.3);
     transition: all 0.3s ease;
@@ -593,15 +702,13 @@ body {
 
 .scan-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
-    margin-bottom: 20px;
 }
 
 .scan-header h2 {
-    margin: 0;
     color: #1e40af;
-    font-size: 1.5rem;
+    font-size: 2rem;
 }
 
 .scan-area:hover {
@@ -610,8 +717,8 @@ body {
 }
 
 .scan-icon {
-    margin-bottom: 20px;
     animation: float 3s ease-in-out infinite;
+    
 }
 
 .icon-wifi {
@@ -655,14 +762,10 @@ body {
 }
 
 .scan-area h2 {
-    font-size: 1.8rem;
-    margin-bottom: 10px;
+    font-size: 2rem;
     color: #374151;
-}
-
-.scan-area p {
-    color: #6b7280;
-    font-size: 1.1rem;
+    text-align: center;
+    margin-bottom: 10px;
 }
 
 .scan-animation {
@@ -1091,7 +1194,7 @@ body {
     }
     
     .scan-area {
-        padding: 40px 20px;
+        padding: 20px 20px;
     }
     
     .card-header {

@@ -1375,17 +1375,17 @@ class RFIDReader {
 
         if (filteredEntities.length === 0) {
             entitiesList.innerHTML = '<div class="entity-item"><p>No personal nodes found (class_oid 666666XXX)</p></div>';
-            // Update total count
+            // Update total count only if no node is selected
             const totalCountElement = document.getElementById('totalCount');
-            if (totalCountElement) {
+            if (totalCountElement && !this.selectedEntity) {
                 totalCountElement.textContent = '(Total: 0)';
             }
             return;
         }
 
-        // Update total count
+        // Update total count only if no node is selected
         const totalCountElement = document.getElementById('totalCount');
-        if (totalCountElement) {
+        if (totalCountElement && !this.selectedEntity) {
             totalCountElement.textContent = `(Total: ${filteredEntities.length})`;
         }
 
@@ -1462,6 +1462,9 @@ class RFIDReader {
                 
                 // Store the clicked entity for auto-assignment
                 this.selectedEntity = entity;
+                
+                // Update header to show selected node
+                this.updateHeaderForSelectedNode(entity.properties.name);
                 
                 // Add visual feedback for selected node
                 entityItem.classList.add('selected-node');
@@ -1579,9 +1582,9 @@ class RFIDReader {
         // Fetch employee data for closest nodes
         const nodesWithEmployeeData = await this.fetchEmployeeDataForClosestNodes(closestNodes);
 
-        // Update total count
+        // Update total count only if no node is selected
         const totalCountElement = document.getElementById('totalCount');
-        if (totalCountElement) {
+        if (totalCountElement && !this.selectedEntity) {
             totalCountElement.textContent = `(Total: ${nodesWithEmployeeData.length})`;
         }
 
@@ -1625,6 +1628,18 @@ class RFIDReader {
             const formattedTimestamp = this.formatTimestamp(timestamp);
             console.log(`📅 Formatted Timestamp: ${formattedTimestamp}`);
             
+            // Determine battery styling based on percentage
+            let batteryClass = '';
+            if (battery >= 75) {
+                batteryClass = 'battery-high';
+            } else if (battery >= 50) {
+                batteryClass = 'battery-medium';
+            } else if (battery >= 25) {
+                batteryClass = 'battery-low';
+            } else {
+                batteryClass = 'battery-critical';
+            }
+
             entityItem.innerHTML = `
                 <div class="entity-main-line">
                     <span class="entity-main-name">${nodeName}</span>
@@ -1635,7 +1650,7 @@ class RFIDReader {
                 <div class="entity-location compact">
                     <span class="time">Time: ${formattedTimestamp}</span>
                     <span class="range"> Range: ${avgRange}m, WASP: ${waspId},</span>
-                    <span class="battery"> Battery: ${battery}%</span>
+                    <span class="battery ${batteryClass}"> Battery: ${battery}%</span>
                 </div>
             `;
             
@@ -1672,6 +1687,9 @@ class RFIDReader {
                     },
                     closestNodeData: node // Keep original data for reference
                 };
+                
+                // Update header to show selected node
+                this.updateHeaderForSelectedNode(node.pdsName);
                 
                 // Add visual feedback for selected node
                 entityItem.classList.add('selected-node');
@@ -1725,6 +1743,46 @@ class RFIDReader {
         console.log(`✅ Displayed ${nodesWithEmployeeData.length} closest nodes from alternative API`);
     }
 
+    // Update header when personal node is selected
+    updateHeaderForSelectedNode(nodeName) {
+        console.log(`🔄 updateHeaderForSelectedNode called with: ${nodeName}`);
+        const headerElement = document.querySelector('.column-header h3');
+        const totalCountElement = document.getElementById('totalCount');
+        
+        if (headerElement && totalCountElement) {
+            console.log('✅ Header elements found, updating...');
+            // Update header text (keep the structure)
+            headerElement.innerHTML = `Personal Node Selected <span id="totalCount">(${nodeName})</span>`;
+            
+            // Apply styling to both header and count
+            headerElement.classList.add('selected-node');
+            totalCountElement.classList.add('selected-node');
+            console.log('✅ Header updated successfully');
+        } else {
+            console.log('❌ Header elements not found');
+        }
+    }
+
+    // Reset header to default state
+    resetHeaderToDefault() {
+        console.log('🔄 resetHeaderToDefault called');
+        const headerElement = document.querySelector('.column-header h3');
+        const totalCountElement = document.getElementById('totalCount');
+        
+        if (headerElement && totalCountElement) {
+            console.log('✅ Header elements found, resetting...');
+            // Reset header text (keep the structure)
+            headerElement.innerHTML = 'Personal Node Detected <span id="totalCount">(Total: 0)</span>';
+            
+            // Remove styling
+            headerElement.classList.remove('selected-node');
+            totalCountElement.classList.remove('selected-node');
+            console.log('✅ Header reset successfully');
+        } else {
+            console.log('❌ Header elements not found');
+        }
+    }
+
     // Clear all visual selections from personal nodes
     clearAllSelections() {
         console.log('🔄 clearAllSelections() called');
@@ -1747,6 +1805,8 @@ class RFIDReader {
         // Remove unassign button if it exists
         this.removeUnassignButton();
         
+        // Reset header to default
+        this.resetHeaderToDefault();
         
         console.log('✅ All visual selections cleared and button reset to green');
     }
@@ -1810,9 +1870,10 @@ class RFIDReader {
         const scanSubtitle = document.querySelector('#scanArea p');
         if (scanSubtitle) {
             scanSubtitle.innerHTML = `
-                <strong>Personal Node Selected:</strong> ${entityName}<br>
+                <strong>Personal Node Selected:</strong><br>
+                <span style="font-size: 2rem; color: #ff8c00; font-weight: 700; text-shadow: 0 0 10px rgba(255, 140, 0, 0.4); margin-bottom: 20px; display: block;">${entityName}</span>
                 <strong>Auto Settings:</strong> Role: WORKER, Group: ${groupName}<br>
-                Scan an employee ID card to automatically register and assign.
+                <span>Scan an employee ID card to automatically register and assign.</span>
             `;
         }
         
@@ -2016,12 +2077,12 @@ class RFIDReader {
             const assignmentResult = await this.updateEntityAssignmentByMachineName(entityName, employeeId, credentials);
             
             if (assignmentResult) {
-                // Show success modal with auto-close (1.5 seconds)
+                // Show success modal with auto-close (3 seconds)
                 showSuccessModal(`Employee "${employeeData.NAME}" assigned to personal node "${entityName}" successfully!`);
                 
-                // Wait for database to update (2 seconds) + modal auto-close (1.5 seconds) = 3.5 seconds total
+                // Wait for database to update (2 seconds) + modal auto-close (3 seconds) = 5 seconds total
                 console.log('⏳ Waiting for database update and modal auto-close...');
-                await new Promise(resolve => setTimeout(resolve, 3500)); // Wait 3.5 seconds total
+                await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds total
                 
                 // Refresh page after modal closes to ensure clean state
                 console.log('🔄 Clearing cache and refreshing page to ensure clean scan mode...');
@@ -2709,8 +2770,8 @@ function showSuccessModal(message) {
     if (modal) {
         modal.style.display = 'flex';
         
-        // Auto-close modal after 1.5 seconds with countdown
-        let countdown = 1.5;
+        // Auto-close modal after 3 seconds with countdown
+        let countdown = 3;
         if (countdownElement) {
             countdownElement.textContent = countdown;
         }
