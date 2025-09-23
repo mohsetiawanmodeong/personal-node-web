@@ -1632,8 +1632,8 @@ class RFIDReader {
                     // Personal node is empty - show ready for assignment message
                     this.showReadyForAssignment(node.pdsName);
                     
-                    // Update button text to "Scan Again" for empty node
-                    this.updateScanButtonText('Scan Again');
+                    // Update button text to "Reset Selection" for empty node (consistent with auto zone)
+                    this.updateScanButtonText('Reset Selection');
                 }
             });
 
@@ -1832,6 +1832,31 @@ class RFIDReader {
         }
     }
 
+    // Show battery low warning modal
+    showBatteryLowWarning(nodeName, batteryLevel, onContinue, onCancel) {
+        const confirmMessage = `Personal node "${nodeName}" has low battery (${batteryLevel}%).\n\nIt is not recommended to assign to this personal node due to low battery.\n\nDo you want to continue anyway?`;
+        
+        showCustomConfirmationModal(
+            confirmMessage,
+            'Battery Low Warning',
+            'Continue Anyway',
+            'Cancel',
+            onContinue,
+            onCancel
+        );
+    }
+
+    // Check battery level and show warning if needed
+    checkBatteryAndWarn(nodeName, batteryLevel, onContinue, onCancel) {
+        // Check if battery is below 50% and battery data is available
+        if (batteryLevel !== 'N/A' && batteryLevel < 50) {
+            this.showBatteryLowWarning(nodeName, batteryLevel, onContinue, onCancel);
+        } else {
+            // Battery is OK or data not available, proceed directly
+            onContinue();
+        }
+    }
+
     // Get current assigned employee info for better context in reassign modal
     async getCurrentAssignedEmployee(entityName, credentials) {
         try {
@@ -1974,22 +1999,42 @@ class RFIDReader {
             // Get current assigned employee info for better context
             const currentAssignedEmployee = await this.getCurrentAssignedEmployee(entityName, credentials);
             
-            // Show confirmation modal for reassign/override
-            const confirmMessage = `Personal node "${entityName}" is already assigned to "${currentAssignedEmployee.name}".\n\nDo you want to reassign it to "${employeeData.NAME}"?\n\nThis will override the current assignment.`;
+            // Get battery level from selected entity
+            let batteryLevel = 'N/A';
+            if (this.selectedEntity && this.selectedEntity.properties) {
+                batteryLevel = this.selectedEntity.properties.battery || 'N/A';
+            }
             
-            showCustomConfirmationModal(
-                confirmMessage,
-                'Confirm Reassignment',
-                'Yes, Reassign',
-                'Cancel',
+            // Check battery level before showing reassign confirmation
+            this.checkBatteryAndWarn(
+                entityName, 
+                batteryLevel,
                 async () => {
-                    // User confirmed reassign/override
+                    // Battery is OK or user chose to continue - show reassign confirmation
+                    const confirmMessage = `Personal node "${entityName}" is already assigned to "${currentAssignedEmployee.name}".\n\nDo you want to reassign it to "${employeeData.NAME}"?\n\nThis will override the current assignment.`;
                     
-                    // Proceed with normal assignment flow (this will overwrite the existing assignment)
-                    await this.proceedWithAssignment(employeeData, employeeId, entityName, credentials);
+                    showCustomConfirmationModal(
+                        confirmMessage,
+                        'Confirm Reassignment',
+                        'Yes, Reassign',
+                        'Cancel',
+                        async () => {
+                            // User confirmed reassign/override
+                            
+                            // Proceed with normal assignment flow (this will overwrite the existing assignment)
+                            await this.proceedWithAssignment(employeeData, employeeId, entityName, credentials);
+                        },
+                        () => {
+                            // User cancelled reassign/override
+                            
+                            // Just clear selections and return to scan mode
+                            this.clearAllSelections();
+                            this.updateStatus('Ready to Scan', 'ready');
+                        }
+                    );
                 },
                 () => {
-                    // User cancelled reassign/override
+                    // User cancelled due to battery warning
                     
                     // Just clear selections and return to scan mode
                     this.clearAllSelections();
@@ -2007,22 +2052,42 @@ class RFIDReader {
     async handleNormalAssignment(employeeData, employeeId, entityName, credentials) {
         try {
             
-            // Show confirmation modal for normal assignment
-            const confirmMessage = `Personal node "${entityName}" is available.\n\nDo you want to assign "${employeeData.NAME}" to this personal node?`;
+            // Get battery level from selected entity
+            let batteryLevel = 'N/A';
+            if (this.selectedEntity && this.selectedEntity.properties) {
+                batteryLevel = this.selectedEntity.properties.battery || 'N/A';
+            }
             
-            showCustomConfirmationModal(
-                confirmMessage,
-                'Confirm Assignment',
-                'Yes, Assign',
-                'Cancel',
+            // Check battery level before showing assignment confirmation
+            this.checkBatteryAndWarn(
+                entityName, 
+                batteryLevel,
                 async () => {
-                    // User confirmed assignment
+                    // Battery is OK or user chose to continue - show assignment confirmation
+                    const confirmMessage = `Personal node "${entityName}" is available.\n\nDo you want to assign "${employeeData.NAME}" to this personal node?`;
                     
-                    // Proceed with normal assignment flow
-                    await this.proceedWithAssignment(employeeData, employeeId, entityName, credentials);
+                    showCustomConfirmationModal(
+                        confirmMessage,
+                        'Confirm Assignment',
+                        'Yes, Assign',
+                        'Cancel',
+                        async () => {
+                            // User confirmed assignment
+                            
+                            // Proceed with normal assignment flow
+                            await this.proceedWithAssignment(employeeData, employeeId, entityName, credentials);
+                        },
+                        () => {
+                            // User cancelled assignment
+                            
+                            // Just clear selections and return to scan mode
+                            this.clearAllSelections();
+                            this.updateStatus('Ready to Scan', 'ready');
+                        }
+                    );
                 },
                 () => {
-                    // User cancelled assignment
+                    // User cancelled due to battery warning
                     
                     // Just clear selections and return to scan mode
                     this.clearAllSelections();
