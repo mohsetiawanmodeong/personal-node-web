@@ -1,15 +1,24 @@
 class RFIDReader {
     constructor() {
         // Dynamic URL detection - automatically adapts to current host
+		const myURL = new URL(window.location.toLocaleString());
+		let params = new URLSearchParams(myURL.search);
+		if ( params.has("wasp_id") ){
+			this.srcWASPID = params.get("wasp_id");
+		}else{
+			this.srcWASPID = 19971;
+		}
+		console.log("Getting Data from Bridge with WASP ID["+this.srcWASPID+"].");
         this.apiBaseUrl = this.detectApiBaseUrl();
         
         // ===== PLAN A: Original API =====
-        this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=160&minlastupdate=30000`; //OB4 2 Flr -> 30 detik
+        this.autoZoneApiUrl = `${this.apiBaseUrl}api/getFLTAutoZoneEntitiesList?zone_oid=160&minlastupdate=30000`; //OB4 2 Flr -> 30 detik
         // this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=112&minlastupdate=1800000`; //GBC Full Area -> 30 Menit
         // this.autoZoneApiUrl = `${this.apiBaseUrl}/getFLTAutoZoneEntitiesList?zone_oid=130&minlastupdate=1800000`; //GBC RTA Office Only -> 30 Menit
         
         // ===== PLAN B: Alternative API =====
-        this.closestNodesApiUrl = 'http://172.16.175.201:3333/closest_nodes'; // Alternative API for personal nodes
+        this.closestNodesApiUrl = `${this.apiBaseUrl}api/getMONBridgeRangeCurrent?minlastupdate=8000&src_wasp_id=${this.srcWASPID}`; // Alternative API for personal nodes
+        this.healthNodesApiUrl = `${this.apiBaseUrl}api/getMONBridgeHealthLKSCurrent?minlastupdate=8000&src_wasp_id=${this.srcWASPID}`; // Alternative API for personal nodes
         this.currentInput = '';
         this.isScanning = false;
         this.scanTimeout = null;
@@ -36,6 +45,8 @@ class RFIDReader {
         this.updatePlanSelectorDisplay();
         
         this.startAutoZoneRealtime();
+
+		this.vEntityWASPIDToNameMap = new Map();
     }
 
     // Dynamic URL detection - automatically adapts to current host
@@ -46,7 +57,7 @@ class RFIDReader {
         
         
         // Check if running on localhost/development
-        if (currentHost === 'localhost' || 
+        /*if (currentHost === 'localhost' || 
             currentHost === '127.0.0.1' || 
             currentHost.startsWith('192.168.') || 
             currentHost.startsWith('10.') ||
@@ -56,11 +67,11 @@ class RFIDReader {
             // Development environment - use local proxy server
             const apiUrl = `${currentProtocol}//${currentHost}${currentPort ? ':' + currentPort : ''}/api`;
             return apiUrl;
-        } else {
+        } else {*/
             // Production environment - use direct backend server
-            const apiUrl = 'http://172.16.175.60:4990/api';
+            const apiUrl = 'http://172.16.175.60:4990/';
             return apiUrl;
-        }
+        //}
     }
 
 
@@ -282,7 +293,7 @@ class RFIDReader {
             this.showLoading();
             this.updateStatus('Loading PTFI employee data...', 'scanning');
 
-            const url = `${this.apiBaseUrl}/getPTFIDetailsEmployee?smartcard_id=${smartcardId}`;
+            const url = `${this.apiBaseUrl}api/getPTFIDetailsEmployee?smartcard_id=${smartcardId}`;
 
             // Basic Authentication credentials (from proxy.js config)
             const username = 'fmiacp';
@@ -499,7 +510,7 @@ class RFIDReader {
         const photoElement = document.getElementById('employeePhoto');
         if (employee.PHOTO) {
             // Construct full URL for the photo
-            const photoUrl = `http://172.16.175.60:4990/${employee.PHOTO}`;
+            const photoUrl = `${this.apiBaseUrl}${employee.PHOTO}`;
             
             // Try to load photo with credentials
             this.loadEmployeePhoto(photoUrl, photoElement);
@@ -1233,7 +1244,7 @@ class RFIDReader {
             this.displayAutoZoneEntities(entitiesWithEmployeeData);
             
         } catch (error) {
-            console.error('❌ Error loading Auto Zone data:', error);
+            console.error('âŒ Error loading Auto Zone data:', error);
             this.displayAutoZoneError(error.message);
         }
     }
@@ -1243,7 +1254,18 @@ class RFIDReader {
         try {
             
             // No authentication needed for closest_nodes API
-            const data = await this.makeAjaxRequest(this.closestNodesApiUrl, null);
+			const credentials = btoa('fmiacp:track1nd0');
+            const data = await this.makeAjaxRequest(this.closestNodesApiUrl, credentials);
+            //Now lets get the battery level.
+            const healthData = await this.makeAjaxRequest(this.healthNodesApiUrl, credentials);
+			data.forEach((node) => {
+				node.BATLVL = 'N/A';
+				healthData.forEach((health) => {
+					if ( health.DST_WASP_ID === node.DST_WASP_ID ){
+						node.BATLVL = (health.BATLVL/4)*100;
+					}
+				});
+			});
             this.displayClosestNodesEntities(data);
             
         } catch (error) {
@@ -1442,7 +1464,7 @@ class RFIDReader {
                     this.updateScanButtonText('Reset Selection');
                     
                     try {
-                        const assignedEmployeeUrl = `${this.apiBaseUrl}/getPTFIDetailsEmployee?employee_id=${entity.properties.employee_id}`;
+                        const assignedEmployeeUrl = `${this.apiBaseUrl}api/getPTFIDetailsEmployee?employee_id=${entity.properties.employee_id}`;
                         const assignedEmployeeCredentials = btoa('fmiacp:track1nd0');
                         const assignedEmployeeData = await this.makeAjaxRequest(assignedEmployeeUrl, assignedEmployeeCredentials);
                         
@@ -1474,33 +1496,67 @@ class RFIDReader {
         });
 
     }
-
+	
     // Fetch employee data for closest nodes using OID
     async fetchEmployeeDataForClosestNodes(closestNodes) {
         try {
             
-            // Get all OIDs from closest nodes
-            const oids = closestNodes.filter(node => node.OID).map(node => node.OID);
+            // Get all WASPIDs from closest nodes
+            const waspids = closestNodes.filter(node => node.DST_WASP_ID).map(node => node.DST_WASP_ID);
             
-            if (oids.length === 0) {
+            if (waspids.length === 0) {
+                return closestNodes;
+            }
+
+			var names=[];
+			for ( let node of closestNodes){
+				if ( this.vEntityWASPIDToNameMap.has(node.DST_WASP_ID)){
+					names.push(this.vEntityWASPIDToNameMap.get(node.DST_WASP_ID));
+					node.MACHINE_NAME = this.vEntityWASPIDToNameMap.get(node.DST_WASP_ID);
+				}else{
+					var credentials = btoa('fmiacp:track1nd0');
+            		var entityUrl = `${this.apiBaseUrl}api/getMONBridgeMO?type=PersonalNode&wasp_id=${node.DST_WASP_ID}`;
+            		var personalData = await this.makeAjaxRequest(entityUrl, credentials);
+					console.log("Downloaded Personal data["+JSON.stringify(personalData)+"].");
+					if ( personalData.length > 0 ){
+						var vNAME = ""+personalData[0].NAME;
+						names.push(vNAME);
+						this.vEntityWASPIDToNameMap.set(node.DST_WASP_ID,vNAME);
+						node.MACHINE_NAME = vNAME;
+					}
+				}
+			};
+
+			//console.log("Data before Sort["+JSON.stringify(closestNodes)+"].");
+			closestNodes.sort((a,b)=> a.DISTANCE_SMOOTH - b.DISTANCE_SMOOTH);
+			closestNodes = closestNodes.filter( a => a.DISTANCE_SMOOTH < 2);
+			//console.log("Data after Sort["+JSON.stringify(closestNodes)+"].");
+            // Get all OIDs from closest nodes
+            //const oids = closestNodes.filter(node => node.OID).map(node => node.OID);
+            
+            if (names.length === 0) {
                 return closestNodes;
             }
             
             
             // Fetch employee data from ULTS API
-            const credentials = btoa('fmiacp:track1nd0');
-            const entityUrl = `${this.apiBaseUrl}/getULTSEntity`;
-            const entityData = await this.makeAjaxRequest(entityUrl, credentials);
-            
+            var credentials = btoa('fmiacp:track1nd0');
+            var entityUrl = `${this.apiBaseUrl}api/getULTSEntity`;
+            var entityData = await this.makeAjaxRequest(entityUrl, credentials);
+           	//console.log("Downloaded entity data["+JSON.stringify(entityData)+"]."); 
             if (entityData && entityData.length > 0) {
                 
+				//console.log("Getting matching Entities...");
                 // Map employee data to closest nodes
                 closestNodes.forEach(node => {
-                    if (node.OID) {
-                        const entityMatch = entityData.find(entity => entity.OID === node.OID);
+                    if (node.MACHINE_NAME) {
+                        const entityMatch = entityData.find(entity => entity.MACHINE_NAME === node.MACHINE_NAME);
+           				console.log("Checking Match  ["+node.OID+"]["+JSON.stringify(entityMatch)+"]..."); 
                         if (entityMatch) {
                             node.employee_id = entityMatch.EMPLOYEE_ID;
                             node.operator_name = entityMatch.OPERATOR_NAME;
+							//node.MACHINE_NAME = entityMatch.MACHINE_NAME;
+							console.log("Found a matching entity ["+JSON.stringify(node)+"].");
                         }
                     }
                 });
@@ -1511,7 +1567,7 @@ class RFIDReader {
                     node.employee_id !== 'undefined' && 
                     node.operator_name && 
                     node.operator_name !== 'undefined' &&
-                    node.operator_name !== node.pdsName
+                    node.operator_name !== node.MACHINE_NAME
                 );
                 
                 // Fetch registration data for each assigned employee
@@ -1520,9 +1576,9 @@ class RFIDReader {
                         const employeeIdClean = node.employee_id.toString().replace(/^0+/, '');
                         const registrationData = await this.checkPersonRegistration(employeeIdClean, credentials);
                         node.registrationData = registrationData;
-                        console.log('🔍 Fetched registrationData for', node.pdsName, ':', registrationData);
+                        console.log('ðŸ” Fetched registrationData for', node.MACHINE_NAME, ':', registrationData);
                     } catch (error) {
-                        console.error('Error fetching registration data for node:', node.pdsName, error);
+                        console.error('Error fetching registration data for node:', node.MACHINE_NAME, error);
                         node.registrationData = null;
                     }
                 }
@@ -1561,11 +1617,11 @@ class RFIDReader {
             const entityItem = document.createElement('div');
             
             // Extract data from closest_nodes API format
-            const nodeName = node.pdsName || 'Unknown';
-            const avgRange = node.avgRangeMetres || 0;
-            const waspId = node.waspID || 'N/A';
-            const timestamp = node.rangingTimestamp || 'N/A';
-            const battery = node.health?.battery || 'N/A';
+            const nodeName = node.MACHINE_NAME || 'Unknown';
+            const avgRange = node.DISTANCE_SMOOTH || 0;
+            const waspId = node.DST_WASP_ID || 'N/A';
+            const timestamp = node.LAST_UPDATE || 'N/A';
+            const battery = node.BATLVL || 'N/A';
             const oid = node.OID || null;
             
             // Use employee data from ULTS API (already fetched)
@@ -1644,7 +1700,7 @@ class RFIDReader {
             
             // Check if this node is currently selected
             if (this.selectedEntity && this.selectedEntity.properties && 
-                this.selectedEntity.properties.name === node.pdsName) {
+                this.selectedEntity.properties.name === node.MACHINE_NAME) {
                 // Restore visual feedback for previously selected node
                 entityItem.classList.add('selected-node');
                 entityItem.style.backgroundColor = '#ffd700';
@@ -1659,7 +1715,7 @@ class RFIDReader {
                 // Check if this is the same node that's already selected (toggle off)
                 if (this.selectedEntity && 
                     this.selectedEntity.properties && 
-                    this.selectedEntity.properties.name === node.pdsName) {
+                    this.selectedEntity.properties.name === node.MACHINE_NAME) {
                     
                     // Same node clicked - simple toggle off
                     this.simpleToggleOff();
@@ -1673,19 +1729,19 @@ class RFIDReader {
                 // Convert closest nodes format to compatible format
                 this.selectedEntity = {
                     properties: {
-                        name: node.pdsName,
+                        name: node.MACHINE_NAME,
                         oid: node.OID || null, // Use OID from closest_nodes API
                         employee_id: node.employee_id || null,
                         operator_name: node.operator_name || null,
-                        battery: node.health?.battery || 'N/A',
-                        waspId: node.waspID || 'N/A',
-                        avgRange: node.avgRangeMetres || 0
+                        battery: node.BATLVL || 'N/A',
+                        waspId: node.WASP_ID || 'N/A',
+                        avgRange: node.DISTANCE_SMOOTH || 0
                     },
                     closestNodeData: node // Keep original data for reference
                 };
                 
                 // Update header to show selected node
-                this.updateHeaderForSelectedNode(node.pdsName);
+                this.updateHeaderForSelectedNode(node.MACHINE_NAME);
                 
                 // Add visual feedback for selected node
                 entityItem.classList.add('selected-node');
@@ -1694,7 +1750,7 @@ class RFIDReader {
                 entityItem.style.border = '3px solid #ff8c00';
                 
                 // Check if this personal node is empty or assigned
-                const isEmpty = this.isPersonalNodeEmpty(node.operator_name, node.employee_id, node.pdsName);
+                const isEmpty = this.isPersonalNodeEmpty(node.operator_name, node.employee_id, node.MACHINE_NAME);
                 
                 if (!isEmpty) {
                     // Personal node has assignment - show assigned employee details immediately
@@ -1703,7 +1759,7 @@ class RFIDReader {
                     this.updateScanButtonText('Reset Selection');
                     
                     try {
-                        const assignedEmployeeUrl = `${this.apiBaseUrl}/getPTFIDetailsEmployee?employee_id=${node.employee_id}`;
+                        const assignedEmployeeUrl = `${this.apiBaseUrl}api/getPTFIDetailsEmployee?employee_id=${node.employee_id}`;
                         const assignedEmployeeCredentials = btoa('fmiacp:track1nd0');
                         const assignedEmployeeData = await this.makeAjaxRequest(assignedEmployeeUrl, assignedEmployeeCredentials);
                         
@@ -1730,7 +1786,7 @@ class RFIDReader {
                     }
                 } else {
                     // Personal node is empty - show ready for assignment message
-                    this.showReadyForAssignment(node.pdsName);
+                    this.showReadyForAssignment(node.MACHINE_NAME);
                     
                     // Update button text to "Reset Selection" for empty node (consistent with auto zone)
                     this.updateScanButtonText('Reset Selection');
@@ -2153,7 +2209,7 @@ class RFIDReader {
             console.log('🔍 Getting current assigned employee for:', entityName);
             
             // Use ULTS Entity API to get more complete data
-            const entityUrl = `${this.apiBaseUrl}/getULTSEntity`;
+            const entityUrl = `${this.apiBaseUrl}api/getULTSEntity`;
             const entityData = await this.makeAjaxRequest(entityUrl, credentials);
             
             console.log('📊 ULTS Entity Data:', entityData);
@@ -2184,7 +2240,7 @@ class RFIDReader {
                         // Try to get employee details from PTFI API
                         try {
                             const employeeIdClean = assignedEmployeeId.toString().replace(/^0+/, '');
-                            const employeeUrl = `${this.apiBaseUrl}/getPTFIDetailsEmployee?employee_id=${employeeIdClean}`;
+                            const employeeUrl = `${this.apiBaseUrl}api/getPTFIDetailsEmployee?employee_id=${employeeIdClean}`;
                             const employeeData = await this.makeAjaxRequest(employeeUrl, credentials);
                             
                             console.log('👤 Employee data from PTFI API:', employeeData);
@@ -2244,7 +2300,7 @@ class RFIDReader {
                             // Try to get employee details
                             try {
                                 const employeeIdClean = assignedEmployeeId.toString().replace(/^0+/, '');
-                                const employeeUrl = `${this.apiBaseUrl}/getPTFIDetailsEmployee?employee_id=${employeeIdClean}`;
+                                const employeeUrl = `${this.apiBaseUrl}api/getPTFIDetailsEmployee?employee_id=${employeeIdClean}`;
                                 const employeeData = await this.makeAjaxRequest(employeeUrl, credentials);
                                 
                                 console.log('👤 Auto zone employee data:', employeeData);
@@ -2558,7 +2614,7 @@ class RFIDReader {
             const apiBaseUrl = this.apiBaseUrl;
             
             // Get data from getULTSEntity to find entity by MACHINE_NAME
-            const entityUrl = `${apiBaseUrl}/getULTSEntity`;
+            const entityUrl = `${apiBaseUrl}api/getULTSEntity`;
             
             xhr.open('GET', entityUrl, true);
             xhr.setRequestHeader('Authorization', 'Basic ' + credentials);
@@ -2619,7 +2675,7 @@ class RFIDReader {
             return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
                 const apiBaseUrl = this.apiBaseUrl;
-                const assignUrl = `${apiBaseUrl}/updateULTSEntityAssignment?entity_id=${entityMatch.ultsEntityOid}&employee_id=${employeeId}`;
+                const assignUrl = `${apiBaseUrl}api/updateULTSEntityAssignment?entity_id=${entityMatch.ultsEntityOid}&employee_id=${employeeId}`;
                 
                 
                 xhr.open('GET', assignUrl, true);
@@ -2666,7 +2722,7 @@ class RFIDReader {
             const entityGroupRoleOid = this.getEntityGroupRoleOid(personalNodeName, 'WORKER');
             
             // First, get current person data
-            const getUrl = `${apiBaseUrl}/getULTSPerson`;
+            const getUrl = `${apiBaseUrl}api/getULTSPerson`;
             
             xhr.open('GET', getUrl, true);
             xhr.setRequestHeader('Authorization', 'Basic ' + credentials);
@@ -2691,7 +2747,7 @@ class RFIDReader {
                                 
                                 // Now update the person using PUT method
                                 const xhr2 = new XMLHttpRequest();
-                                const updateUrl = `${apiBaseUrl}/updateULTSPerson`;
+                                const updateUrl = `${apiBaseUrl}api/updateULTSPerson`;
                                 
                                 
                                 xhr2.open('PUT', updateUrl, true);
@@ -2742,7 +2798,7 @@ class RFIDReader {
     async checkPersonRegistration(employeeId, inputCredentials) {
         try {
             // First check if person exists in admin-person
-            const personApiUrl = `${this.apiBaseUrl}/getULTSPerson`;
+            const personApiUrl = `${this.apiBaseUrl}api/getULTSPerson`;
             
         // ULTS backend requires authentication, using fmiacp credentials
         const credentials = btoa('fmiacp:track1nd0');
@@ -2808,7 +2864,7 @@ class RFIDReader {
                 if (person) {
                     
                     // Now check entity assignment in admin-entity
-                    const entityApiUrl = `${this.apiBaseUrl}/getULTSEntity`;
+                    const entityApiUrl = `${this.apiBaseUrl}api/getULTSEntity`;
                     
                             // ULTS backend requires authentication, using fmiacp credentials
                             const entityCredentials = btoa('fmiacp:track1nd0');
