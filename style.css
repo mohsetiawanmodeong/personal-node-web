@@ -860,6 +860,7 @@ body {
     overflow: hidden;
     max-width: 560px;
     width: 96%;
+    max-height: 90vh;
     animation: slideIn 0.5s ease-out;
 }
 
@@ -1068,6 +1069,13 @@ body {
     color: #374151;
     font-weight: 500;
     word-break: break-word;
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+    .info-grid.compact {
+        grid-template-columns: repeat(2, minmax(160px, 1fr));
+        gap: 10px 12px;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1616,6 +1624,20 @@ body {
 }
 
 /* Responsive Design for Registration Grid */
+/* Optimized for 1024x768 screens */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .registration-details-grid {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+        gap: 6px;
+    }
+    
+    .form-grid {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+        gap: 6px;
+    }
+}
+
+/* Mobile layout */
 @media (max-width: 768px) {
     .registration-details-grid {
         grid-template-columns: 1fr;
@@ -1928,6 +1950,37 @@ body {
 }
 
 /* Responsive Modal */
+/* Optimized for 1024x768 screens */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .modal-content {
+        width: 85%;
+        max-width: 450px;
+    }
+    
+    .modal-header {
+        padding: 28px 28px 14px 28px;
+    }
+    
+    .modal-icon {
+        width: 70px;
+        height: 70px;
+        font-size: 28px;
+    }
+    
+    .modal-header h2 {
+        font-size: 22px;
+    }
+    
+    .modal-body {
+        padding: 20px 28px;
+    }
+    
+    .modal-footer {
+        padding: 14px 28px 28px 28px;
+    }
+}
+
+/* Mobile layout */
 @media (max-width: 768px) {
     .modal-content {
         width: 95%;
