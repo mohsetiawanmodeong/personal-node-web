@@ -2367,8 +2367,8 @@ class RFIDReader {
                         async () => {
                             // User confirmed reassign/override
                             
-                            // Proceed with normal assignment flow (this will overwrite the existing assignment)
-                            await this.proceedWithAssignment(employeeData, employeeId, entityName, credentials);
+                            // Proceed with reassignment flow (this will overwrite the existing assignment)
+                            await this.proceedWithAssignment(employeeData, employeeId, entityName, credentials, true);
                         },
                         () => {
                             // User cancelled reassign/override
@@ -2450,7 +2450,7 @@ class RFIDReader {
     }
 
     // Proceed with assignment (extracted from handleAutoAssignment for reuse)
-    async proceedWithAssignment(employeeData, employeeId, entityName, credentials) {
+    async proceedWithAssignment(employeeData, employeeId, entityName, credentials, isReassignment = false) {
         try {
             
             // Check if employee is registered and update group if needed
@@ -2470,8 +2470,12 @@ class RFIDReader {
             const assignmentResult = await this.updateEntityAssignmentByMachineName(entityName, employeeId, credentials);
             
             if (assignmentResult) {
-                // Show success modal with auto-close (3 seconds)
-                showSuccessModal(`Employee "${employeeData.NAME}" assigned to personal node "${entityName}" successfully!`);
+                // Show appropriate success modal based on whether it's reassignment or new assignment
+                if (isReassignment) {
+                    showReassignSuccessModal(`Employee "${employeeData.NAME}" reassigned to personal node "${entityName}" successfully!`);
+                } else {
+                    showSuccessModal(`Employee "${employeeData.NAME}" assigned to personal node "${entityName}" successfully!`);
+                }
                 
                 // Wait for database to update (2 seconds) + modal auto-close (3 seconds) = 5 seconds total
                 await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds total
@@ -3284,6 +3288,55 @@ function showUnassignSuccessModal(message) {
 // Close unassign success modal
 function closeUnassignSuccessModal() {
     const modal = document.getElementById('unassignSuccessModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Show reassignment success modal
+function showReassignSuccessModal(message) {
+    const modal = document.getElementById('reassignSuccessModal');
+    const messageElement = document.getElementById('reassignSuccessMessage');
+    const countdownElement = document.getElementById('reassignCountdownTimer');
+    
+    if (modal && messageElement && countdownElement) {
+        messageElement.textContent = message;
+        modal.style.display = 'flex';
+        
+        // Start countdown
+        let countdown = 3;
+        countdownElement.textContent = Math.ceil(countdown);
+        
+        const countdownInterval = setInterval(() => {
+            countdown -= 0.5;
+            countdownElement.textContent = Math.ceil(countdown);
+            
+            if (countdown <= 0) {
+                clearInterval(countdownInterval);
+                modal.style.display = 'none';
+                
+                // Refresh page after modal closes
+                setTimeout(() => {
+                    
+                    // Clear browser cache
+                    if ('caches' in window) {
+                        caches.keys().then(names => {
+                            names.forEach(name => {
+                                caches.delete(name);
+                            });
+                        });
+                    }
+                    
+                    window.location.reload(true);
+                }, 500);
+            }
+        }, 500);
+    }
+}
+
+// Close reassignment success modal
+function closeReassignSuccessModal() {
+    const modal = document.getElementById('reassignSuccessModal');
     if (modal) {
         modal.style.display = 'none';
     }
