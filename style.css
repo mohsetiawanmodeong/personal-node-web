@@ -327,6 +327,19 @@ body {
     padding-right: 10px;
 }
 
+/* Hide scrollbar for entities list on 1024x768 */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .entities-list {
+        max-height: 500px;
+        padding-right: 0px;
+    }
+    
+    .entities-list::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+    }
+}
+
 .entities-list::-webkit-scrollbar {
     width: 6px;
 }
@@ -560,26 +573,40 @@ body {
     font-size: 0.85rem;
     color: #6b7280;
     margin-top: 8px;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .entity-location.compact {
     display: flex;
     gap: 8px;
+    flex-wrap: nowrap;
 }
 
 .entity-location .zone {
     font-weight: 600;
     color: #1e40af;
+    flex-shrink: 0;
 }
 
 .entity-location .time {
     font-weight: 600;
     color: #1e40af;
+    flex-shrink: 0;
+}
+
+.entity-location .coordinates {
+    flex-shrink: 0;
 }
 
 .entity-location .coordinates .range {
     font-family: monospace;
     font-size: 0.8rem;
+    flex-shrink: 0;
 }
 
 /* Battery styling with color coding and animation */
@@ -590,6 +617,7 @@ body {
     padding: 2px 6px;
     border-radius: 4px;
     transition: all 0.3s ease;
+    flex-shrink: 0;
 }
 
 /* Battery level colors */
@@ -677,7 +705,36 @@ body {
 }
 
 /* Responsive Design for Two Column Layout */
-@media (max-width: 1024px) {
+/* Optimized for 1024x768 screens - maintain desktop layout */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .container {
+        padding: 15px;
+    }
+    
+    .two-column-layout {
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    
+    .header {
+        padding: 15px 20px;
+    }
+    
+    .logo h1 {
+        font-size: 1.6rem;
+    }
+    
+    .entity-item {
+        padding: 12px;
+    }
+    
+    .scan-area {
+        padding: 40px 15px 0px 15px;
+    }
+}
+
+/* Mobile layout - single column */
+@media (max-width: 768px) {
     .two-column-layout {
         grid-template-columns: 1fr;
         gap: 20px;
@@ -1183,6 +1240,99 @@ body {
 }
 
 /* Responsive Design */
+/* Optimized for 1024x768 screens */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .container {
+        padding: 15px;
+    }
+    
+    .header {
+        padding: 15px 20px;
+        gap: 15px;
+    }
+    
+    .logo h1 {
+        font-size: 1.6rem;
+    }
+    
+    .scan-area {
+        padding: 40px 15px 0px 15px;
+    }
+    
+    .card-header {
+        padding: 8px;
+        gap: 8px;
+    }
+    
+    .employee-photo {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .employee-photo.large {
+        width: 200px;
+        height: 250px;
+    }
+    
+    /* Employee Card Optimization for 1024x768 */
+    .employee-card {
+        max-height: 85vh;
+        max-width: 500px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    
+    /* Hide scrollbar but keep functionality */
+    .employee-card::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+    }
+    
+    .card-body {
+        padding: 8px;
+    }
+    
+    .info-grid.compact {
+        grid-template-columns: repeat(2, minmax(140px, 1fr));
+        gap: 8px 10px;
+    }
+    
+    .info-item {
+        padding: 4px 6px;
+        gap: 10px;
+    }
+    
+    .info-item .label {
+        font-size: 0.65rem;
+    }
+    
+    .info-item .value {
+        font-size: 0.8rem;
+    }
+    
+    /* Entity Location Optimization for 1024x768 */
+    .entity-location {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+        gap: 6px;
+    }
+    
+    .entity-location .zone,
+    .entity-location .time {
+        font-size: 0.8rem;
+    }
+    
+    .entity-location .coordinates .range {
+        font-size: 0.75rem;
+    }
+    
+    .entity-location .battery {
+        font-size: 0.8rem;
+        padding: 1px 4px;
+    }
+}
+
+/* Mobile layout */
 @media (max-width: 768px) {
     .container {
         padding: 15px;
