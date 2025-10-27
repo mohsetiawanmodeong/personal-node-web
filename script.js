@@ -3034,14 +3034,24 @@ class RFIDReader {
                     }
                     
                     
+                    // Additional validation: entityAssignment should have valid MACHINE_NAME and operator
+                    const isValidAssignment = entityAssignment && 
+                                            entityAssignment.MACHINE_NAME && 
+                                            entityAssignment.MACHINE_NAME !== 'N/A' &&
+                                            entityAssignment.MACHINE_NAME !== person.DISPLAY_NAME &&
+                                            entityAssignment.OPERATOR_NAME &&
+                                            entityAssignment.OPERATOR_NAME !== entityAssignment.MACHINE_NAME &&
+                                            entityAssignment.PERSON_OID &&
+                                            entityAssignment.PERSON_OID !== 0;
+                    
                     const result = {
                         isRegistered: true,
-                        isAssigned: entityAssignment ? true : false, // Add isAssigned property
-                        entityGroup: entityGroup !== 'N/A' ? entityGroup : (person.ENTITY_GROUP || 'N/A'), // Use entity assignment group if found, otherwise person group
-                        role: (person.ROLE && person.ROLE !== 'DEFAULT') ? person.ROLE : 'WORKER', // Convert DEFAULT to WORKER
+                        isAssigned: isValidAssignment ? true : false, // More strict validation
+                        entityGroup: (isValidAssignment && entityGroup !== 'N/A') ? entityGroup : (person.ENTITY_GROUP || 'N/A'),
+                        role: (person.ROLE && person.ROLE !== 'DEFAULT') ? person.ROLE : 'WORKER',
                         personName: person.PERSON_NAME || 'N/A',
                         displayName: person.DISPLAY_NAME || 'N/A',
-                        entityName: entityAssignment ? entityAssignment.MACHINE_NAME : 'N/A' // Use MACHINE_NAME as entity name
+                        entityName: isValidAssignment ? entityAssignment.MACHINE_NAME : 'N/A'
                     };
                     
                     return result;
