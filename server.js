@@ -34,7 +34,6 @@ app.get('/health', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log('🚀 PTFI Personal Node Server is running!');
     console.log(`📱 Local: http://localhost:${PORT}`);
-    console.log(`🌐 Network: http://172.16.7.131:${PORT}`);
     console.log(`📋 Health Check: http://localhost:${PORT}/health`);
     console.log('');
     console.log('💡 Tips:');
