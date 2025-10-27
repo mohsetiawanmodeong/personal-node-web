@@ -1096,44 +1096,6 @@ body {
     animation: slideIn 0.5s ease-out;
 }
 
-.error-icon {
-    margin-bottom: 20px;
-}
-
-.icon-warning {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto;
-    position: relative;
-}
-
-.icon-warning::before {
-    content: '';
-    position: absolute;
-    top: 10px;
-    left: 20px;
-    width: 40px;
-    height: 40px;
-    background: #ef4444;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.icon-warning::after {
-    content: '!';
-    position: absolute;
-    top: 20px;
-    left: 35px;
-    width: 10px;
-    height: 20px;
-    color: white;
-    font-size: 24px;
-    font-weight: bold;
-    text-align: center;
-    line-height: 1;
-}
 
 .error-message h3 {
     font-size: 1.5rem;
@@ -2007,5 +1969,336 @@ body {
     
     .modal-footer {
         padding: 12px 24px 24px 24px;
+    }
+}
+
+/* Manual Input Modal Styles */
+.manual-input-modal {
+    max-width: 600px;
+    width: 90%;
+    position: relative;
+}
+
+/* Modal Close Button */
+.modal-close-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: #f3f4f6;
+    color: #da2222;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+}
+
+.modal-close-btn:hover {
+    background: #e5e7eb;
+    color: #374151;
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.icon-close {
+    width: 40px;
+    height: 40px;
+    position: relative;
+}
+
+.icon-close::before,
+.icon-close::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 2px;
+    background: currentColor;
+    border-radius: 1px;
+}
+
+.icon-close::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.icon-close::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.manual-input-display {
+    margin: 0px 0 20px 0;
+    text-align: center;
+}
+
+#manualInputField {
+    width: 100%;
+    max-width: 400px;
+    padding: 15px 20px;
+    font-size: 1.4rem;
+    font-weight: 600;
+    text-align: center;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f9fafb;
+    color: #1f2937;
+    letter-spacing: 2px;
+    font-family: 'Courier New', monospace;
+}
+
+#manualInputField:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.virtual-keyboard {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 20px 0;
+    padding: 20px;
+    background: #f3f4f6;
+    border-radius: 12px;
+}
+
+.keyboard-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.keyboard-btn {
+    width: 60px;
+    height: 60px;
+    border: none;
+    border-radius: 8px;
+    background: white;
+    color: #1f2937;
+    font-size: 1.6rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+}
+
+.keyboard-btn:hover {
+    background: #e5e7eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.keyboard-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.keyboard-btn-zero {
+    width: 60px;
+    height: 60px;
+}
+
+.keyboard-btn-delete {
+    background: #fef2f2;
+    color: #dc2626;
+    width: 60px;
+    height: 60px;
+}
+
+.keyboard-btn-delete:hover {
+    background: #fee2e2;
+}
+
+.keyboard-btn-enter {
+    background: #dbeafe;
+    color: #2563eb;
+    width: 60px;
+    height: 60px;
+}
+
+.keyboard-btn-enter:hover {
+    background: #bfdbfe;
+}
+
+.keyboard-row-bottom {
+    margin-top: 8px;
+}
+
+.btn-text {
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Icon styles for keyboard buttons */
+.icon-keyboard {
+    width: 24px;
+    height: 24px;
+    position: relative;
+}
+
+.icon-keyboard::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    background: currentColor;
+    border-radius: 2px;
+}
+
+.icon-keyboard::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    height: 1px;
+    background: white;
+    border-radius: 1px;
+}
+
+.icon-delete {
+    width: 20px;
+    height: 20px;
+    position: relative;
+}
+
+.icon-delete::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 6px;
+    width: 8px;
+    height: 12px;
+    background: currentColor;
+    border-radius: 1px;
+}
+
+.icon-delete::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 12px;
+    height: 2px;
+    background: currentColor;
+    border-radius: 1px;
+    transform: rotate(45deg);
+}
+
+.icon-enter {
+    width: 20px;
+    height: 20px;
+    position: relative;
+}
+
+.icon-enter::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 8px;
+    height: 12px;
+    background: currentColor;
+    border-radius: 1px;
+}
+
+.icon-enter::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 10px;
+    width: 6px;
+    height: 2px;
+    background: currentColor;
+    border-radius: 1px;
+    transform: rotate(45deg);
+}
+
+/* Header Manual Input Button */
+.header-manual-btn {
+    margin-left: 10px;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 10px rgba(107, 114, 128, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-manual-btn:hover {
+    background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(107, 114, 128, 0.4);
+}
+
+/* Responsive Virtual Keyboard - 4 column layout */
+@media (max-width: 768px) {
+    .keyboard-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 1.3rem;
+    }
+    
+    .keyboard-btn-zero,
+    .keyboard-btn-delete,
+    .keyboard-btn-enter {
+        width: 50px;
+        height: 50px;
+    }
+    
+.btn-text {
+    font-size: 0.85rem;
+}
+    
+    #manualInputField {
+        font-size: 1.2rem;
+        padding: 12px 16px;
+    }
+    
+    .keyboard-row {
+        gap: 6px;
+    }
+}
+
+/* Touchscreen Optimizations - 4 column layout */
+@media (pointer: coarse) {
+    .keyboard-btn {
+        min-width: 60px;
+        min-height: 60px;
+        font-size: 1.6rem;
+    }
+    
+    .keyboard-btn-zero,
+    .keyboard-btn-delete,
+    .keyboard-btn-enter {
+        min-width: 60px;
+        min-height: 60px;
+    }
+    
+    .modal-close-btn {
+        min-width: 40px;
+        min-height: 40px;
     }
 }

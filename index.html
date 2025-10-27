@@ -21,6 +21,10 @@
                     <div class="icon-redo"></div>
                     <span id="scanAgainText">Scan Again</span>
                 </button>
+                <button class="btn btn-secondary header-manual-btn" onclick="showManualInput()" id="manualInputBtn">
+                    <div class="icon-keyboard"></div>
+                    <span>Manual Input</span>
+                </button>
             </div>
         </header>
 
@@ -103,9 +107,6 @@
             </div>
 
             <div class="error-message" id="errorMessage" style="display: none;">
-                <div class="error-icon">
-                    <div class="icon-warning"></div>
-                </div>
                 <h3>PTFI ID Card Not Found</h3>
                 <p id="errorText">The scanned PTFI ID card is not registered in the system.</p>
                 <button class="btn btn-secondary" onclick="scanAgain()">
@@ -191,6 +192,47 @@
                 <div class="modal-footer">
                     <button class="btn btn-cancel" id="cancelBtn">Cancel</button>
                     <button class="btn btn-confirm" id="confirmBtn">Yes, Unassign</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manual Input Modal -->
+        <div class="modal-overlay" id="manualInputModal" style="display: none;">
+            <div class="modal-content manual-input-modal">
+                <button class="modal-close-btn" onclick="closeManualInput()">
+                    <div class="icon-close"></div>
+                </button>
+                <div class="modal-header">
+                    <h2>Manual ID Card Input</h2>
+                </div>
+                <div class="modal-body">
+                    <div class="manual-input-display">
+                        <input type="text" id="manualInputField" readonly placeholder="Enter ID Card Number">
+                    </div>
+                    <div class="virtual-keyboard">
+                        <div class="keyboard-row">
+                            <button class="keyboard-btn" onclick="addDigit('1')">1</button>
+                            <button class="keyboard-btn" onclick="addDigit('2')">2</button>
+                            <button class="keyboard-btn" onclick="addDigit('3')">3</button>
+                            <button class="keyboard-btn keyboard-btn-delete" onclick="deleteDigit()">
+                                <span class="btn-text">Del</span>
+                            </button>
+                        </div>
+                        <div class="keyboard-row">
+                            <button class="keyboard-btn" onclick="addDigit('4')">4</button>
+                            <button class="keyboard-btn" onclick="addDigit('5')">5</button>
+                            <button class="keyboard-btn" onclick="addDigit('6')">6</button>
+                            <button class="keyboard-btn keyboard-btn-enter" onclick="submitManualInput()">
+                                <span class="btn-text">Enter</span>
+                            </button>
+                        </div>
+                        <div class="keyboard-row">
+                            <button class="keyboard-btn" onclick="addDigit('7')">7</button>
+                            <button class="keyboard-btn" onclick="addDigit('8')">8</button>
+                            <button class="keyboard-btn" onclick="addDigit('9')">9</button>
+                            <button class="keyboard-btn keyboard-btn-zero" onclick="addDigit('0')">0</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

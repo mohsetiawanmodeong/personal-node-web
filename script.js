@@ -254,6 +254,50 @@ class RFIDReader {
         }, 500); // 500ms delay to allow for complete input
     }
 
+    // Generate ID variants to try different formats (with/without leading zeros)
+    generateIdVariants(id) {
+        const variants = [];
+        const cleanId = id.trim();
+        
+        // Skip if empty
+        if (!cleanId) return [];
+        
+        // 1. Original input as-is
+        variants.push(cleanId);
+        
+        // 2. Get number without leading zeros
+        const withoutZeros = cleanId.replace(/^0+/, '');
+        
+        // 3. If different from original, add without zeros variant
+        if (withoutZeros !== cleanId && withoutZeros.length > 0) {
+            variants.push(withoutZeros);
+        }
+        
+        // 4. For IDs shorter than 10 digits, try padding to 10 digits
+        // This covers cases like "3336" -> "0000003336" or "80032009" -> "0080032009"
+        if (withoutZeros.length > 0 && withoutZeros.length < 10) {
+            const padded10 = withoutZeros.padStart(10, '0');
+            if (!variants.includes(padded10)) {
+                variants.push(padded10);
+            }
+        }
+        
+        // 5. For IDs shorter than 10, also try adding specific leading zeros
+        if (withoutZeros.length >= 4 && withoutZeros.length < 10) {
+            // For 4-9 digit IDs, also try with specific leading zeros
+            const neededZeros = 10 - withoutZeros.length;
+            if (neededZeros > 0 && neededZeros <= 6) {
+                const paddedWithSpecific = '0'.repeat(neededZeros) + withoutZeros;
+                if (!variants.includes(paddedWithSpecific)) {
+                    variants.push(paddedWithSpecific);
+                }
+            }
+        }
+        
+        // Remove duplicates while maintaining order
+        return [...new Set(variants)];
+    }
+
     processRFIDInput() {
         const smartcardId = this.currentInput.trim();
         
@@ -293,15 +337,76 @@ class RFIDReader {
             this.showLoading();
             this.updateStatus('Loading PTFI employee data...', 'scanning');
 
-            const url = `${this.apiBaseUrl}api/getPTFIDetailsEmployee?smartcard_id=${smartcardId}`;
-
             // Basic Authentication credentials (from proxy.js config)
             const username = 'fmiacp';
             const password = 'track1nd0';
             const credentials = btoa(username + ':' + password);
 
-            // Use jQuery AJAX like consoles.html for consistency
-            const response = await this.makeAjaxRequest(url, credentials);
+            // Try to fetch employee data with different ID formats
+            // 1. Original input (user input as-is: e.g., "80032009")
+            // 2. With leading zeros to 10 digits (e.g., "0080032009")
+            // 3. With leading zeros to 10 digits starting with "00" (e.g., "000080032009")
+            
+            let response = null;
+            const idVariants = this.generateIdVariants(smartcardId);
+            
+            console.log(`🔍 Generated ID variants:`, idVariants);
+            console.log(`🔍 API Base URL:`, this.apiBaseUrl);
+            
+            for (const idVariant of idVariants) {
+                try {
+                    // Try both smartcard_id (for RFID scan) and employee_id (for manual input)
+                    const urls = [
+                        `${this.apiBaseUrl}api/getPTFIDetailsEmployee?smartcard_id=${idVariant}`,
+                        `${this.apiBaseUrl}api/getPTFIDetailsEmployee?employee_id=${idVariant}`
+                    ];
+                    
+                    for (const url of urls) {
+                        console.log(`🔍 Trying ID variant: ${idVariant}`);
+                        console.log(`🔗 Full URL: ${url}`);
+                        
+                        response = await this.makeAjaxRequest(url, credentials);
+                    
+                        console.log(`📋 Raw Response:`, JSON.stringify(response));
+                        console.log(`📋 Response Type:`, typeof response);
+                        console.log(`📋 Response Keys:`, response ? Object.keys(response) : 'null');
+                        
+                        // Check if response is valid and has data
+                        if (response && typeof response === 'object' && !response.error) {
+                            console.log(`📋 Response received:`, response);
+                            
+                            // Handle array response (if API returns array with employee)
+                            if (Array.isArray(response) && response.length > 0) {
+                                const firstEmployee = response[0];
+                                if (firstEmployee.EMPLOYEE_ID) {
+                                    console.log(`✅ Employee found with URL: ${url}`);
+                                    response = firstEmployee;
+                                    break; // Break from URL loop
+                                }
+                            }
+                            // Handle object response
+                            else if (response.EMPLOYEE_ID) {
+                                console.log(`✅ Employee found with URL: ${url}`);
+                                console.log(`✅ Employee Details:`, response);
+                                break; // Break from URL loop
+                            } else {
+                                console.log(`⚠️ No EMPLOYEE_ID in response, trying next URL...`);
+                            }
+                        } else {
+                            console.log(`⚠️ Invalid response, trying next URL...`);
+                        }
+                    }
+                    
+                    // If we got valid response, break from variant loop
+                    if (response && response.EMPLOYEE_ID) {
+                        break;
+                    }
+                } catch (error) {
+                    // Continue to next variant
+                    console.log(`⚠️ ID variant ${idVariant} failed:`, error.message);
+                    response = null;
+                }
+            }
             
             if (response && response.EMPLOYEE_ID) {
                 
@@ -389,6 +494,15 @@ class RFIDReader {
                 this.updateStatus('Employee found', 'ready');
             }
             } else {
+                // None of the ID variants worked
+                const idVariantsStr = idVariants.join(', ');
+                console.log(`❌ All ID variants failed. Tried: ${idVariantsStr}`);
+                
+                // Show error message
+                const errorMessage = document.getElementById('errorText');
+                if (errorMessage) {
+                    errorMessage.textContent = `Employee ID not found in the system.\nTried variants: ${idVariantsStr}`;
+                }
                 this.showError('PTFI employee not found in the system');
                 this.updateStatus('PTFI ID Card not found', 'error');
             }
@@ -1576,7 +1690,7 @@ class RFIDReader {
                         const employeeIdClean = node.employee_id.toString().replace(/^0+/, '');
                         const registrationData = await this.checkPersonRegistration(employeeIdClean, credentials);
                         node.registrationData = registrationData;
-                        console.log('ðŸ” Fetched registrationData for', node.MACHINE_NAME, ':', registrationData);
+                        console.log('🔍 Fetched registrationData for', node.MACHINE_NAME, ':', registrationData);
                     } catch (error) {
                         console.error('Error fetching registration data for node:', node.MACHINE_NAME, error);
                         node.registrationData = null;
@@ -3341,6 +3455,102 @@ function closeReassignSuccessModal() {
         modal.style.display = 'none';
     }
 }
+
+// Manual Input Functions
+function showManualInput() {
+    const modal = document.getElementById('manualInputModal');
+    const inputField = document.getElementById('manualInputField');
+    
+    if (modal && inputField) {
+        // Clear input field
+        inputField.value = '';
+        modal.style.display = 'flex';
+        
+        // Focus on input field
+        setTimeout(() => {
+            inputField.focus();
+        }, 100);
+    }
+}
+
+function closeManualInput() {
+    const modal = document.getElementById('manualInputModal');
+    if (modal) {
+        modal.style.display = 'none';
+        // Refresh page when close button is pressed
+        window.location.reload();
+    }
+}
+
+function addDigit(digit) {
+    const inputField = document.getElementById('manualInputField');
+    if (inputField) {
+        // Limit to 10 digits (typical ID card length)
+        if (inputField.value.length < 10) {
+            inputField.value += digit;
+        }
+    }
+}
+
+function deleteDigit() {
+    const inputField = document.getElementById('manualInputField');
+    if (inputField) {
+        inputField.value = inputField.value.slice(0, -1);
+    }
+}
+
+function submitManualInput() {
+    const inputField = document.getElementById('manualInputField');
+    if (inputField && window.rfidReader) {
+        const manualInput = inputField.value.trim();
+        
+        if (manualInput.length === 0) {
+            alert('Please enter an ID card number');
+            return;
+        }
+        
+        if (manualInput.length < 4) {
+            alert('ID card number must be at least 4 digits');
+            return;
+        }
+        
+        if (manualInput.length > 10) {
+            alert('ID card number cannot exceed 10 digits');
+            return;
+        }
+        
+        // Close modal first (without refreshing)
+        const modal = document.getElementById('manualInputModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        
+        // Process the manual input as if it was scanned
+        window.rfidReader.currentInput = manualInput;
+        window.rfidReader.processRFIDInput();
+    }
+}
+
+// Add keyboard support for manual input
+document.addEventListener('keydown', (e) => {
+    const manualModal = document.getElementById('manualInputModal');
+    if (manualModal && manualModal.style.display === 'flex') {
+        // Handle keyboard input when manual modal is open
+        if (e.key >= '0' && e.key <= '9') {
+            e.preventDefault();
+            addDigit(e.key);
+        } else if (e.key === 'Backspace') {
+            e.preventDefault();
+            deleteDigit();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            submitManualInput();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeManualInput();
+        }
+    }
+});
 
 // Global function to handle scan again or reset selection (refresh page)
 function scanAgain() {
