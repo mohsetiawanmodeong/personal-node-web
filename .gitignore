@@ -113,3 +113,7 @@ Thumbs.db
 # Keep documentation folder
 !docs/
 !docs/*.md
+
+# Big files
+HPT - Local wasp ranging program.zip
+*.zip
