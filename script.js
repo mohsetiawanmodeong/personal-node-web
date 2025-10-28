@@ -1641,10 +1641,24 @@ class RFIDReader {
 				}
 			};
 
-			//console.log("Data before Sort["+JSON.stringify(closestNodes)+"].");
-			closestNodes.sort((a,b)=> a.DISTANCE_SMOOTH - b.DISTANCE_SMOOTH);
-			closestNodes = closestNodes.filter( a => a.DISTANCE_SMOOTH < 2);
-			//console.log("Data after Sort["+JSON.stringify(closestNodes)+"].");
+		//console.log("Data before Sort["+JSON.stringify(closestNodes)+"].");
+		
+		// Filter out "Unknown", nodes starting with "B", and nodes without MACHINE_NAME
+		closestNodes = closestNodes.filter(node => {
+			const machineName = (node.MACHINE_NAME || '').trim();
+			// Must have valid MACHINE_NAME, and exclude Unknown and nodes starting with B
+			return machineName !== '' && 
+			       machineName !== 'Unknown' && 
+			       machineName !== 'UNKNOWN' && 
+			       !machineName.toLowerCase().startsWith('b');
+		});
+		
+		console.log("After filtering Unknown and B nodes:", closestNodes.map(n => n.MACHINE_NAME));
+		
+		closestNodes.sort((a,b)=> a.DISTANCE_SMOOTH - b.DISTANCE_SMOOTH);
+		closestNodes = closestNodes.filter( a => a.DISTANCE_SMOOTH < 2);
+		closestNodes = closestNodes.slice(0, 3); // Limit to top 3 closest nodes
+		//console.log("Data after Sort["+JSON.stringify(closestNodes)+"].");
             // Get all OIDs from closest nodes
             //const oids = closestNodes.filter(node => node.OID).map(node => node.OID);
             
