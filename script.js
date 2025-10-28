@@ -3592,7 +3592,160 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show current plan
     const currentPlan = window.rfidReader.currentPlan === 'closest-nodes' ? 'PLAN B (closest_nodes)' : 'PLAN A (autoZone)';
     console.log('🎯 Current Plan:', currentPlan);
+    
+    // Initialize Help Button functionality
+    initializeHelpButton();
 });
+
+// Initialize Help Button Dropdown and Video Modal
+function initializeHelpButton() {
+    const helpTrigger = document.getElementById('helpTrigger');
+    const helpDropdownMenu = document.getElementById('helpDropdownMenu');
+    const helpSelector = document.querySelector('.help-selector');
+    
+    if (!helpTrigger || !helpDropdownMenu || !helpSelector) {
+        console.warn('Help elements not found');
+        return;
+    }
+
+    console.log('Initializing Help Button...');
+
+    // Toggle dropdown on button click
+    helpTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        helpSelector.classList.toggle('active');
+        console.log('Help button clicked, dropdown active:', helpSelector.classList.contains('active'));
+    });
+
+    // Handle dropdown item clicks (parent items with submenu)
+    const dropdownItems = document.querySelectorAll('.help-dropdown-item');
+    dropdownItems.forEach(item => {
+        item.classList.add('has-submenu'); // Mark as having submenu
+        
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // Toggle active class to show/hide submenu
+            const wasActive = item.classList.contains('active');
+            const isActive = item.classList.toggle('active');
+            
+            console.log(`Dropdown item clicked: ${item.dataset.help}, Active: ${isActive}`);
+            
+            // Close other items if clicked
+            dropdownItems.forEach(otherItem => {
+                if (otherItem !== item && otherItem.classList.contains('active')) {
+                    otherItem.classList.remove('active');
+                }
+            });
+        });
+    });
+
+    // Handle video language selection (submenu items)
+    const submenuItems = document.querySelectorAll('.help-submenu-item');
+    submenuItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            const lang = item.dataset.lang;
+            const type = item.dataset.type;
+            
+            // Map type and lang to video URL
+            const videoUrls = {
+                'assignment': {
+                    'english': 'videos/ASSIGNMENT PN ENGLISH.mp4',
+                    'bahasa': 'videos/ASSIGNMENT PN BAHASA.mp4'
+                },
+                'reassignment': {
+                    'english': 'videos/RE-ASSIGNMENT ENGLISH.mp4',
+                    'bahasa': 'videos/RE-ASSIGNMENT PN BAHASA.mp4'
+                },
+                'unassignment': {
+                    'english': 'videos/UNASSIGNMENT PN ENGLISH.mp4',
+                    'bahasa': 'videos/UNASSIGNMENT PN BAHASA.mp4'
+                }
+            };
+            
+            const videoUrl = videoUrls[type][lang];
+            
+            // Open video modal
+            openVideoModal(type, lang, videoUrl);
+            
+            // Close all dropdowns
+            dropdownItems.forEach(dropdownItem => {
+                dropdownItem.classList.remove('active');
+            });
+            helpSelector.classList.remove('active');
+        });
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!helpTrigger.contains(e.target) && 
+            !helpDropdownMenu.contains(e.target) && 
+            !e.target.closest('.help-submenu')) {
+            helpSelector.classList.remove('active');
+            dropdownItems.forEach(item => {
+                item.classList.remove('active');
+            });
+        }
+    });
+}
+
+// Open Video Modal
+function openVideoModal(type, lang, videoUrl) {
+    const modal = document.getElementById('videoModal');
+    const video = document.getElementById('helpVideo');
+    const title = document.getElementById('videoModalTitle');
+    
+    if (!modal || !video || !title) {
+        console.error('Video modal elements not found');
+        return;
+    }
+    
+    // Set title based on type and lang
+    const titles = {
+        'assignment': {
+            'english': 'How to Assignment',
+            'bahasa': 'Cara Assignment'
+        },
+        'reassignment': {
+            'english': 'How to Reassignment',
+            'bahasa': 'Cara Reassignment'
+        },
+        'unassignment': {
+            'english': 'How to Unassignment',
+            'bahasa': 'Cara Unassignment'
+        }
+    };
+    
+    title.textContent = titles[type][lang] || 'Video Tutorial';
+    
+    // Set video source (empty for now, user will fill path later)
+    if (videoUrl) {
+        video.src = videoUrl;
+    } else {
+        video.src = ''; // Empty, user will add path later
+    }
+    
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+// Close Video Modal
+function closeVideoModal() {
+    const modal = document.getElementById('videoModal');
+    const video = document.getElementById('helpVideo');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        
+        // Pause and reset video
+        if (video) {
+            video.pause();
+            video.currentTime = 0;
+        }
+    }
+}
 
 // Cleanup when page unloads
 window.addEventListener('beforeunload', () => {

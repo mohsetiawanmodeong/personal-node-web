@@ -119,5 +119,5 @@ HPT - Local wasp ranging program.zip
 *.zip
 
 # Video files
-video/
+videos/
 *.mp4

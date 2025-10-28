@@ -1986,24 +1986,24 @@ body {
     right: 12px;
     width: 40px;
     height: 40px;
-    border: none;
+    border: 2px solid #dc2626;
     border-radius: 50%;
-    background: #f3f4f6;
-    color: #da2222;
+    background: white;
+    color: #dc2626;
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 10000;
 }
 
 .modal-close-btn:hover {
-    background: #e5e7eb;
-    color: #374151;
+    background: #dc2626;
+    color: white;
     transform: scale(1.1);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
 }
 
 .icon-close {
@@ -2018,10 +2018,10 @@ body {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 16px;
-    height: 2px;
+    width: 18px;
+    height: 3px;
     background: currentColor;
-    border-radius: 1px;
+    border-radius: 2px;
 }
 
 .icon-close::before {
@@ -2301,4 +2301,182 @@ body {
         min-width: 40px;
         min-height: 40px;
     }
+}
+
+/* Help Button (Bottom Left) */
+.help-selector {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+}
+
+.help-trigger-btn {
+    width: 50px;
+    height: 50px;
+    background: rgba(30, 64, 175, 0.1);
+    border: 2px solid rgba(30, 64, 175, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.help-trigger-btn:hover {
+    background: rgba(30, 64, 175, 0.2);
+    border-color: rgba(30, 64, 175, 0.4);
+    transform: scale(1.1);
+}
+
+.help-trigger-btn:active {
+    transform: scale(0.95);
+}
+
+.help-icon {
+    font-size: 1.2rem;
+    color: silver;
+    font-weight: bold;
+}
+
+.help-dropdown-menu {
+    position: absolute;
+    bottom: 60px;
+    left: 0;
+    background: white;
+    border: 2px solid rgba(59, 130, 246, 0.2);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-10px);
+    transition: all 0.3s ease;
+    overflow: visible;
+    min-width: 260px;
+    z-index: 1001;
+}
+
+.help-selector.active .help-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+}
+
+.help-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+    position: relative;
+    z-index: 1000;
+}
+
+.help-dropdown-item.active {
+    z-index: 1003;
+}
+
+.help-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.help-dropdown-item:hover {
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.help-dropdown-item.has-submenu.active {
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.help-item-icon {
+    font-size: 1.2rem;
+    width: 24px;
+    text-align: center;
+}
+
+.help-item-name {
+    font-weight: 600;
+    color: #333;
+    flex: 1;
+}
+
+/* Submenu */
+.help-submenu {
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background: white;
+    border: 2px solid rgba(59, 130, 246, 0.2);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-10px);
+    transition: all 0.2s ease;
+    min-width: 150px;
+    margin-left: 5px;
+    overflow: hidden;
+    z-index: 1002;
+}
+
+/* Submenu only shows when parent item has .active class (click-based, not hover) */
+.help-dropdown-item.active > .help-submenu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+}
+
+.help-submenu-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+.help-submenu-item:last-child {
+    border-bottom: none;
+}
+
+.help-submenu-item:hover {
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.help-submenu-item span {
+    font-weight: 500;
+    color: #333;
+}
+
+/* Video Modal Styling */
+.video-modal {
+    max-width: 900px;
+    width: 90%;
+}
+
+.video-modal .modal-header {
+    position: relative;
+    padding: 24px 60px 16px 32px;
+    text-align: left;
+}
+
+.video-modal .modal-header h2 {
+    margin: 0;
+    padding-right: 60px;
+}
+
+.video-modal .modal-close-btn {
+    top: 16px;
+    right: 16px;
+}
+
+.video-body {
+    padding: 0;
+}
+
+.video-body video {
+    border-radius: 0 0 16px 16px;
+    background: #000;
 }

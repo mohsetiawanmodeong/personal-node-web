@@ -255,6 +255,68 @@
                 </div>
             </div>
         </div>
+
+        <!-- Help Button (Bottom Left) -->
+        <div class="help-selector">
+            <div class="help-trigger-btn" id="helpTrigger">
+                <span class="help-icon">?</span>
+            </div>
+            <div class="help-dropdown-menu" id="helpDropdownMenu">
+                <div class="help-dropdown-item" data-help="assignment">
+                    <span class="help-item-icon">➕</span>
+                    <span class="help-item-name">How to Assignment</span>
+                    <div class="help-submenu" id="assignmentSubmenu">
+                        <div class="help-submenu-item" data-lang="english" data-type="assignment">
+                            <span>English</span>
+                        </div>
+                        <div class="help-submenu-item" data-lang="bahasa" data-type="assignment">
+                            <span>Bahasa</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="help-dropdown-item" data-help="reassignment">
+                    <span class="help-item-icon">🔄</span>
+                    <span class="help-item-name">How to Reassignment</span>
+                    <div class="help-submenu" id="reassignmentSubmenu">
+                        <div class="help-submenu-item" data-lang="english" data-type="reassignment">
+                            <span>English</span>
+                        </div>
+                        <div class="help-submenu-item" data-lang="bahasa" data-type="reassignment">
+                            <span>Bahasa</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="help-dropdown-item" data-help="unassignment">
+                    <span class="help-item-icon">➖</span>
+                    <span class="help-item-name">How to Unassignment</span>
+                    <div class="help-submenu" id="unassignmentSubmenu">
+                        <div class="help-submenu-item" data-lang="english" data-type="unassignment">
+                            <span>English</span>
+                        </div>
+                        <div class="help-submenu-item" data-lang="bahasa" data-type="unassignment">
+                            <span>Bahasa</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Modal -->
+    <div class="modal-overlay" id="videoModal" style="display: none;">
+        <div class="modal-content video-modal">
+            <div class="modal-header">
+                <h2 id="videoModalTitle">Video Tutorial</h2>
+                <button class="modal-close-btn" onclick="closeVideoModal()">
+                    <div class="icon-close"></div>
+                </button>
+            </div>
+            <div class="modal-body video-body">
+                <video id="helpVideo" controls style="width: 100%; max-height: 70vh;">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>
