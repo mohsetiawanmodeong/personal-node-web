@@ -117,3 +117,7 @@ Thumbs.db
 # Big files
 HPT - Local wasp ranging program.zip
 *.zip
+
+# Video files
+video/
+*.mp4
