@@ -73,11 +73,11 @@ body {
     color: #333;
 }
 
-/* Hidden Plan Selector (Bottom Right) */
+/* Hidden Plan Selector (Bottom Left) */
 .hidden-plan-selector {
     position: fixed;
     bottom: 20px;
-    right: 20px;
+    left: 20px;
     z-index: 1000;
 }
 
@@ -113,7 +113,7 @@ body {
 .plan-dropdown-menu {
     position: absolute;
     bottom: 60px;
-    right: 0;
+    left: 0;
     background: white;
     border: 2px solid rgba(30, 64, 175, 0.2);
     border-radius: 15px;
@@ -122,7 +122,7 @@ body {
     visibility: hidden;
     transform: translateY(10px);
     transition: all 0.3s ease;
-    overflow: hidden;
+    overflow: visible;
     min-width: 250px;
     z-index: 1001;
 }
@@ -2303,11 +2303,11 @@ body {
     }
 }
 
-/* Help Button (Bottom Left) */
+/* Help Button (Bottom Right) */
 .help-selector {
     position: fixed;
     bottom: 20px;
-    left: 20px;
+    right: 20px;
     z-index: 1000;
 }
 
@@ -2344,14 +2344,14 @@ body {
 .help-dropdown-menu {
     position: absolute;
     bottom: 60px;
-    left: 0;
+    right: 0;
     background: white;
     border: 2px solid rgba(59, 130, 246, 0.2);
     border-radius: 15px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     opacity: 0;
     visibility: hidden;
-    transform: translateX(-10px);
+    transform: translateX(10px);
     transition: all 0.3s ease;
     overflow: visible;
     min-width: 260px;
@@ -2407,7 +2407,7 @@ body {
 /* Submenu */
 .help-submenu {
     position: absolute;
-    left: 100%;
+    right: 100%;
     top: 0;
     background: white;
     border: 2px solid rgba(59, 130, 246, 0.2);
@@ -2415,10 +2415,10 @@ body {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     opacity: 0;
     visibility: hidden;
-    transform: translateX(-10px);
+    transform: translateX(10px);
     transition: all 0.2s ease;
     min-width: 150px;
-    margin-left: 5px;
+    margin-right: 5px;
     overflow: hidden;
     z-index: 1002;
 }
